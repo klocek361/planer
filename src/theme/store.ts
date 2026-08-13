@@ -1,0 +1,62 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { DEFAULT_THEME, PRESETS } from './presets';
+import type { ColorKey, Theme } from './types';
+
+interface ThemeState {
+  theme: Theme;
+  /** Własne motywy zapisane przez użytkowniczkę. */
+  saved: Theme[];
+  setColor: (key: ColorKey, value: string) => void;
+  patch: (partial: Partial<Omit<Theme, 'colors'>>) => void;
+  applyTheme: (theme: Theme) => void;
+  applyPreset: (presetId: string) => void;
+  saveCurrentAs: (name: string) => void;
+  deleteSaved: (id: string) => void;
+  reset: () => void;
+  /** Podmiana całego stanu — używane przy imporcie kopii zapasowej. */
+  replaceAll: (theme: Theme, saved: Theme[]) => void;
+}
+
+export const useThemeStore = create<ThemeState>()(
+  persist(
+    (set) => ({
+      theme: DEFAULT_THEME,
+      saved: [],
+
+      setColor: (key, value) =>
+        set((s) => ({ theme: { ...s.theme, colors: { ...s.theme.colors, [key]: value } } })),
+
+      patch: (partial) => set((s) => ({ theme: { ...s.theme, ...partial } })),
+
+      applyTheme: (theme) => set({ theme: structuredClone(theme) }),
+
+      applyPreset: (presetId) =>
+        set((s) => {
+          const preset = PRESETS.find((p) => p.id === presetId);
+          return preset ? { theme: structuredClone(preset) } : s;
+        }),
+
+      saveCurrentAs: (name) =>
+        set((s) => {
+          const entry: Theme = {
+            ...structuredClone(s.theme),
+            id: `wlasny-${Date.now()}`,
+            name: name.trim() || 'Mój motyw',
+          };
+          return { saved: [...s.saved, entry], theme: entry };
+        }),
+
+      deleteSaved: (id) => set((s) => ({ saved: s.saved.filter((t) => t.id !== id) })),
+
+      reset: () => set({ theme: structuredClone(DEFAULT_THEME) }),
+
+      replaceAll: (theme, saved) => set({ theme, saved }),
+    }),
+    {
+      // Ta sama nazwa co w skrypcie w index.html, który nakłada motyw przed startem Reacta.
+      name: 'planer-motyw',
+      version: 1,
+    },
+  ),
+);

@@ -1,0 +1,91 @@
+@import 'tailwindcss';
+
+/*
+ * Most między motywem a Tailwindem.
+ * `inline` sprawia, że klasy odwołują się do zmiennej w czasie działania,
+ * a nie do jej wartości z czasu budowania — dzięki temu zmiana koloru
+ * w ustawieniach jest widoczna natychmiast, bez przeładowania.
+ */
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-alt: var(--c-surface-alt);
+  --color-ink: var(--c-text);
+  --color-muted: var(--c-text-muted);
+  --color-faint: var(--c-text-faint);
+  --color-accent: var(--c-accent);
+  --color-weekend: var(--c-weekend);
+  --color-selected: var(--c-selected-bg);
+  --color-selected-ink: var(--c-selected-text);
+  --color-line: var(--c-border);
+
+  --font-app: var(--f-app);
+  --radius-app: var(--r-app);
+
+  /* Jednostka odstępu Tailwinda sterowana suwakiem gęstości interfejsu. */
+  --spacing: calc(0.25rem * var(--density));
+}
+
+/*
+ * Wartości domyślne = motyw „Piaskowy”. Powielone tutaj celowo, żeby pierwsza
+ * klatka miała poprawne kolory jeszcze zanim wystartuje JavaScript.
+ */
+:root {
+  --c-bg: #ffffff;
+  --c-surface: #f2f1ef;
+  --c-surface-alt: #edecea;
+  --c-text: #1a1a18;
+  --c-text-muted: #8c8c88;
+  --c-text-faint: #c6c5c1;
+  --c-accent: #9c6f4a;
+  --c-weekend: #9c6f4a;
+  --c-selected-bg: #2c2c2a;
+  --c-selected-text: #ffffff;
+  --c-border: #e6e5e2;
+
+  --f-app: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-scale: 1;
+  --r-app: 14px;
+  --density: 1;
+  --texture: none;
+}
+
+@layer base {
+  html {
+    /* Jeden pokrętło skalujące cały interfejs — rozmiar pisma z ustawień. */
+    font-size: calc(16px * var(--font-scale));
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--c-bg);
+    background-image: var(--texture);
+    color: var(--c-text);
+    font-family: var(--f-app);
+    -webkit-font-smoothing: antialiased;
+    /* Blokuje „gumowe” odbijanie całej strony przy przewijaniu na iOS. */
+    overscroll-behavior-y: none;
+  }
+
+  button {
+    -webkit-tap-highlight-color: transparent;
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* Odstępy respektujące notch i pasek gestów iPhone'a. */
+@utility pt-safe {
+  padding-top: max(env(safe-area-inset-top), --spacing(2));
+}
+
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), --spacing(2));
+}
+
+@utility px-safe {
+  padding-left: max(env(safe-area-inset-left), --spacing(4));
+  padding-right: max(env(safe-area-inset-right), --spacing(4));
+}

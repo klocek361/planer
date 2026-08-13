@@ -1,0 +1,174 @@
+import { useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { motion } from 'motion/react';
+import { db } from '../../data/db';
+import { eventsBetween, groupByDate } from '../../data/events';
+import type { EventItem } from '../../data/types';
+import {
+  addMonths,
+  buildMonthGrid,
+  monthGridRange,
+  monthLabel,
+  monthYearLabel,
+  startOfMonth,
+  toKey,
+  type GridDay,
+} from '../../lib/dates';
+import { tap } from '../../platform/haptics';
+import { SettingsButton } from '../../ui/SettingsButton';
+import { DayPanel } from './DayPanel';
+import { EventSheet } from './EventSheet';
+import { MonthGrid } from './MonthGrid';
+
+/** Minimalny przesuw palca uznawany za gest zmiany miesiąca. */
+const SWIPE_THRESHOLD = 55;
+
+export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const today = useMemo(() => new Date(), []);
+  const [month, setMonth] = useState(() => startOfMonth(today));
+  const [selectedKey, setSelectedKey] = useState(() => toKey(today));
+  const [direction, setDirection] = useState(1);
+  const [editing, setEditing] = useState<EventItem | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const days = useMemo(() => buildMonthGrid(month), [month]);
+  const range = useMemo(() => monthGridRange(month), [month]);
+
+  const categories = useLiveQuery(() => db.categories.orderBy('order').toArray());
+  const events = useLiveQuery(() => eventsBetween(range.from, range.to), [range.from, range.to]);
+
+  const categoryColors = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const category of categories ?? []) if (category.id) map.set(category.id, category.color);
+    return map;
+  }, [categories]);
+
+  const eventsByDate = useMemo(() => groupByDate(events ?? []), [events]);
+  const selectedEvents = eventsByDate.get(selectedKey) ?? [];
+
+  const goToMonth = (offset: number) => {
+    setDirection(offset);
+    setMonth((current) => addMonths(current, offset));
+  };
+
+  const selectDay = (day: GridDay) => {
+    tap();
+    setSelectedKey(day.key);
+    // Kliknięcie dnia z sąsiedniego miesiąca przenosi na ten miesiąc.
+    if (!day.inMonth) {
+      setDirection(day.date > month ? 1 : -1);
+      setMonth(startOfMonth(day.date));
+    }
+  };
+
+  const backToToday = () => {
+    tap();
+    const start = startOfMonth(today);
+    setDirection(start < month ? -1 : 1);
+    setMonth(start);
+    setSelectedKey(toKey(today));
+  };
+
+  // Siatka ma wjeżdżać przy zmianie miesiąca, ale nie przy starcie aplikacji —
+  // animowanie pierwszego renderu wyglądałoby jak zacinka przy każdym otwarciu.
+  const hasMounted = useRef(false);
+  useEffect(() => {
+    hasMounted.current = true;
+  }, []);
+
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchEnd = (e: TouchEvent) => {
+    const start = touchStart.current;
+    const end = e.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !end) return;
+
+    const dx = end.clientX - start.x;
+    const dy = end.clientY - start.y;
+    // Gest musi być wyraźnie poziomy, żeby nie kolidował z przewijaniem listy.
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    goToMonth(dx < 0 ? 1 : -1);
+  };
+
+  const showTodayButton = month.getTime() !== startOfMonth(today).getTime();
+  const showYear = month.getFullYear() !== today.getFullYear();
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="pt-safe px-safe shrink-0">
+        <div className="flex items-center justify-between gap-3 pb-1">
+          <h1
+            className="text-ink text-4xl leading-none font-bold tracking-tight"
+            aria-label={monthYearLabel(month)}
+          >
+            {monthLabel(month)}
+            {showYear && (
+              <span className="text-muted pl-2 text-lg font-semibold">{month.getFullYear()}</span>
+            )}
+          </h1>
+          <div className="flex items-center gap-1">
+            {showTodayButton && (
+              <button
+                type="button"
+                onClick={backToToday}
+                className="border-line text-ink rounded-full border px-3 py-1 text-xs font-semibold tracking-wide uppercase"
+              >
+                Dzisiaj
+              </button>
+            )}
+            <SettingsButton onClick={onOpenSettings} />
+          </div>
+        </div>
+      </header>
+
+      <div
+        className="px-safe shrink-0"
+        onTouchStart={(e) => {
+          const touch = e.touches[0];
+          if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
+        }}
+        onTouchEnd={handleTouchEnd}
+      >
+        <motion.div
+          key={toKey(month)}
+          initial={hasMounted.current ? { opacity: 0, x: direction * 18 } : false}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.16, ease: 'easeOut' }}
+        >
+          <MonthGrid
+            days={days}
+            eventsByDate={eventsByDate}
+            categoryColors={categoryColors}
+            selectedKey={selectedKey}
+            onSelect={selectDay}
+          />
+        </motion.div>
+      </div>
+
+      <div className="px-safe flex min-h-0 flex-1 flex-col pb-2">
+        <DayPanel
+          dateKey={selectedKey}
+          events={selectedEvents}
+          categoryColors={categoryColors}
+          onAdd={() => {
+            setEditing(null);
+            setSheetOpen(true);
+          }}
+          onEdit={(event) => {
+            setEditing(event);
+            setSheetOpen(true);
+          }}
+        />
+      </div>
+
+      <EventSheet
+        open={sheetOpen}
+        dateKey={selectedKey}
+        event={editing}
+        categories={categories ?? []}
+        onClose={() => setSheetOpen(false)}
+      />
+    </div>
+  );
+}

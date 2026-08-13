@@ -1,0 +1,28 @@
+node_modules/
+dist/
+dev-dist/
+.toolchain/
+*.local
+.DS_Store
+
+# Pliki środowiska pracy, nie należą do projektu
+.claude/
+.idea
+.vscode
+.mcp.json
+.ripgreprc
+.gitconfig
+.gitmodules
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+
+# Materiały wyjściowe: treść zamówienia i zrzut cudzego kalendarza
+# z prawdziwymi nazwami wydarzeń — repozytorium jest publiczne.
+prompt
+*.jpg
+*.jpeg
+*.png
+!public/**/*.png

@@ -1,0 +1,52 @@
+name: Wdrożenie na GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Pozwala uruchomić wdrożenie ręcznie z zakładki Actions.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Jedno wdrożenie naraz; nowszy push zastępuje trwające.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  budowanie:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run check
+
+      - run: npm run build
+        env:
+          # GitHub Pages serwuje stronę spod /nazwa-repozytorium/, więc adres
+          # bazowy bierzemy wprost z nazwy repozytorium — nic nie trzeba wpisywać.
+          APP_BASE: /${{ github.event.repository.name }}/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  wdrożenie:
+    needs: budowanie
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

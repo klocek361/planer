@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover pozwala rysować pod notchem; odstępy dokłada env(safe-area-inset-*) -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#FFFFFF" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Planer" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Planer Kaśkowy</title>
+    <script>
+      // Motyw jest nakładany zanim React wystartuje, żeby nie mrugnęły domyślne
+      // kolory. Czyta ten sam wpis w localStorage, który zapisuje aplikacja.
+      (function () {
+        try {
+          var raw = localStorage.getItem('planer-motyw');
+          if (!raw) return;
+          var theme = JSON.parse(raw).state && JSON.parse(raw).state.theme;
+          if (!theme) return;
+          var root = document.documentElement;
+          var kebab = function (s) {
+            return s.replace(/[A-Z]/g, function (m) {
+              return '-' + m.toLowerCase();
+            });
+          };
+          Object.keys(theme.colors || {}).forEach(function (k) {
+            root.style.setProperty('--c-' + kebab(k), theme.colors[k]);
+          });
+          if (theme.typography) {
+            root.style.setProperty('--font-scale', String(theme.typography.scale));
+          }
+          if (theme.shape) {
+            root.style.setProperty('--r-app', theme.shape.radius + 'px');
+            root.style.setProperty('--density', String(theme.shape.density));
+          }
+          if (theme.mode) root.style.colorScheme = theme.mode;
+        } catch (e) {
+          /* brak zapisanego motywu — zostają wartości domyślne */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
