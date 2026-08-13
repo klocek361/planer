@@ -13,7 +13,7 @@ import {
   summarize,
 } from '../src/data/backup';
 import { READABLE_CONTRAST, contrastRatio, isDarkColor } from '../src/theme/color';
-import { PRESETS } from '../src/theme/presets';
+import { DEFAULT_THEME, PRESETS } from '../src/theme/presets';
 import {
   addCategory,
   deleteCategory,
@@ -393,7 +393,8 @@ check(
 check('kopia zawiera motyw', kopia.motyw.aktualny.colors.bg.length > 0);
 
 const jako_tekst = JSON.stringify(kopia);
-check('kopia przechodzi własną walidację', parseBackup(jako_tekst).aplikacja === 'planer-kaskowy');
+check('kopia przechodzi własną walidację', parseBackup(jako_tekst).backup.aplikacja === 'planer-kaskowy');
+check('poprawna kopia nie gubi żadnego wpisu', parseBackup(jako_tekst).skipped === 0);
 
 const odrzucone = (json: string) => {
   try {
@@ -425,7 +426,7 @@ await db.habits.clear();
 await db.habitEntries.clear();
 check('baza jest pusta przed wgraniem', (await db.events.count()) === 0);
 
-await restoreBackup(parseBackup(jako_tekst));
+await restoreBackup(parseBackup(jako_tekst).backup);
 check('wgranie przywraca wydarzenia', (await db.events.count()) === 1);
 check('wgranie przywraca zadania', (await db.tasks.count()) === 1);
 check('wgranie przywraca nawyki i ich historię', (await db.habitEntries.count()) === 1);
@@ -434,10 +435,98 @@ check('treść wydarzenia przetrwała obieg', poWgraniu[0]?.title === 'Ślub Kas
 check('powiązanie z kategorią przetrwało obieg', poWgraniu[0]?.categoryId === kategoria.id);
 
 // Ponowne wgranie tej samej kopii nie duplikuje danych
-await restoreBackup(parseBackup(jako_tekst));
+await restoreBackup(parseBackup(jako_tekst).backup);
 check('powtórne wgranie zastępuje, nie dokłada', (await db.events.count()) === 1);
 
 check('nazwa pliku zawiera datę', backupFilename(new Date(2026, 7, 13)).includes('2026-08-13'));
+
+// 14. Odporność na uszkodzony i spreparowany plik kopii
+const zepsuty = JSON.stringify({
+  aplikacja: 'planer-kaskowy',
+  wersja: 1,
+  zapisano: '2026-08-13T10:00:00.000Z',
+  dane: {
+    categories: [
+      { id: 1, name: 'Dobra', color: '#7E8E62', order: 0 },
+      { id: 2, name: 'Zły kolor', color: 'red; background-image: url(https://obcy.example/x)', order: 1 },
+      { id: 3, name: '', color: '#000000', order: 2 },
+      null,
+      'napis zamiast obiektu',
+    ],
+    events: [
+      { id: 1, title: 'Dobre', date: '2026-08-20', allDay: true, createdAt: 1 },
+      { id: 2, title: 'Zła data', date: '20 sierpnia', allDay: true, createdAt: 2 },
+      { id: 3, title: 'Zła godzina', date: '2026-08-20', allDay: false, startTime: '25:99', createdAt: 3 },
+      { id: 4, date: '2026-08-20', allDay: true, createdAt: 4 },
+      { id: 5, title: 'Nieistniejący dzień', date: '2026-02-30', allDay: true, createdAt: 5 },
+    ],
+    tasks: [
+      { id: 1, title: 'Dobre', done: false, priority: 1, order: 0, createdAt: 1 },
+      { id: 2, title: 'Zły priorytet', done: false, priority: 7, order: 1, createdAt: 2 },
+    ],
+    habits: [
+      { id: 1, name: 'Dobry', kind: 'licznik', target: 8, order: 0, archived: false, createdAt: 1 },
+      { id: 2, name: 'Zły rodzaj', kind: 'wymyślony', target: 1, order: 1, archived: false, createdAt: 2 },
+      { id: 3, name: 'Cel zerowy', kind: 'licznik', target: 0, order: 2, archived: false, createdAt: 3 },
+    ],
+    habitEntries: [
+      { habitId: 1, date: '2026-08-13', value: 4 },
+      { habitId: 1, date: 'wczoraj', value: 1 },
+      { habitId: 1, date: '2026-08-12', value: -5 },
+    ],
+    notes: [],
+  },
+  motyw: {
+    aktualny: {
+      id: 'podstawiony',
+      name: 'x'.repeat(500),
+      colors: {
+        bg: 'url(https://obcy.example/wyciek.png)',
+        text: '#112233',
+        surface: 'javascript:alert(1)',
+      },
+      typography: { fontId: 'nieistniejacy', scale: 9999 },
+      shape: { radius: -500, density: 'dużo' },
+      texture: 'wstrzyknieta',
+    },
+    zapisane: new Array(200).fill({ id: 'z', name: 'z' }),
+  },
+});
+
+const wynik = parseBackup(zepsuty);
+check('uszkodzony plik nie wysadza wczytywania', wynik.backup.aplikacja === 'planer-kaskowy');
+check(`odrzucono uszkodzone wpisy (${wynik.skipped})`, wynik.skipped === 13);
+check('zostały tylko poprawne kategorie', wynik.backup.dane.categories.length === 1);
+check('zostały tylko poprawne wydarzenia', wynik.backup.dane.events.length === 1);
+check('zostały tylko poprawne zadania', wynik.backup.dane.tasks.length === 1);
+check('zostały tylko poprawne nawyki', wynik.backup.dane.habits.length === 1);
+check('zostały tylko poprawne odhaczenia', wynik.backup.dane.habitEntries.length === 1);
+
+const wKolorach = Object.values(wynik.backup.motyw.aktualny.colors);
+check(
+  'żaden kolor motywu nie przeszedł bez formatu HEX',
+  wKolorach.every((c) => /^#[0-9A-F]{6}$/i.test(c)),
+);
+check(
+  'próba wstrzyknięcia adresu w tło została odrzucona',
+  !wynik.backup.motyw.aktualny.colors.bg.includes('url('),
+);
+check(
+  'poprawny kolor z pliku został zachowany',
+  wynik.backup.motyw.aktualny.colors.text === '#112233',
+);
+check('nieznany krój pisma zastąpiony domyślnym', wynik.backup.motyw.aktualny.typography.fontId === DEFAULT_THEME.typography.fontId);
+check('nieznana tekstura zastąpiona domyślną', wynik.backup.motyw.aktualny.texture === DEFAULT_THEME.texture);
+check('rozmiar pisma przycięty do zakresu', wynik.backup.motyw.aktualny.typography.scale <= 1.45);
+check('zaokrąglenie przycięte do zakresu', wynik.backup.motyw.aktualny.shape.radius >= 0);
+check('nieliczbowa gęstość zastąpiona domyślną', wynik.backup.motyw.aktualny.shape.density === DEFAULT_THEME.shape.density);
+check('nazwa motywu przycięta', wynik.backup.motyw.aktualny.name.length <= 60);
+check('liczba zapisanych motywów ograniczona', wynik.backup.motyw.zapisane.length === 50);
+
+// Wgranie uszkodzonej kopii musi zostawić aplikację w używalnym stanie
+await restoreBackup(wynik.backup);
+check('po wgraniu uszkodzonej kopii baza ma tylko zdrowe dane', (await db.events.count()) === 1);
+check('uszkodzone odhaczenia nie trafiły do bazy', (await db.habitEntries.count()) === 1);
 
 console.log(
   problems.length === 0

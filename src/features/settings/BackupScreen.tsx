@@ -6,7 +6,7 @@ import {
   parseBackup,
   restoreBackup,
   summarize,
-  type BackupFile,
+  type ParsedBackup,
 } from '../../data/backup';
 import { db } from '../../data/db';
 import { pickTextFile, saveTextFile } from '../../platform/files';
@@ -17,7 +17,7 @@ import { Sheet } from '../../ui/Sheet';
 export function BackupScreen({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<BackupFile | null>(null);
+  const [pending, setPending] = useState<ParsedBackup | null>(null);
   const [restored, setRestored] = useState(false);
 
   const counts = useLiveQuery(async () => ({
@@ -56,7 +56,7 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
     if (!pending) return;
     setBusy(true);
     try {
-      await restoreBackup(pending);
+      await restoreBackup(pending.backup);
       setPending(null);
       setRestored(true);
     } catch {
@@ -119,16 +119,27 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
         {pending && (
           <div className="flex flex-col gap-4">
             <p className="text-muted text-sm">
-              Kopia z dnia {new Date(pending.zapisano).toLocaleDateString('pl-PL')}. Zawiera:
+              {pending.backup.zapisano
+                ? `Kopia z dnia ${new Date(pending.backup.zapisano).toLocaleDateString('pl-PL')}.`
+                : 'Kopia bez daty zapisu.'}{' '}
+              Zawiera:
             </p>
             <ul className="text-ink flex flex-col gap-1 text-sm">
-              {Object.entries(summarize(pending)).map(([key, value]) => (
+              {Object.entries(summarize(pending.backup)).map(([key, value]) => (
                 <li key={key} className="flex justify-between">
                   <span className="text-muted">{TABLE_LABELS[key] ?? key}</span>
                   <span className="tabular-nums">{value}</span>
                 </li>
               ))}
             </ul>
+            {pending.skipped > 0 && (
+              <p className="text-weekend text-xs">
+                {pending.skipped}{' '}
+                {pending.skipped === 1 ? 'wpis był uszkodzony i został' : 'wpisów było uszkodzonych i zostało'}{' '}
+                pominiętych. Reszta kopii nadaje się do wgrania.
+              </p>
+            )}
+
             <p className="text-weekend text-xs">
               Wszystko, co jest teraz w aplikacji, zostanie zastąpione.
             </p>
