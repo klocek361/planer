@@ -1,0 +1,125 @@
+import type { Theme } from './types';
+
+/**
+ * Motywy startowe — punkt wyjścia do własnych zmian. Użytkowniczka może
+ * nadpisać każdy pojedynczy kolor w edytorze wyglądu.
+ */
+export const PRESETS: Theme[] = [
+  {
+    id: 'piaskowy',
+    name: 'Piaskowy',
+    mode: 'light',
+    colors: {
+      bg: '#FFFFFF',
+      surface: '#F2F1EF',
+      surfaceAlt: '#EDECEA',
+      text: '#1A1A18',
+      textMuted: '#8C8C88',
+      textFaint: '#C6C5C1',
+      accent: '#9C6F4A',
+      weekend: '#9C6F4A',
+      selectedBg: '#2C2C2A',
+      selectedText: '#FFFFFF',
+      border: '#E6E5E2',
+    },
+    typography: { fontId: 'system', scale: 1 },
+    shape: { radius: 14, density: 1 },
+    texture: 'none',
+  },
+  {
+    id: 'szalwiowy',
+    name: 'Szałwiowy',
+    mode: 'light',
+    colors: {
+      bg: '#FBFBF8',
+      surface: '#EFF1EA',
+      surfaceAlt: '#E7EADF',
+      text: '#22261F',
+      textMuted: '#83887B',
+      textFaint: '#C2C6B9',
+      accent: '#6E8259',
+      weekend: '#6E8259',
+      selectedBg: '#2E3528',
+      selectedText: '#FBFBF8',
+      border: '#E2E5DA',
+    },
+    typography: { fontId: 'system', scale: 1 },
+    shape: { radius: 16, density: 1 },
+    texture: 'none',
+  },
+  {
+    id: 'rozany',
+    name: 'Różany',
+    mode: 'light',
+    colors: {
+      bg: '#FFFCFB',
+      surface: '#F6EEEC',
+      surfaceAlt: '#F1E4E1',
+      text: '#2A2020',
+      textMuted: '#93817E',
+      textFaint: '#D2C0BC',
+      accent: '#B26B60',
+      weekend: '#B26B60',
+      selectedBg: '#3A2B28',
+      selectedText: '#FFFCFB',
+      border: '#EDE0DD',
+    },
+    typography: { fontId: 'literata', scale: 1 },
+    shape: { radius: 18, density: 1.05 },
+    texture: 'none',
+  },
+  {
+    id: 'atrament',
+    name: 'Atrament',
+    mode: 'dark',
+    colors: {
+      bg: '#121211',
+      surface: '#1E1E1C',
+      surfaceAlt: '#262624',
+      text: '#F2F1EE',
+      textMuted: '#8A8A85',
+      textFaint: '#4A4A46',
+      accent: '#C89B72',
+      weekend: '#C89B72',
+      selectedBg: '#F2F1EE',
+      selectedText: '#121211',
+      border: '#2E2E2B',
+    },
+    typography: { fontId: 'system', scale: 1 },
+    shape: { radius: 14, density: 1 },
+    texture: 'none',
+  },
+  {
+    id: 'noc',
+    name: 'Noc',
+    mode: 'dark',
+    colors: {
+      bg: '#0E1116',
+      surface: '#181D24',
+      surfaceAlt: '#1F252E',
+      text: '#E8ECF1',
+      textMuted: '#7C8794',
+      textFaint: '#3D454F',
+      accent: '#7FA3C4',
+      weekend: '#7FA3C4',
+      selectedBg: '#E8ECF1',
+      selectedText: '#0E1116',
+      border: '#242B34',
+    },
+    typography: { fontId: 'inter', scale: 1 },
+    shape: { radius: 12, density: 1 },
+    texture: 'none',
+  },
+];
+
+export const DEFAULT_THEME: Theme = PRESETS[0]!;
+
+/** Domyślne kolory kategorii — stonowane, w duchu motywu startowego. */
+export const DEFAULT_CATEGORY_COLORS = [
+  '#7E8E62',
+  '#C08478',
+  '#B08D5F',
+  '#6E8399',
+  '#8B7395',
+  '#6B6B6B',
+];
