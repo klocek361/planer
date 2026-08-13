@@ -19,20 +19,21 @@ Po instalacji aplikacja działa bez internetu.
 
 ## Wdrożenie na GitHub Pages
 
-Jednorazowa konfiguracja:
+Jednorazowa konfiguracja — ze zwykłego terminala:
 
 ```bash
-# 1. Utwórz puste repozytorium na github.com (bez README)
-# 2. Podłącz je i wyślij kod:
-git remote add origin https://github.com/TWOJA-NAZWA/planer-kaskowy.git
-git branch -M main
+cd /home/michal/claude/kaska
+git remote add origin https://github.com/klocek361/planer.git
 git push -u origin main
 ```
 
 Potem w repozytorium na GitHubie: **Settings → Pages → Source: GitHub Actions**.
 
 Każdy kolejny `git push` na gałąź `main` sam przebuduje i wystawi aplikację.
-Adres będzie miał postać `https://TWOJA-NAZWA.github.io/planer-kaskowy/`.
+Adres aplikacji: `https://klocek361.github.io/planer/`.
+
+Adres bazowy bierze się z nazwy repozytorium automatycznie, więc zmiana nazwy
+niczego nie psuje.
 
 ## Praca lokalna
 
