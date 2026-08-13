@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { sanitizeTheme, sanitizeThemeList } from '../data/validate';
 import { DEFAULT_THEME, PRESETS } from './presets';
 import type { ColorKey, Theme } from './types';
 
@@ -54,9 +55,22 @@ export const useThemeStore = create<ThemeState>()(
       replaceAll: (theme, saved) => set({ theme, saved }),
     }),
     {
-      // Ta sama nazwa co w skrypcie w index.html, który nakłada motyw przed startem Reacta.
+      // Ta sama nazwa co w public/motyw.js, który nakłada motyw przed startem Reacta.
       name: 'planer-motyw',
       version: 1,
+
+      // Motyw wczytany z pamięci przeglądarki przechodzi przez to samo sito co
+      // motyw z pliku kopii zapasowej. Dzięki temu w całej aplikacji obowiązuje
+      // jedna zasada: w sklepie nigdy nie leży motyw o nieznanym kształcie.
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<ThemeState> | undefined;
+        if (!saved) return current;
+        return {
+          ...current,
+          theme: sanitizeTheme(saved.theme),
+          saved: sanitizeThemeList(saved.saved),
+        };
+      },
     },
   ),
 );

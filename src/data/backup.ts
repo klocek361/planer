@@ -1,5 +1,16 @@
 import { toKey } from '../lib/dates';
 import { useThemeStore } from '../theme/store';
+import {
+  keepValid,
+  sanitizeTheme,
+  sanitizeThemeList,
+  validCategory,
+  validEvent,
+  validHabit,
+  validHabitEntry,
+  validNote,
+  validTask,
+} from './validate';
 import type { Theme } from '../theme/types';
 import { db } from './db';
 import type { Category, EventItem, Habit, HabitEntry, Note, Task } from './types';
@@ -64,6 +75,12 @@ export function backupFilename(now = new Date()): string {
   return `planer-kaskowy-${toKey(now)}.json`;
 }
 
+export interface ParsedBackup {
+  backup: BackupFile;
+  /** Ile rekordów odrzucono jako uszkodzone przy wczytywaniu pliku. */
+  skipped: number;
+}
+
 export interface BackupSummary {
   categories: number;
   events: number;
@@ -88,7 +105,7 @@ export function summarize(backup: BackupFile): BackupSummary {
  * Sprawdza, czy wczytany plik jest kopią z tej aplikacji.
  * Rzuca zrozumiałym komunikatem zamiast pozwalać na wgranie czegokolwiek.
  */
-export function parseBackup(json: string): BackupFile {
+export function parseBackup(json: string): ParsedBackup {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -96,11 +113,11 @@ export function parseBackup(json: string): BackupFile {
     return fail('To nie jest plik kopii zapasowej — nie udało się go odczytać.');
   }
 
-  if (typeof parsed !== 'object' || parsed === null) {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     return fail('Plik ma nieznaną zawartość.');
   }
 
-  const candidate = parsed as Partial<BackupFile>;
+  const candidate = parsed as Record<string, unknown>;
 
   if (candidate.aplikacja !== FORMAT) {
     return fail('Ten plik nie pochodzi z Planera Kaśkowego.');
@@ -109,10 +126,11 @@ export function parseBackup(json: string): BackupFile {
     return fail('Kopia pochodzi z nowszej wersji aplikacji. Zaktualizuj aplikację i spróbuj ponownie.');
   }
 
-  const dane = candidate.dane;
-  if (typeof dane !== 'object' || dane === null) {
-    return fail('W pliku brakuje sekcji z danymi.');
-  }
+  const dane =
+    typeof candidate.dane === 'object' && candidate.dane !== null
+      ? (candidate.dane as Record<string, unknown>)
+      : null;
+  if (!dane) return fail('W pliku brakuje sekcji z danymi.');
 
   const tables = ['categories', 'events', 'tasks', 'habits', 'habitEntries', 'notes'] as const;
   for (const table of tables) {
@@ -121,7 +139,48 @@ export function parseBackup(json: string): BackupFile {
     }
   }
 
-  return candidate as BackupFile;
+  // Zawartość pliku jest sprawdzana rekord po rekordzie. Uszkodzone wpisy
+  // odpadają pojedynczo, żeby z częściowo popsutej kopii dało się odzyskać resztę.
+  const categories = keepValid(dane.categories as unknown[], validCategory);
+  const events = keepValid(dane.events as unknown[], validEvent);
+  const tasks = keepValid(dane.tasks as unknown[], validTask);
+  const habits = keepValid(dane.habits as unknown[], validHabit);
+  const habitEntries = keepValid(dane.habitEntries as unknown[], validHabitEntry);
+  const notes = keepValid(dane.notes as unknown[], validNote);
+
+  const skipped =
+    categories.skipped +
+    events.skipped +
+    tasks.skipped +
+    habits.skipped +
+    habitEntries.skipped +
+    notes.skipped;
+
+  const motyw =
+    typeof candidate.motyw === 'object' && candidate.motyw !== null
+      ? (candidate.motyw as Record<string, unknown>)
+      : {};
+
+  return {
+    backup: {
+      aplikacja: FORMAT,
+      wersja: candidate.wersja,
+      zapisano: typeof candidate.zapisano === 'string' ? candidate.zapisano : '',
+      dane: {
+        categories: categories.kept,
+        events: events.kept,
+        tasks: tasks.kept,
+        habits: habits.kept,
+        habitEntries: habitEntries.kept,
+        notes: notes.kept,
+      },
+      motyw: {
+        aktualny: sanitizeTheme(motyw.aktualny),
+        zapisane: sanitizeThemeList(motyw.zapisane),
+      },
+    },
+    skipped,
+  };
 }
 
 function fail(message: string): never {
