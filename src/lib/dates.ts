@@ -1,5 +1,6 @@
 import {
   addMonths,
+  differenceInCalendarDays,
   eachDayOfInterval,
   endOfMonth,
   format,
@@ -60,6 +61,26 @@ export function lastDays(count: number, today = new Date()): string[] {
     day.setDate(day.getDate() - offset);
     keys.push(toKey(day));
   }
+  return keys;
+}
+
+/**
+ * Dni paska nawyku. Pasek zaczyna się w dniu założenia nawyku i zapełnia się
+ * w prawo, dzień po dniu — jak pasek postępu. Dopiero gdy historia przekroczy
+ * szerokość paska, okno zaczyna się przesuwać, żeby kończyć się na dzisiaj.
+ *
+ * Dzięki temu świeżo dodany nawyk nie wygląda jak pusty rząd z jednym
+ * znaczkiem doklejonym na samym końcu.
+ */
+export function habitStrip(createdAt: number, count: number, today = new Date()): string[] {
+  const created = new Date(createdAt);
+  // Zabezpieczenie przed datą założenia z przyszłości (np. po zmianie zegara).
+  const startCandidate = created > today ? today : created;
+  const elapsed = differenceInCalendarDays(today, startCandidate) + 1;
+  const start = elapsed >= count ? addDaysSafe(today, -(count - 1)) : startCandidate;
+
+  const keys: string[] = [];
+  for (let i = 0; i < count; i += 1) keys.push(toKey(addDaysSafe(start, i)));
   return keys;
 }
 

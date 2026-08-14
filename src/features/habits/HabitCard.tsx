@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import type { Habit } from '../../data/types';
 import { completedCount, currentStreak, isDayComplete } from '../../data/habits';
+import { habitStrip } from '../../lib/dates';
 import { CheckIcon } from '../../ui/icons';
 
 interface Props {
@@ -7,8 +9,8 @@ interface Props {
   color: string;
   /** Historia nawyku: dzień → wartość. */
   days: Map<string, number> | undefined;
-  /** Klucze dni pokazywanych na pasku, od najstarszego do dzisiaj. */
-  strip: string[];
+  /** Ile pól ma pasek historii. */
+  stripDays: number;
   todayKey: string;
   onSetValue: (value: number) => void;
   onEdit: () => void;
@@ -18,15 +20,29 @@ export function HabitCard({
   habit,
   color,
   days,
-  strip,
+  stripDays,
   todayKey,
   onSetValue,
   onEdit,
 }: Props) {
+  // Pasek zaczyna się w dniu założenia nawyku i rośnie w prawo. Pola za dzisiaj
+  // to miejsca czekające na kolejne dni — rysujemy je ledwie widocznie.
+  const strip = useMemo(
+    () => habitStrip(habit.createdAt, stripDays),
+    [habit.createdAt, stripDays],
+  );
+  const tracked = useMemo(() => strip.filter((key) => key <= todayKey), [strip, todayKey]);
+
   const todayValue = days?.get(todayKey) ?? 0;
   const done = isDayComplete(habit, todayValue);
   const streak = currentStreak(habit, days, todayKey);
-  const doneInStrip = completedCount(habit, days, strip);
+  const doneSoFar = completedCount(habit, days, tracked);
+
+  const meta = [
+    streak > 0 ? `seria ${streak} ${streak === 1 ? 'dzień' : 'dni'}` : 'brak serii',
+    `${doneSoFar}/${tracked.length} ${tracked.length === 1 ? 'dzień' : 'dni'}`,
+  ];
+  if (habit.kind === 'licznik' && habit.unit) meta.push(habit.unit.toLowerCase());
 
   return (
     <div className="bg-surface rounded-app flex flex-col gap-2.5 px-3 py-3">
@@ -35,11 +51,7 @@ export function HabitCard({
           <span className="text-ink block truncate text-[0.9375rem] font-medium">
             {habit.name}
           </span>
-          <span className="text-muted block text-xs">
-            {streak > 0 ? `seria ${streak} ${streak === 1 ? 'dzień' : 'dni'}` : 'brak serii'}
-            {' · '}
-            {doneInStrip}/{strip.length} dni
-          </span>
+          <span className="text-muted block truncate text-xs">{meta.join(' · ')}</span>
         </button>
 
         {habit.kind === 'tak-nie' ? (
@@ -81,25 +93,26 @@ export function HabitCard({
         )}
       </div>
 
-      {habit.unit && habit.kind === 'licznik' && (
-        <span className="text-faint -mt-2 text-xs">{habit.unit}</span>
-      )}
-
-      {/* Pasek ostatnich tygodni — nasycenie odpowiada postępowi danego dnia. */}
       <div className="flex gap-[3px]">
         {strip.map((key) => {
+          const future = key > todayKey;
           const value = days?.get(key) ?? 0;
           const ratio = Math.min(1, value / habit.target);
+
           return (
             <span
               key={key}
               title={key}
-              className="h-4 flex-1 rounded-[2px]"
+              className={`h-4 flex-1 ${future ? 'rounded-full' : 'rounded-[2px]'}`}
               style={{
-                backgroundColor:
-                  ratio === 0
+                // Przyszłe dni to ledwie widoczna kreska, żeby było jasne,
+                // że pasek dopiero się zapełnia, a nie że dni wypadły.
+                backgroundColor: future
+                  ? 'color-mix(in srgb, var(--c-text-faint) 18%, transparent)'
+                  : ratio === 0
                     ? 'color-mix(in srgb, var(--c-text-faint) 35%, transparent)'
                     : `color-mix(in srgb, ${color} ${Math.round(25 + ratio * 75)}%, transparent)`,
+                transform: future ? 'scaleY(0.28)' : 'none',
                 outline: key === todayKey ? '1.5px solid var(--c-text-muted)' : 'none',
                 outlineOffset: '1px',
               }}

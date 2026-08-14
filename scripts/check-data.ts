@@ -34,6 +34,7 @@ import {
   buildMonthGrid,
   compareEvents,
   fullDateLabel,
+  habitStrip,
   lastDays,
   monthGridRange,
   monthLabel,
@@ -527,6 +528,44 @@ check('liczba zapisanych motywów ograniczona', wynik.backup.motyw.zapisane.leng
 await restoreBackup(wynik.backup);
 check('po wgraniu uszkodzonej kopii baza ma tylko zdrowe dane', (await db.events.count()) === 1);
 check('uszkodzone odhaczenia nie trafiły do bazy', (await db.habitEntries.count()) === 1);
+
+// 15. Pasek nawyku zapełnia się od lewej, od dnia założenia
+const dzisiajData = new Date(2026, 7, 14);
+const dzisiajKlucz = '2026-08-14';
+
+const swiezy = habitStrip(new Date(2026, 7, 14).getTime(), 28, dzisiajData);
+check('pasek ma zawsze pełną szerokość', swiezy.length === 28);
+check('nawyk założony dziś zaczyna się od dzisiaj', swiezy[0] === dzisiajKlucz);
+check(
+  'reszta pola świeżego nawyku to dni przyszłe',
+  swiezy.slice(1).every((k) => k > dzisiajKlucz),
+);
+check(
+  'świeży nawyk ma dokładnie jeden dzień do odhaczenia',
+  swiezy.filter((k) => k <= dzisiajKlucz).length === 1,
+);
+
+const piecDni = habitStrip(new Date(2026, 7, 10).getTime(), 28, dzisiajData);
+check('nawyk sprzed pięciu dni zaczyna się w dniu założenia', piecDni[0] === '2026-08-10');
+check('dzisiaj wypada na piątej pozycji', piecDni[4] === dzisiajKlucz);
+check(
+  'minione dni to dokładnie pięć pól',
+  piecDni.filter((k) => k <= dzisiajKlucz).length === 5,
+);
+
+const stary = habitStrip(new Date(2026, 6, 1).getTime(), 28, dzisiajData);
+check('po zapełnieniu okno przesuwa się na ostatnie 28 dni', stary[27] === dzisiajKlucz);
+check('okno zaczyna się 27 dni wstecz', stary[0] === '2026-07-18');
+check('w przesuniętym oknie nie ma dni przyszłych', stary.every((k) => k <= dzisiajKlucz));
+
+const dokladnie28 = habitStrip(new Date(2026, 6, 18).getTime(), 28, dzisiajData);
+check(
+  'granica 28 dni działa bez przeskoku',
+  dokladnie28[0] === '2026-07-18' && dokladnie28[27] === dzisiajKlucz,
+);
+
+const zPrzyszlosci = habitStrip(new Date(2026, 8, 1).getTime(), 28, dzisiajData);
+check('data założenia z przyszłości nie psuje paska', zPrzyszlosci[0] === dzisiajKlucz);
 
 console.log(
   problems.length === 0
