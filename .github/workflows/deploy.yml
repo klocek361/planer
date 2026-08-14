@@ -17,7 +17,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Uwaga: identyfikatory zadań muszą być bez polskich znaków — GitHub odrzuca
+  # cały plik, jeśli w kluczu pojawi się litera spoza podstawowego alfabetu.
+  # Polska nazwa idzie do pola `name`, które takich ograniczeń nie ma.
   budowanie:
+    name: Budowanie
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +45,8 @@ jobs:
         with:
           path: dist
 
-  wdrożenie:
+  wdrozenie:
+    name: Wdrożenie
     needs: budowanie
     runs-on: ubuntu-latest
     environment:
