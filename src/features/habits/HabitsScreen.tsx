@@ -11,7 +11,10 @@ import { PlusIcon } from '../../ui/icons';
 import { HabitCard } from './HabitCard';
 import { HabitSheet } from './HabitSheet';
 
-/** Cztery tygodnie historii na pasku pod każdym nawykiem. */
+/**
+ * Szerokość paska historii pod nawykiem. Pasek zaczyna się w dniu założenia
+ * nawyku i zapełnia w prawo; po czterech tygodniach okno zaczyna się przesuwać.
+ */
 const STRIP_DAYS = 28;
 
 export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
@@ -69,7 +72,7 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
                 'var(--c-accent)'
               }
               days={byHabit.get(habit.id!)}
-              strip={strip}
+              stripDays={STRIP_DAYS}
               todayKey={todayKey}
               onSetValue={(value) => {
                 tap();
