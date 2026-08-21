@@ -11,3 +11,6 @@
  * trzecia przy samych poprawkach.
  */
 export const APP_VERSION = '1.1.0';
+
+/** Imię autora. Nazwa własna, więc nie przechodzi przez słowniki. */
+export const AUTHOR_NAME = 'Michał';

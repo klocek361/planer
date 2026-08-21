@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useT } from '../../i18n';
-import { APP_VERSION } from '../../app/version';
+import { APP_VERSION, AUTHOR_NAME } from '../../app/version';
+import { FONT_STACKS } from '../../theme/catalog';
 import { Screen } from '../../ui/Screen';
 import { useBackDismiss } from '../../platform/back';
 import { ChevronRightIcon } from '../../ui/icons';
@@ -75,9 +76,35 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
         ))}
       </ul>
 
-      {/* Numer wersji na dole — przy zgłaszaniu czegokolwiek pierwsze pytanie
-          brzmi „którą wersję masz”, a tu jest pod ręką. */}
-      <p className="text-faint pt-6 pb-2 text-center text-xs">
+      {/*
+        Podpis autora. Krój odręczny (ten sam, który jest do wyboru w Wyglądzie)
+        i lekki obrót — ma wyglądać jak nazwisko dopisane ręką na końcu, a nie
+        jak kolejny wiersz ustawień. Kreska pod spodem jest rysowana, nie
+        pisana, żeby przy każdym kroju i rozmiarze wyglądała tak samo.
+      */}
+      <div className="flex flex-col items-center pt-10">
+        <span
+          className="text-accent text-4xl leading-none -rotate-3"
+          style={{ fontFamily: FONT_STACKS.caveat }}
+        >
+          {AUTHOR_NAME}
+        </span>
+        <svg
+          viewBox="0 0 120 12"
+          className="text-accent -mt-1 h-3 w-28 -rotate-3 opacity-60"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M4 7c18-5 40-6 58-3 14 2 30 4 54-1" />
+        </svg>
+      </div>
+
+      {/* Numer wersji — przy zgłaszaniu czegokolwiek pierwsze pytanie brzmi
+          „którą wersję masz”, a tu jest pod ręką. */}
+      <p className="text-faint pt-4 pb-2 text-center text-xs">
         {t.ustawienia.wersja(APP_VERSION)}
       </p>
     </Screen>
