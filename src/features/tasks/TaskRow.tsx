@@ -42,9 +42,10 @@ export function TaskRow({
   if (categoryName && !hideCategory) {
     meta.push({ text: categoryName, className: 'text-muted', dot: categoryColor });
   }
-  if (task.dueDate && !hideDueDate) {
-    // Zadanie rozpisane na kilka dni pokazuje zakres i to, ile z niego zostało;
-    // zwykłe — sam termin.
+  // `hideDueDate` wycisza sam termin tam, gdzie data stoi już w nagłówku.
+  // Zadanie wielodniowe pokazuje zakres mimo to: nagłówek mówi o jednym dniu,
+  // a zakres o tym, jak długo zadanie trwa i ile z niego zostało.
+  if (task.dueDate && (!hideDueDate || task.startDate)) {
     const due = task.startDate
       ? rangeInfo(task.startDate, task.dueDate, t)
       : dueInfo(task.dueDate, t);

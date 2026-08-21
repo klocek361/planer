@@ -4,6 +4,7 @@ import { db } from '../../data/db';
 import {
   buildTaskTree,
   groupByCategory,
+  groupByDaySections,
   toggleTask,
   updateTask,
   type TaskNode,
@@ -13,6 +14,8 @@ import {
   dayHeadingLabel,
   dayOfMonth,
   daysFrom,
+  dotDateLabel,
+  fromKey,
   toKey,
   weekdayShort,
 } from '../../lib/dates';
@@ -159,6 +162,26 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
     </ul>
   );
 
+  const sekcjeDni = useMemo(() => groupByDaySections(open, todayKey), [open, todayKey]);
+
+  // Jutro liczymy raz — nagłówek „JUTRO” ma się pojawić dokładnie na jednym dniu.
+  const jutroKey = useMemo(() => {
+    const dzien = fromKey(todayKey);
+    dzien.setDate(dzien.getDate() + 1);
+    return toKey(dzien);
+  }, [todayKey]);
+
+  /**
+   * Podpis sekcji dnia. Dzisiaj i jutro dostają słowo, bo tak się o nich mówi;
+   * dalsze dni sam skrót dnia tygodnia z datą, żeby nagłówek został krótki.
+   */
+  const dayHeading = (key: string) => {
+    const stempel = `${weekdayShort(key)} ${dotDateLabel(key)}`;
+    if (key === todayKey) return `${t.wspolne.dzis} · ${stempel}`;
+    if (key === jutroKey) return `${t.daty.jutro} · ${stempel}`;
+    return stempel;
+  };
+
   const groups = useMemo(
     () => groupByCategory(open, categories ?? []),
     [open, categories],
@@ -218,7 +241,25 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
         />
       )}
 
-      {mode === 'lista' && renderNodes(open)}
+      {mode === 'lista' && (
+        <div className="flex flex-col gap-4">
+          {sekcjeDni.map((sekcja) => (
+            <section key={sekcja.kind === 'dzien' ? sekcja.key : sekcja.kind}>
+              <GroupHeading
+                label={
+                  sekcja.kind === 'zalegle'
+                    ? t.zadania.zalegle
+                    : sekcja.kind === 'bez-terminu'
+                      ? t.zadania.bezTerminu
+                      : dayHeading(sekcja.key!)
+                }
+                count={sekcja.nodes.length}
+              />
+              {renderNodes(sekcja.nodes, { hideDueDate: true })}
+            </section>
+          ))}
+        </div>
+      )}
 
       {mode === 'kategorie' && (
         <div className="flex flex-col gap-4">

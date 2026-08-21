@@ -49,6 +49,7 @@ import {
   deleteTaskSeries,
   groupByCategory,
   groupByDay,
+  groupByDaySections,
   taskDays,
   taskSeriesDates,
   updateTaskSeries,
@@ -1022,6 +1023,41 @@ await db.tasks.clear();
 await addTask({ title: 'Bez terminu', starred: false }, { freq: 'tydzien', count: 5 });
 check('zadanie bez terminu nie tworzy serii', (await db.tasks.count()) === 1);
 check('zadanie bez terminu nie dostaje znacznika serii', (await db.tasks.toArray())[0]?.seriesId === undefined);
+
+// 26. Podział listy „Wszystkie” na dni
+await db.tasks.clear();
+await addTask({ title: 'Zaległe', starred: false, dueDate: '2026-08-11' });
+await addTask({ title: 'Na dziś', starred: false, dueDate: '2026-08-13' });
+await addTask({ title: 'Trwa dziś', starred: false, startDate: '2026-08-10', dueDate: '2026-08-20' });
+await addTask({ title: 'Jutro', starred: false, dueDate: '2026-08-14' });
+await addTask({ title: 'Bez terminu', starred: false });
+
+const sekcje = groupByDaySections(buildTaskTree(await db.tasks.toArray()), '2026-08-13');
+
+check('pierwsza sekcja to zaległe', sekcje[0]?.kind === 'zalegle');
+check('ostatnia sekcja to bez terminu', sekcje[sekcje.length - 1]?.kind === 'bez-terminu');
+check(
+  'dni idą rosnąco',
+  sekcje.filter((s) => s.kind === 'dzien').map((s) => s.key).join(',') === '2026-08-13,2026-08-14',
+);
+check(
+  'zadanie trwające dziś ląduje pod dzisiaj, nie pod terminem',
+  sekcje.find((s) => s.key === '2026-08-13')?.nodes.some((n) => n.task.title === 'Trwa dziś') === true,
+);
+check(
+  'sekcja dzisiaj ma dwa zadania',
+  sekcje.find((s) => s.key === '2026-08-13')?.nodes.length === 2,
+);
+check(
+  'nie powstaje pusta sekcja dnia terminu zadania wielodniowego',
+  sekcje.every((s) => s.key !== '2026-08-20'),
+);
+
+// Bez zaległych i bez bezterminowych nie ma pustych nagłówków
+await db.tasks.clear();
+await addTask({ title: 'Tylko jutro', starred: false, dueDate: '2026-08-14' });
+const jednaSekcja = groupByDaySections(buildTaskTree(await db.tasks.toArray()), '2026-08-13');
+check('puste sekcje nie powstają', jednaSekcja.length === 1 && jednaSekcja[0]?.kind === 'dzien');
 
 console.log(
   problems.length === 0

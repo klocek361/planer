@@ -257,6 +257,58 @@ export function groupByCategory(nodes: TaskNode[], categories: Category[]): Cate
   return groups;
 }
 
+export type DaySectionKind = 'zalegle' | 'dzien' | 'bez-terminu';
+
+export interface DaySection {
+  kind: DaySectionKind;
+  /** Dzień sekcji — tylko dla `kind === 'dzien'`. */
+  key?: string;
+  nodes: TaskNode[];
+}
+
+/**
+ * Dzieli listę zadań na sekcje dnia: zaległe, kolejne dni, na końcu te bez
+ * terminu. Zadanie trwające kilka dni ląduje pod dniem dzisiejszym, jeśli
+ * właśnie trwa — bo wtedy jest do zrobienia teraz, a nie dopiero w dniu,
+ * w którym mija termin.
+ */
+export function groupByDaySections(nodes: TaskNode[], todayKey: string): DaySection[] {
+  const zalegle: TaskNode[] = [];
+  const bezTerminu: TaskNode[] = [];
+  const dni = new Map<string, TaskNode[]>();
+
+  for (const node of nodes) {
+    const due = node.task.dueDate;
+    if (!due) {
+      bezTerminu.push(node);
+      continue;
+    }
+    if (due < todayKey) {
+      zalegle.push(node);
+      continue;
+    }
+    const key = coversDay(node.task, todayKey) ? todayKey : due;
+    const lista = dni.get(key);
+    if (lista) lista.push(node);
+    else dni.set(key, [node]);
+  }
+
+  const sekcje: DaySection[] = [];
+  if (zalegle.length) {
+    sekcje.push({ kind: 'zalegle', nodes: zalegle.sort((a, b) => compareTasks(a.task, b.task)) });
+  }
+  for (const [key, lista] of [...dni.entries()].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    sekcje.push({ kind: 'dzien', key, nodes: lista.sort((a, b) => compareTasks(a.task, b.task)) });
+  }
+  if (bezTerminu.length) {
+    sekcje.push({
+      kind: 'bez-terminu',
+      nodes: bezTerminu.sort((a, b) => compareTasks(a.task, b.task)),
+    });
+  }
+  return sekcje;
+}
+
 export interface DayGroup {
   /** 'RRRR-MM-DD' */
   key: string;
