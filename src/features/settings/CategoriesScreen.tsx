@@ -12,6 +12,7 @@ import { DEFAULT_CATEGORY_COLORS } from '../../theme/presets';
 import { Button } from '../../ui/Button';
 import { ColorPicker } from '../../ui/ColorPicker';
 import { Screen } from '../../ui/Screen';
+import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, TrashIcon } from '../../ui/icons';
 import { tap } from '../../platform/haptics';
@@ -26,6 +27,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
   const [editing, setEditing] = useState<Editing>(null);
   const [name, setName] = useState('');
   const [color, setColor] = useState(DEFAULT_CATEGORY_COLORS[0]!);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const openNew = () => {
     setName('');
@@ -51,6 +53,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
   };
 
   const remove = async () => {
+    setConfirmOpen(false);
     if (editing?.mode !== 'edycja') return;
     await deleteCategory(editing.category.id!);
     setEditing(null);
@@ -157,7 +160,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
               <Button
                 variant="danger"
                 aria-label="Usuń kategorię"
-                onClick={remove}
+                onClick={() => setConfirmOpen(true)}
                 className="px-4"
               >
                 <TrashIcon className="h-5 w-5" />
@@ -170,6 +173,16 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
               Usunięcie kategorii nie kasuje wydarzeń ani zadań — tracą tylko przypisany kolor.
             </p>
           )}
+
+          <ConfirmDialog
+            open={confirmOpen}
+            title={`Usunąć kategorię „${
+              editing?.mode === 'edycja' ? editing.category.name : ''
+            }”?`}
+            message="Wydarzenia, zadania i nawyki zostaną — stracą tylko przypisany kolor."
+            onConfirm={remove}
+            onCancel={() => setConfirmOpen(false)}
+          />
         </div>
       </Sheet>
     </Screen>

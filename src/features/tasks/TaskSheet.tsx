@@ -3,6 +3,7 @@ import { addTask, deleteTask, updateTask } from '../../data/tasks';
 import type { Category, Task } from '../../data/types';
 import { Button } from '../../ui/Button';
 import { CategoryPicker } from '../../ui/CategoryChip';
+import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
 import { StarIcon, TrashIcon } from '../../ui/icons';
 
@@ -30,6 +31,7 @@ export function TaskSheet({
   const [starred, setStarred] = useState(false);
   const [dueDate, setDueDate] = useState('');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -55,6 +57,7 @@ export function TaskSheet({
   };
 
   const remove = async () => {
+    setConfirmOpen(false);
     if (task?.id) await deleteTask(task.id);
     onClose();
   };
@@ -113,7 +116,7 @@ export function TaskSheet({
             Zapisz
           </Button>
           {task && (
-            <Button variant="danger" aria-label="Usuń zadanie" onClick={remove} className="px-4">
+            <Button variant="danger" aria-label="Usuń zadanie" onClick={() => setConfirmOpen(true)} className="px-4">
               <TrashIcon className="h-5 w-5" />
             </Button>
           )}
@@ -124,6 +127,18 @@ export function TaskSheet({
             Usunięcie zadania kasuje też jego podzadania.
           </p>
         )}
+
+        <ConfirmDialog
+          open={confirmOpen}
+          title={`Usunąć zadanie „${task?.title ?? ''}”?`}
+          message={
+            task?.parentId === undefined
+              ? 'Zniknie razem ze swoimi podzadaniami. Tego nie da się cofnąć.'
+              : 'Tego nie da się cofnąć.'
+          }
+          onConfirm={remove}
+          onCancel={() => setConfirmOpen(false)}
+        />
       </div>
     </Sheet>
   );
