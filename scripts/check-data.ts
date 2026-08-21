@@ -711,6 +711,19 @@ check(
 const wszystkoSchowane = normalizeLayout({ order: DEFAULT_TAB_ORDER, hidden: DEFAULT_TAB_ORDER });
 check('nie da się schować wszystkich zakładek', visibleTabs(wszystkoSchowane).length >= 1);
 
+check(
+  'domyślnie kalendarz pokazuje nazwy zadań',
+  normalizeLayout({}).calendarTasks === 'nazwy',
+);
+check(
+  'wybór licznika przetrwa normalizację',
+  normalizeLayout({ calendarTasks: 'licznik' }).calendarTasks === 'licznik',
+);
+check(
+  'nieznany tryb kalendarza wraca do nazw',
+  normalizeLayout({ calendarTasks: 'kosmos' }).calendarTasks === 'nazwy',
+);
+
 // 21. Grupowanie zadań
 await db.tasks.clear();
 await addTask({ title: 'Bez kategorii', starred: false });

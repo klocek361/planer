@@ -3,7 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'motion/react';
 import { db } from '../../data/db';
 import { eventsBetween, groupByDate } from '../../data/events';
-import type { EventItem } from '../../data/types';
+import { compareTasks, toggleTask, updateTask } from '../../data/tasks';
+import type { EventItem, Task } from '../../data/types';
+import { useLayoutStore } from '../../app/layoutStore';
 import {
   addMonths,
   buildMonthGrid,
@@ -16,6 +18,7 @@ import {
 } from '../../lib/dates';
 import { tap } from '../../platform/haptics';
 import { SettingsButton } from '../../ui/SettingsButton';
+import { TaskSheet } from '../../features/tasks/TaskSheet';
 import { DayPanel } from './DayPanel';
 import { EventSheet } from './EventSheet';
 import { MonthGrid } from './MonthGrid';
@@ -30,12 +33,22 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
   const [direction, setDirection] = useState(1);
   const [editing, setEditing] = useState<EventItem | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskSheetOpen, setTaskSheetOpen] = useState(false);
+
+  const taskMode = useLayoutStore((state) => state.calendarTasks);
 
   const days = useMemo(() => buildMonthGrid(month), [month]);
   const range = useMemo(() => monthGridRange(month), [month]);
 
   const categories = useLiveQuery(() => db.categories.orderBy('order').toArray());
   const events = useLiveQuery(() => eventsBetween(range.from, range.to), [range.from, range.to]);
+  // Zadania z terminem w oglądanym miesiącu — indeks po dueDate robi z tego
+  // jedno tanie zapytanie, tak samo jak przy wydarzeniach.
+  const tasks = useLiveQuery(
+    () => db.tasks.where('dueDate').between(range.from, range.to, true, true).toArray(),
+    [range.from, range.to],
+  );
 
   const categoryColors = useMemo(() => {
     const map = new Map<number, string>();
@@ -43,8 +56,37 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
     return map;
   }, [categories]);
 
+  const categoryNames = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const category of categories ?? []) if (category.id) map.set(category.id, category.name);
+    return map;
+  }, [categories]);
+
   const eventsByDate = useMemo(() => groupByDate(events ?? []), [events]);
   const selectedEvents = eventsByDate.get(selectedKey) ?? [];
+
+  // W siatce pokazujemy tylko zadania otwarte — kalendarz służy planowaniu,
+  // a odhaczone zadanie zajmowałoby miejsce, nic już nie mówiąc.
+  // Panel pod siatką dostaje wszystkie, żeby dało się je odznaczyć.
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const task of tasks ?? []) {
+      if (task.done || task.parentId !== undefined || !task.dueDate) continue;
+      const list = map.get(task.dueDate);
+      if (list) list.push(task);
+      else map.set(task.dueDate, [task]);
+    }
+    for (const list of map.values()) list.sort(compareTasks);
+    return map;
+  }, [tasks]);
+
+  const selectedTasks = useMemo(
+    () =>
+      (tasks ?? [])
+        .filter((task) => task.dueDate === selectedKey && task.parentId === undefined)
+        .sort(compareTasks),
+    [tasks, selectedKey],
+  );
 
   const goToMonth = (offset: number) => {
     setDirection(offset);
@@ -139,7 +181,9 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
           <MonthGrid
             days={days}
             eventsByDate={eventsByDate}
+            tasksByDate={tasksByDate}
             categoryColors={categoryColors}
+            taskMode={taskMode}
             selectedKey={selectedKey}
             onSelect={selectDay}
           />
@@ -150,7 +194,9 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
         <DayPanel
           dateKey={selectedKey}
           events={selectedEvents}
+          tasks={selectedTasks}
           categoryColors={categoryColors}
+          categoryNames={categoryNames}
           onAdd={() => {
             setEditing(null);
             setSheetOpen(true);
@@ -158,6 +204,15 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
           onEdit={(event) => {
             setEditing(event);
             setSheetOpen(true);
+          }}
+          onToggleTask={(task) => {
+            tap();
+            void toggleTask(task.id!, !task.done);
+          }}
+          onStarTask={(task) => void updateTask(task.id!, { starred: !task.starred })}
+          onEditTask={(task) => {
+            setEditingTask(task);
+            setTaskSheetOpen(true);
           }}
         />
       </div>
@@ -168,6 +223,13 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
         event={editing}
         categories={categories ?? []}
         onClose={() => setSheetOpen(false)}
+      />
+
+      <TaskSheet
+        open={taskSheetOpen}
+        task={editingTask}
+        categories={categories ?? []}
+        onClose={() => setTaskSheetOpen(false)}
       />
     </div>
   );
