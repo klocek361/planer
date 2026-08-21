@@ -372,11 +372,17 @@ function HabitTick({
   todayKey: string;
 }) {
   const done = isDayComplete(habit, value);
-  const next = habit.kind === 'tak-nie' ? (done ? 0 : 1) : value + 1;
+  const counter = habit.kind === 'licznik';
+  const next = counter ? value + 1 : done ? 0 : 1;
+  // Odhaczony licznik nic już nie przyjmuje. Cofać się da w zakładce Nawyki,
+  // gdzie jest minus — z ekranu podsumowania nie powinno dać się jednym
+  // przypadkowym stuknięciem skasować ośmiu wcześniejszych.
+  const spent = counter && done;
 
   return (
     <button
       type="button"
+      disabled={spent}
       onClick={() => {
         tap();
         void setHabitValue(habit.id!, todayKey, next);

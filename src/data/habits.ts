@@ -41,8 +41,15 @@ export async function deleteHabit(id: number): Promise<void> {
 
 /** Ustawia wartość na dany dzień, tworząc wpis albo kasując go przy zerze. */
 export async function setHabitValue(habitId: number, date: string, value: number): Promise<void> {
-  const clamped = Math.max(0, Math.round(value));
-  await db.transaction('rw', db.habitEntries, async () => {
+  await db.transaction('rw', db.habits, db.habitEntries, async () => {
+    const habit = await db.habits.get(habitId);
+    if (!habit) return;
+
+    // Licznik zatrzymuje się na celu: 9/8 nie znaczy nic więcej niż 8/8,
+    // a przy szybkim stukaniu w plus łatwo przeskoczyć poza limit.
+    // Limit siedzi tutaj, a nie przy przyciskach, żeby obowiązywał tak samo
+    // w Nawykach, w Przeglądzie i wszędzie, co dojdzie później.
+    const clamped = Math.min(habit.target, Math.max(0, Math.round(value)));
     const existing = await db.habitEntries.where('[habitId+date]').equals([habitId, date]).first();
 
     if (clamped === 0) {
