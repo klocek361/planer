@@ -215,6 +215,7 @@ export const en: Dict = {
     jezykOpis: 'Interface language and month names',
     kopia: 'Backup',
     kopiaOpis: 'Saving and loading all your data',
+    wersja: (numer) => `Planer Kaśkowy ${numer}`,
   },
 
   zakladkiEkran: {
@@ -295,6 +296,7 @@ export const en: Dict = {
     bezDaty: 'Backup with no save date.',
     zDnia: (data) => `Backup from ${data}.`,
     zawiera: 'It contains:',
+    zWersji: (numer) => `Saved in version ${numer}.`,
     ostrzezenieDane:
       'Your data lives on this phone only. Removing the icon from the home screen deletes it for good — make a backup now and then.',
     stanAplikacji: (lista) => `The app currently holds: ${lista}.`,

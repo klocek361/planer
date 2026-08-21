@@ -2,6 +2,7 @@ import { normalizeLayout, type Layout } from '../app/tabs';
 import { useLayoutStore } from '../app/layoutStore';
 import { normalizeAllSections, type AllSections } from '../app/sections';
 import { useSectionsStore } from '../app/sectionsStore';
+import { APP_VERSION } from '../app/version';
 import { toKey } from '../lib/dates';
 import { useThemeStore } from '../theme/store';
 import {
@@ -43,7 +44,13 @@ const FORMAT_VERSION = 3;
 
 export interface BackupFile {
   aplikacja: string;
+  /** Wersja formatu pliku — decyduje o tym, czy da się go wczytać. */
   wersja: number;
+  /**
+   * Wersja aplikacji, która zapisała kopię. Nie wpływa na wczytywanie —
+   * służy do tego, żeby po latach dało się powiedzieć, skąd plik pochodzi.
+   */
+  wersjaAplikacji: string;
   zapisano: string;
   dane: {
     categories: Category[];
@@ -83,6 +90,7 @@ export async function buildBackup(): Promise<BackupFile> {
   return {
     aplikacja: FORMAT,
     wersja: FORMAT_VERSION,
+    wersjaAplikacji: APP_VERSION,
     zapisano: new Date().toISOString(),
     dane: { categories, events, tasks, habits, habitEntries, notes, lists, listItems },
     motyw: { aktualny: theme, zapisane: saved },
@@ -201,6 +209,9 @@ export function parseBackup(json: string): ParsedBackup {
     backup: {
       aplikacja: FORMAT,
       wersja: candidate.wersja,
+      // Starsze kopie nie zapisywały wersji aplikacji.
+      wersjaAplikacji:
+        typeof candidate.wersjaAplikacji === 'string' ? candidate.wersjaAplikacji : '',
       zapisano: typeof candidate.zapisano === 'string' ? candidate.zapisano : '',
       dane: {
         categories: categories.kept,

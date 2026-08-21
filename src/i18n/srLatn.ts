@@ -212,6 +212,7 @@ export const srLatn: Dict = {
     jezykOpis: 'Jezik interfejsa i naziva meseci',
     kopia: 'Rezervna kopija',
     kopiaOpis: 'Čuvanje i učitavanje svih podataka',
+    wersja: (numer) => `Planer Kaśkowy ${numer}`,
   },
 
   zakladkiEkran: {
@@ -292,6 +293,7 @@ export const srLatn: Dict = {
     bezDaty: 'Kopija bez datuma čuvanja.',
     zDnia: (data) => `Kopija od ${data}.`,
     zawiera: 'Sadrži:',
+    zWersji: (numer) => `Sačuvana u verziji ${numer}.`,
     ostrzezenieDane:
       'Podaci su samo na ovom telefonu. Brisanje ikone sa početnog ekrana briše ih nepovratno — pravi kopiju s vremena na vreme.',
     stanAplikacji: (lista) => `U aplikaciji je sada: ${lista}.`,

@@ -4,6 +4,8 @@
  * ekranu — brakujące indeksy, błędy w transakcjach, gubione powiązania.
  */
 import 'fake-indexeddb/auto';
+import { readFileSync } from 'node:fs';
+import { APP_VERSION } from '../src/app/version';
 import { db } from '../src/data/db';
 import {
   backupFilename,
@@ -1191,6 +1193,36 @@ check(
   'sekcje z uszkodzonej kopii wracają do domyślnych',
   visibleSections(normalizeAllSections('nonsens').zadania).length === SECTION_IDS.zadania.length,
 );
+
+// 29. Wersja aplikacji
+// Numer żyje w dwóch miejscach — w package.json (dla narzędzi) i w kodzie
+// (dla ekranu). Ta asercja jest jedynym powodem, dla którego wolno im tam stać
+// osobno: rozjechanie się kończy się nieprzechodzącym sprawdzeniem.
+// Ścieżka liczona od katalogu roboczego, a nie od pliku: sprawdzenia biegną
+// ze sklejonej paczki w node_modules/.cache, więc `import.meta.url` prowadziłby
+// w zupełnie inne miejsce.
+const wersjaZPliku = JSON.parse(
+  readFileSync(process.cwd() + '/package.json', 'utf8'),
+) as { version: string };
+check('numer wersji zgadza się z package.json', APP_VERSION === wersjaZPliku.version);
+check('numer wersji ma poprawny kształt', /^\d+\.\d+\.\d+$/.test(APP_VERSION));
+
+const kopiaZWersja = await buildBackup();
+check('kopia zapisuje wersję aplikacji', kopiaZWersja.wersjaAplikacji === APP_VERSION);
+check('kopia zapisuje wersję formatu', kopiaZWersja.wersja === 3);
+
+const odczytana = parseBackup(JSON.stringify(kopiaZWersja));
+check(
+  'wersja aplikacji przechodzi przez odczyt',
+  odczytana.backup?.wersjaAplikacji === kopiaZWersja.wersjaAplikacji,
+);
+
+// Kopia sprzed wprowadzenia numeru wersji dalej się wczytuje
+const bezWersji = JSON.parse(JSON.stringify(kopiaZWersja)) as Record<string, unknown>;
+delete bezWersji.wersjaAplikacji;
+const staraKopia = parseBackup(JSON.stringify(bezWersji));
+check('kopia bez numeru wersji dalej się wczytuje', staraKopia.backup !== null);
+check('brak numeru wersji daje pusty napis', staraKopia.backup?.wersjaAplikacji === '');
 
 console.log(
   problems.length === 0

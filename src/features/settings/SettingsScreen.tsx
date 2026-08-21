@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useT } from '../../i18n';
+import { APP_VERSION } from '../../app/version';
 import { Screen } from '../../ui/Screen';
 import { useBackDismiss } from '../../platform/back';
 import { ChevronRightIcon } from '../../ui/icons';
@@ -73,6 +74,12 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
           </li>
         ))}
       </ul>
+
+      {/* Numer wersji na dole — przy zgłaszaniu czegokolwiek pierwsze pytanie
+          brzmi „którą wersję masz”, a tu jest pod ręką. */}
+      <p className="text-faint pt-6 pb-2 text-center text-xs">
+        {t.ustawienia.wersja(APP_VERSION)}
+      </p>
     </Screen>
   );
 }

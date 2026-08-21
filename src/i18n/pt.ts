@@ -216,6 +216,7 @@ export const pt: Dict = {
     jezykOpis: 'Idioma da interface e dos nomes dos meses',
     kopia: 'Cópia de segurança',
     kopiaOpis: 'Guardar e carregar todos os dados',
+    wersja: (numer) => `Planer Kaśkowy ${numer}`,
   },
 
   zakladkiEkran: {
@@ -297,6 +298,7 @@ export const pt: Dict = {
     bezDaty: 'Cópia sem data de gravação.',
     zDnia: (data) => `Cópia de ${data}.`,
     zawiera: 'Contém:',
+    zWersji: (numer) => `Guardada na versão ${numer}.`,
     ostrzezenieDane:
       'Os dados estão só neste telemóvel. Remover o ícone do ecrã inicial apaga-os definitivamente — faz uma cópia de vez em quando.',
     stanAplikacji: (lista) => `A aplicação tem agora: ${lista}.`,

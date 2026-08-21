@@ -216,6 +216,7 @@ export const srCyrl: Dict = {
     jezykOpis: 'Језик интерфејса и назива месеци',
     kopia: 'Резервна копија',
     kopiaOpis: 'Чување и учитавање свих података',
+    wersja: (numer) => `Planer Kaśkowy ${numer}`,
   },
 
   zakladkiEkran: {
@@ -296,6 +297,7 @@ export const srCyrl: Dict = {
     bezDaty: 'Копија без датума чувања.',
     zDnia: (data) => `Копија од ${data}.`,
     zawiera: 'Садржи:',
+    zWersji: (numer) => `Сачувана у верзији ${numer}.`,
     ostrzezenieDane:
       'Подаци су само на овом телефону. Брисање иконе са почетног екрана брише их неповратно — прави копију с времена на време.',
     stanAplikacji: (lista) => `У апликацији је сада: ${lista}.`,
