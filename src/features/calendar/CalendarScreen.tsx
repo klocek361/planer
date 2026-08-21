@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'motion/react';
 import { db } from '../../data/db';
 import { eventsBetween, groupByDate } from '../../data/events';
-import { compareTasks, toggleTask, updateTask } from '../../data/tasks';
+import { compareTasks, coversDay, taskDays, toggleTask, updateTask } from '../../data/tasks';
 import type { EventItem, Task } from '../../data/types';
 import { useLayoutStore } from '../../app/layoutStore';
 import {
@@ -45,11 +45,12 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
 
   const categories = useLiveQuery(() => db.categories.orderBy('order').toArray());
   const events = useLiveQuery(() => eventsBetween(range.from, range.to), [range.from, range.to]);
-  // Zadania z terminem w oglądanym miesiącu — indeks po dueDate robi z tego
-  // jedno tanie zapytanie, tak samo jak przy wydarzeniach.
+  // Zadanie wielodniowe może zaczynać się przed oglądanym oknem, więc dolna
+  // granica zapytania to termin nie wcześniejszy niż początek okna, a resztę
+  // (czy zakres w ogóle zahacza o okno) rozstrzygamy już na miejscu.
   const tasks = useLiveQuery(
-    () => db.tasks.where('dueDate').between(range.from, range.to, true, true).toArray(),
-    [range.from, range.to],
+    () => db.tasks.where('dueDate').aboveOrEqual(range.from).toArray(),
+    [range.from],
   );
 
   const categoryColors = useMemo(() => {
@@ -73,19 +74,21 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
   const tasksByDate = useMemo(() => {
     const map = new Map<string, Task[]>();
     for (const task of tasks ?? []) {
-      if (task.done || task.parentId !== undefined || !task.dueDate) continue;
-      const list = map.get(task.dueDate);
-      if (list) list.push(task);
-      else map.set(task.dueDate, [task]);
+      if (task.done || task.parentId !== undefined) continue;
+      for (const key of taskDays(task, range.from, range.to)) {
+        const list = map.get(key);
+        if (list) list.push(task);
+        else map.set(key, [task]);
+      }
     }
     for (const list of map.values()) list.sort(compareTasks);
     return map;
-  }, [tasks]);
+  }, [tasks, range]);
 
   const selectedTasks = useMemo(
     () =>
       (tasks ?? [])
-        .filter((task) => task.dueDate === selectedKey && task.parentId === undefined)
+        .filter((task) => task.parentId === undefined && coversDay(task, selectedKey))
         .sort(compareTasks),
     [tasks, selectedKey],
   );

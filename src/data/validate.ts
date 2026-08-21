@@ -88,11 +88,18 @@ export function validTask(input: unknown): Task | null {
   if (!r) return null;
   if (!isText(r.title) || !isFlag(r.done) || !isNumber(r.order) || !isNumber(r.createdAt)) return null;
   if (!isOptionalDateKey(r.dueDate) || !isOptionalId(r.categoryId)) return null;
+  if (!isOptionalDateKey(r.startDate)) return null;
   if (!isOptionalId(r.parentId) || !isOptionalId(r.id) || !isOptionalId(r.doneAt)) return null;
 
   // Kopie sprzed wprowadzenia gwiazdki trzymały trzy poziomy ważności.
   // "Ważne" i "Pilne" wchodzą jako gwiazdka, "Zwykłe" jako zadanie bez niej.
   const starred = isFlag(r.starred) ? r.starred : isNumber(r.priority) && r.priority > 0;
+
+  // Początek po terminie nie znaczy nic sensownego — zamiast odrzucać całe
+  // zadanie, zostawiamy sam termin.
+  const start = r.startDate as string | undefined;
+  const due = r.dueDate as string | undefined;
+  const startDate = start !== undefined && due !== undefined && start <= due ? start : undefined;
 
   return {
     id: r.id as number | undefined,
@@ -100,7 +107,8 @@ export function validTask(input: unknown): Task | null {
     done: r.done,
     doneAt: r.doneAt as number | undefined,
     starred,
-    dueDate: r.dueDate as string | undefined,
+    startDate,
+    dueDate: due,
     categoryId: r.categoryId as number | undefined,
     parentId: r.parentId as number | undefined,
     order: r.order,
