@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../data/db';
 import { entriesBetween, indexEntries, isDayComplete, setHabitValue } from '../../data/habits';
-import { compareTasks, toggleTask, updateTask } from '../../data/tasks';
+import { compareTasks, taskDays, toggleTask, updateTask } from '../../data/tasks';
 import type { Category, EventItem, Habit, Task } from '../../data/types';
 import {
   compareEvents,
@@ -95,17 +95,21 @@ export function OverviewScreen({ onOpenSettings }: Props) {
     [tasks],
   );
 
+  // Zadanie rozpisane na kilka dni pojawia się w każdym z nich — po to się
+  // je rozpisuje, żeby widzieć je przez cały czas trwania, a nie tylko
+  // w dniu terminu.
   const tasksByDay = useMemo(() => {
     const map = new Map<string, Task[]>();
     for (const task of openTasks) {
-      if (!task.dueDate) continue;
-      const list = map.get(task.dueDate);
-      if (list) list.push(task);
-      else map.set(task.dueDate, [task]);
+      for (const key of taskDays(task, range.from, range.to)) {
+        const list = map.get(key);
+        if (list) list.push(task);
+        else map.set(key, [task]);
+      }
     }
     for (const list of map.values()) list.sort(compareTasks);
     return map;
-  }, [openTasks]);
+  }, [openTasks, range]);
 
   const todayTasks = tasksByDay.get(todayKey) ?? [];
   const todayEvents = eventsByDay.get(todayKey) ?? [];

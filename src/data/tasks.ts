@@ -1,9 +1,12 @@
+import { fromKey, toKey } from '../lib/dates';
 import { db } from './db';
 import type { Category, Task } from './types';
 
 export interface TaskDraft {
   title: string;
   starred: boolean;
+  /** Początek zadania wielodniowego; bez niego zadanie ma sam termin. */
+  startDate?: string;
   dueDate?: string;
   categoryId?: number;
   parentId?: number;
@@ -65,6 +68,49 @@ export function compareTasks(a: Task, b: Task): number {
 
   if (a.starred !== b.starred) return a.starred ? -1 : 1;
   return a.order - b.order;
+}
+
+/**
+ * Pierwszy dzień, w którym zadanie zajmuje miejsce w kalendarzu. Zadanie bez
+ * daty początku zajmuje wyłącznie dzień terminu.
+ */
+export function taskStart(task: Task): string | undefined {
+  return task.startDate ?? task.dueDate;
+}
+
+/** Czy zadanie przypada na dany dzień — z uwzględnieniem zadań wielodniowych. */
+export function coversDay(task: Task, key: string): boolean {
+  const from = taskStart(task);
+  return from !== undefined && task.dueDate !== undefined && from <= key && key <= task.dueDate;
+}
+
+/** Czy zadanie zahacza o podany zakres dni. */
+export function overlapsRange(task: Task, from: string, to: string): boolean {
+  const start = taskStart(task);
+  return start !== undefined && task.dueDate !== undefined && start <= to && task.dueDate >= from;
+}
+
+/**
+ * Dni z podanego zakresu, na które przypada zadanie. Dla zadania wielodniowego
+ * to każdy dzień jego trwania, przycięty do oglądanego okna.
+ */
+export function taskDays(task: Task, from: string, to: string): string[] {
+  if (!overlapsRange(task, from, to)) return [];
+  const start = taskStart(task)!;
+  const pierwszy = start < from ? from : start;
+  const ostatni = task.dueDate! < to ? task.dueDate! : to;
+
+  const dni: string[] = [];
+  // Liczymy przez fromKey/toKey, a nie przez toISOString — ten drugi podaje
+  // datę w czasie UTC i przy naszej strefie potrafi przesunąć dzień.
+  const kursor = fromKey(pierwszy);
+  let klucz = pierwszy;
+  while (klucz <= ostatni) {
+    dni.push(klucz);
+    kursor.setDate(kursor.getDate() + 1);
+    klucz = toKey(kursor);
+  }
+  return dni;
 }
 
 export interface TaskNode {

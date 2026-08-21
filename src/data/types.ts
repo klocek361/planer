@@ -57,9 +57,15 @@ export interface Task {
   title: string;
   done: boolean;
   doneAt?: number;
+  /**
+   * Początek zadania trwającego kilka dni, 'RRRR-MM-DD'. Puste przy zwykłym
+   * zadaniu — wtedy liczy się sam termin. Nigdy nie jest późniejsze niż
+   * `dueDate`; wczytywanie kopii pilnuje tego osobno.
+   */
+  startDate?: string;
   /** Ważne zadanie — oznaczane gwiazdką. Dwa poziomy: z gwiazdką albo bez. */
   starred: boolean;
-  /** 'RRRR-MM-DD' — termin. Celowo NIE pokazujemy zadań w kalendarzu. */
+  /** 'RRRR-MM-DD' — termin, czyli ostatni dzień na wykonanie. */
   dueDate?: string;
   categoryId?: number;
   /** Ustawione dla podzadania — wskazuje zadanie nadrzędne. */

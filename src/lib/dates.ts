@@ -102,6 +102,41 @@ export function dueInfo(dueKey: string, t: Dict, today = toKey(new Date())): Due
   };
 }
 
+/**
+ * Podpis zadania rozpisanego na kilka dni: zakres plus to, na czym najbardziej
+ * zależy w danej chwili — ile zostało do startu, ile do końca, albo o ile
+ * termin już minął. Sam zakres dat nie mówi nic o tym, czy trzeba się spieszyć.
+ */
+export function rangeInfo(
+  startKey: string,
+  dueKey: string,
+  t: Dict,
+  today = toKey(new Date()),
+): DueInfo {
+  const zakres = t.daty.zakres(dotDateLabel(startKey), dotDateLabel(dueKey));
+  const doKonca = differenceInCalendarDays(fromKey(dueKey), fromKey(today));
+  const doStartu = differenceInCalendarDays(fromKey(startKey), fromKey(today));
+  const dni = (n: number) => `${n} ${t.daty.dzien[slavicForm(n)]}`;
+  const zloz = (czesc: string) => `${zakres} · ${czesc}`;
+
+  if (doKonca < 0) {
+    const late = Math.abs(doKonca);
+    return { text: zloz(t.daty.poTerminieSam(dni(late))), tone: 'zalegly', days: doKonca };
+  }
+  // Zadanie jeszcze się nie zaczęło — wtedy liczy się data startu.
+  if (doStartu > 0) {
+    return { text: zloz(t.daty.start(dni(doStartu))), tone: 'zwykly', days: doKonca };
+  }
+  if (doKonca === 0) {
+    return { text: zloz(t.daty.ostatniDzien), tone: 'blisko', days: 0 };
+  }
+  return {
+    text: zloz(t.daty.zostalo(dni(doKonca))),
+    tone: doKonca <= 3 ? 'blisko' : 'zwykly',
+    days: doKonca,
+  };
+}
+
 /** Czy podany dzień już minął — do wyróżniania zaległych terminów. */
 export function isPastDay(key: string): boolean {
   return key < toKey(new Date());

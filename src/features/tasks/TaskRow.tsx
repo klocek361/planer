@@ -1,5 +1,5 @@
 import type { Task } from '../../data/types';
-import { dueInfo, type DueTone } from '../../lib/dates';
+import { dueInfo, rangeInfo, type DueTone } from '../../lib/dates';
 import { useT } from '../../i18n';
 import { CheckIcon, PlusIcon, StarIcon } from '../../ui/icons';
 
@@ -43,7 +43,11 @@ export function TaskRow({
     meta.push({ text: categoryName, className: 'text-muted', dot: categoryColor });
   }
   if (task.dueDate && !hideDueDate) {
-    const due = dueInfo(task.dueDate, t);
+    // Zadanie rozpisane na kilka dni pokazuje zakres i to, ile z niego zostało;
+    // zwykłe — sam termin.
+    const due = task.startDate
+      ? rangeInfo(task.startDate, task.dueDate, t)
+      : dueInfo(task.dueDate, t);
     meta.push({ text: due.text, className: DUE_CLASS[due.tone] });
   }
 

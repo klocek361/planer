@@ -44,7 +44,9 @@ import {
   monthScale,
 } from '../src/lib/dates';
 import { seriesDates } from '../src/data/events';
-import { groupByCategory, groupByDay } from '../src/data/tasks';
+import { coversDay, groupByCategory, groupByDay, taskDays } from '../src/data/tasks';
+import { rangeInfo } from '../src/lib/dates';
+import { validTask } from '../src/data/validate';
 import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
 import { pl as slownikPl } from '../src/i18n/pl';
 import { srLatn } from '../src/i18n/srLatn';
@@ -838,6 +840,106 @@ check('zawsze siedem nagłówków', literyDni(plDate).length === 7);
 
 // Wracamy do polskiego, żeby dalsze sprawdzenia nie zależały od kolejności.
 setDateLocale(plDate);
+
+// 24. Zadania trwające kilka dni
+const wielodniowe = {
+  title: 'Remont kuchni',
+  done: false,
+  starred: false,
+  startDate: '2026-08-10',
+  dueDate: '2026-08-14',
+  order: 0,
+  createdAt: 1,
+};
+
+check('zadanie obejmuje dzień startu', coversDay(wielodniowe, '2026-08-10'));
+check('zadanie obejmuje dzień w środku', coversDay(wielodniowe, '2026-08-12'));
+check('zadanie obejmuje dzień terminu', coversDay(wielodniowe, '2026-08-14'));
+check('zadanie nie obejmuje dnia przed startem', !coversDay(wielodniowe, '2026-08-09'));
+check('zadanie nie obejmuje dnia po terminie', !coversDay(wielodniowe, '2026-08-15'));
+
+const zwykle = { ...wielodniowe, startDate: undefined, dueDate: '2026-08-14' };
+check('zwykłe zadanie zajmuje tylko dzień terminu', coversDay(zwykle, '2026-08-14'));
+check('zwykłe zadanie nie rozlewa się na sąsiednie dni', !coversDay(zwykle, '2026-08-13'));
+
+check('pięciodniowe zadanie daje pięć dni', taskDays(wielodniowe, '2026-08-01', '2026-08-31').length === 5);
+check(
+  'dni idą po kolei od startu',
+  taskDays(wielodniowe, '2026-08-01', '2026-08-31')[0] === '2026-08-10' &&
+    taskDays(wielodniowe, '2026-08-01', '2026-08-31')[4] === '2026-08-14',
+);
+check(
+  'zakres jest przycinany do oglądanego okna',
+  taskDays(wielodniowe, '2026-08-12', '2026-08-13').join(',') === '2026-08-12,2026-08-13',
+);
+check(
+  'zadanie poza oknem nie daje żadnych dni',
+  taskDays(wielodniowe, '2026-09-01', '2026-09-30').length === 0,
+);
+check(
+  'zadanie przez przełom miesiąca liczy się poprawnie',
+  taskDays({ ...wielodniowe, startDate: '2026-08-30', dueDate: '2026-09-02' }, '2026-08-01', '2026-09-30')
+    .join(',') === '2026-08-30,2026-08-31,2026-09-01,2026-09-02',
+);
+
+// Odliczanie w zadaniu wielodniowym
+check(
+  'przed startem odlicza do startu',
+  rangeInfo('2026-08-10', '2026-08-14', slownikPl, '2026-08-08').text ===
+    '10.08–14.08 · start za 2 dni',
+);
+check(
+  'w trakcie odlicza do końca',
+  rangeInfo('2026-08-10', '2026-08-14', slownikPl, '2026-08-11').text ===
+    '10.08–14.08 · zostało 3 dni',
+);
+check(
+  'ostatni dzień jest nazwany wprost',
+  rangeInfo('2026-08-10', '2026-08-14', slownikPl, '2026-08-14').text ===
+    '10.08–14.08 · ostatni dzień',
+);
+check(
+  'ostatni dzień jest wyróżniony',
+  rangeInfo('2026-08-10', '2026-08-14', slownikPl, '2026-08-14').tone === 'blisko',
+);
+check(
+  'po terminie liczy zaległość',
+  rangeInfo('2026-08-10', '2026-08-14', slownikPl, '2026-08-16').text ===
+    '10.08–14.08 · 2 dni po terminie',
+);
+check(
+  'po terminie ma ton zaległy',
+  rangeInfo('2026-08-10', '2026-08-14', slownikPl, '2026-08-16').tone === 'zalegly',
+);
+check(
+  'zakres po angielsku',
+  rangeInfo('2026-08-10', '2026-08-14', slownikEn, '2026-08-11').text ===
+    '10.08–14.08 · 3 days left',
+);
+
+// Kopia zapasowa: początek po terminie jest odrzucany, samo zadanie zostaje
+const zlyZakres = validTask({
+  title: 'Zły zakres',
+  done: false,
+  starred: false,
+  startDate: '2026-08-20',
+  dueDate: '2026-08-14',
+  order: 0,
+  createdAt: 1,
+});
+check('zadanie ze złym zakresem zostaje bez daty początku', zlyZakres?.startDate === undefined);
+check('zadanie ze złym zakresem zachowuje termin', zlyZakres?.dueDate === '2026-08-14');
+
+const dobryZakres = validTask({
+  title: 'Dobry zakres',
+  done: false,
+  starred: false,
+  startDate: '2026-08-10',
+  dueDate: '2026-08-14',
+  order: 0,
+  createdAt: 1,
+});
+check('poprawny zakres przechodzi', dobryZakres?.startDate === '2026-08-10');
 
 console.log(
   problems.length === 0
