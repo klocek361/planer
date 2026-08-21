@@ -39,6 +39,10 @@ export const en: Dict = {
     dzien: { one: 'day', few: 'days', many: 'days' } as Plural,
     zadanie: { one: 'task', few: 'tasks', many: 'tasks' } as Plural,
     wpis: { one: 'entry', few: 'entries', many: 'entries' } as Plural,
+    wydarzenie: { one: 'event', few: 'events', many: 'events' } as Plural,
+    nawyk: { one: 'habit', few: 'habits', many: 'habits' } as Plural,
+    odhaczenie: { one: 'tick', few: 'ticks', many: 'ticks' } as Plural,
+    kategoria: { one: 'category', few: 'categories', many: 'categories' } as Plural,
     jutro: 'tomorrow',
     doDnia: (data) => `by ${data}`,
     doDniaZa: (data, ile) => `by ${data} · in ${ile}`,
@@ -98,6 +102,8 @@ export const en: Dict = {
     ukryjZrobione: 'Hide done',
     pusto: 'Nothing here.',
     bezKategorii: 'No category',
+    dodajGwiazdke: (tytul) => `Star ${tytul}`,
+    zdejmijGwiazdke: (tytul) => `Unstar ${tytul}`,
   },
 
   nawyki: {
@@ -204,6 +210,7 @@ export const en: Dict = {
     gotoweZestawy: 'Ready-made sets',
     mojeZestawy: 'My sets',
     mojMotyw: 'My set',
+    usunZestaw: (nazwa) => `Delete the set ${nazwa}`,
     kodKoloru: 'Enter a code in the form #RRGGBB, for example #9C6F4A.',
     probka: 'Aa gjq',
     ksztalt: 'Shape',
@@ -237,6 +244,9 @@ export const en: Dict = {
     bezDaty: 'Backup with no save date.',
     zDnia: (data) => `Backup from ${data}.`,
     zawiera: 'It contains:',
+    ostrzezenieDane:
+      'Your data lives on this phone only. Removing the icon from the home screen deletes it for good — make a backup now and then.',
+    stanAplikacji: (lista) => `The app currently holds: ${lista}.`,
     resztaDobra: 'The rest of the backup can still be loaded.',
     ostrzezenie: 'Everything currently in the app will be replaced.',
     wgrajIZastap: 'Load and replace',

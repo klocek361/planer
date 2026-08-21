@@ -36,6 +36,10 @@ export const srLatn: Dict = {
     dzien: { one: 'dan', few: 'dana', many: 'dana' } as Plural,
     zadanie: { one: 'zadatak', few: 'zadatka', many: 'zadataka' } as Plural,
     wpis: { one: 'unos', few: 'unosa', many: 'unosa' } as Plural,
+    wydarzenie: { one: 'događaj', few: 'događaja', many: 'događaja' } as Plural,
+    nawyk: { one: 'navika', few: 'navike', many: 'navika' } as Plural,
+    odhaczenie: { one: 'štikliranje', few: 'štikliranja', many: 'štikliranja' } as Plural,
+    kategoria: { one: 'kategorija', few: 'kategorije', many: 'kategorija' } as Plural,
     jutro: 'sutra',
     doDnia: (data) => `do ${data}`,
     doDniaZa: (data, ile) => `do ${data} · za ${ile}`,
@@ -95,6 +99,8 @@ export const srLatn: Dict = {
     ukryjZrobione: 'Sakrij urađeno',
     pusto: 'Ovde nema ničega.',
     bezKategorii: 'Bez kategorije',
+    dodajGwiazdke: (tytul) => `Označi ${tytul} zvezdicom`,
+    zdejmijGwiazdke: (tytul) => `Skini zvezdicu sa ${tytul}`,
   },
 
   nawyki: {
@@ -201,6 +207,7 @@ export const srLatn: Dict = {
     gotoweZestawy: 'Gotovi setovi',
     mojeZestawy: 'Moji setovi',
     mojMotyw: 'Moj set',
+    usunZestaw: (nazwa) => `Obriši set ${nazwa}`,
     kodKoloru: 'Upiši kod u obliku #RRGGBB, na primer #9C6F4A.',
     probka: 'Aa čćš',
     ksztalt: 'Oblik',
@@ -234,6 +241,9 @@ export const srLatn: Dict = {
     bezDaty: 'Kopija bez datuma čuvanja.',
     zDnia: (data) => `Kopija od ${data}.`,
     zawiera: 'Sadrži:',
+    ostrzezenieDane:
+      'Podaci su samo na ovom telefonu. Brisanje ikone sa početnog ekrana briše ih nepovratno — pravi kopiju s vremena na vreme.',
+    stanAplikacji: (lista) => `U aplikaciji je sada: ${lista}.`,
     resztaDobra: 'Ostatak kopije može da se učita.',
     ostrzezenie: 'Sve što je sada u aplikaciji biće zamenjeno.',
     wgrajIZastap: 'Učitaj i zameni',

@@ -100,7 +100,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
             <div className="flex flex-col">
               <button
                 type="button"
-                aria-label={`Przesuń ${category.name} w górę`}
+                aria-label={t.zakladkiEkran.wyzej(category.name)}
                 disabled={index === 0}
                 onClick={() => {
                   tap();
@@ -112,7 +112,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
               </button>
               <button
                 type="button"
-                aria-label={`Przesuń ${category.name} w dół`}
+                aria-label={t.zakladkiEkran.nizej(category.name)}
                 disabled={index === list.length - 1}
                 onClick={() => {
                   tap();

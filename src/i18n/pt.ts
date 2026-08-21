@@ -39,6 +39,10 @@ export const pt: Dict = {
     dzien: { one: 'dia', few: 'dias', many: 'dias' } as Plural,
     zadanie: { one: 'tarefa', few: 'tarefas', many: 'tarefas' } as Plural,
     wpis: { one: 'entrada', few: 'entradas', many: 'entradas' } as Plural,
+    wydarzenie: { one: 'evento', few: 'eventos', many: 'eventos' } as Plural,
+    nawyk: { one: 'hábito', few: 'hábitos', many: 'hábitos' } as Plural,
+    odhaczenie: { one: 'marcação', few: 'marcações', many: 'marcações' } as Plural,
+    kategoria: { one: 'categoria', few: 'categorias', many: 'categorias' } as Plural,
     jutro: 'amanhã',
     doDnia: (data) => `até ${data}`,
     doDniaZa: (data, ile) => `até ${data} · daqui a ${ile}`,
@@ -98,6 +102,8 @@ export const pt: Dict = {
     ukryjZrobione: 'Ocultar concluídas',
     pusto: 'Não há nada aqui.',
     bezKategorii: 'Sem categoria',
+    dodajGwiazdke: (tytul) => `Marcar ${tytul} com estrela`,
+    zdejmijGwiazdke: (tytul) => `Retirar a estrela de ${tytul}`,
   },
 
   nawyki: {
@@ -206,6 +212,7 @@ export const pt: Dict = {
     gotoweZestawy: 'Conjuntos prontos',
     mojeZestawy: 'Os meus conjuntos',
     mojMotyw: 'O meu conjunto',
+    usunZestaw: (nazwa) => `Eliminar o conjunto ${nazwa}`,
     kodKoloru: 'Escreve um código na forma #RRGGBB, por exemplo #9C6F4A.',
     probka: 'Aa ãçõ',
     ksztalt: 'Forma',
@@ -239,6 +246,9 @@ export const pt: Dict = {
     bezDaty: 'Cópia sem data de gravação.',
     zDnia: (data) => `Cópia de ${data}.`,
     zawiera: 'Contém:',
+    ostrzezenieDane:
+      'Os dados estão só neste telemóvel. Remover o ícone do ecrã inicial apaga-os definitivamente — faz uma cópia de vez em quando.',
+    stanAplikacji: (lista) => `A aplicação tem agora: ${lista}.`,
     resztaDobra: 'O resto da cópia pode ser carregado.',
     ostrzezenie: 'Tudo o que está agora na aplicação será substituído.',
     wgrajIZastap: 'Carregar e substituir',
