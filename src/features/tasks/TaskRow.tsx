@@ -1,7 +1,7 @@
 import type { Task } from '../../data/types';
 import { dueInfo, rangeInfo, type DueTone } from '../../lib/dates';
 import { useT } from '../../i18n';
-import { CheckIcon, PlusIcon, StarIcon } from '../../ui/icons';
+import { CheckIcon, PlusIcon, RepeatIcon, StarIcon } from '../../ui/icons';
 
 interface Props {
   task: Task;
@@ -67,11 +67,14 @@ export function TaskRow({
 
       <button type="button" onClick={onEdit} className="min-w-0 flex-1 py-1.5 text-left">
         <span
-          className={`block truncate ${nested ? 'text-sm' : 'text-[0.9375rem]'} ${
+          className={`flex items-center gap-1.5 ${nested ? 'text-sm' : 'text-[0.9375rem]'} ${
             task.done ? 'text-faint line-through' : 'text-ink font-medium'
           }`}
         >
-          {task.title}
+          <span className="truncate">{task.title}</span>
+          {task.seriesId !== undefined && (
+            <RepeatIcon className="text-muted h-3.5 w-3.5 shrink-0" />
+          )}
         </span>
 
         {meta.length > 0 && !task.done && (

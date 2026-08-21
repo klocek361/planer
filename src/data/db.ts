@@ -53,6 +53,12 @@ class PlanerDB extends Dexie {
         });
     });
 
+    // Wersja 4: zadania dostają serie, tak jak wcześniej wydarzenia. Sam
+    // indeks wystarczy — istniejące zadania po prostu nie należą do żadnej.
+    this.version(4).stores({
+      tasks: '++id, done, dueDate, categoryId, parentId, order, seriesId',
+    });
+
     // Uruchamiane raz, przy pierwszym otwarciu aplikacji na danym telefonie.
     this.on('populate', () => {
       void this.categories.bulkAdd(STARTER_CATEGORIES);

@@ -70,6 +70,14 @@ export interface Task {
   categoryId?: number;
   /** Ustawione dla podzadania — wskazuje zadanie nadrzędne. */
   parentId?: number;
+  /**
+   * Wspólny znacznik wszystkich powtórzeń jednego zadania cyklicznego.
+   * Tak samo jak przy wydarzeniach: każde powtórzenie jest osobnym zadaniem,
+   * więc jedno da się odhaczyć, przesunąć albo skasować bez ruszania reszty.
+   */
+  seriesId?: number;
+  /** Reguła, z której seria powstała — pokazywana przy edycji. */
+  repeat?: Repeat;
   order: number;
   createdAt: number;
 }

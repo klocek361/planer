@@ -90,6 +90,7 @@ export function validTask(input: unknown): Task | null {
   if (!isOptionalDateKey(r.dueDate) || !isOptionalId(r.categoryId)) return null;
   if (!isOptionalDateKey(r.startDate)) return null;
   if (!isOptionalId(r.parentId) || !isOptionalId(r.id) || !isOptionalId(r.doneAt)) return null;
+  if (!isOptionalId(r.seriesId)) return null;
 
   // Kopie sprzed wprowadzenia gwiazdki trzymały trzy poziomy ważności.
   // "Ważne" i "Pilne" wchodzą jako gwiazdka, "Zwykłe" jako zadanie bez niej.
@@ -111,6 +112,8 @@ export function validTask(input: unknown): Task | null {
     dueDate: due,
     categoryId: r.categoryId as number | undefined,
     parentId: r.parentId as number | undefined,
+    seriesId: r.seriesId as number | undefined,
+    repeat: validRepeat(r.repeat),
     order: r.order,
     createdAt: r.createdAt,
   };
