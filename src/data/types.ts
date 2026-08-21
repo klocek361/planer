@@ -117,6 +117,28 @@ export interface HabitEntry {
   value: number;
 }
 
+/**
+ * Lista do odhaczania — zakupy, spakowanie się, cokolwiek wielokrotnego użytku.
+ * Notatka jest opcjonalna i służy za miejsce na to, czego nie da się odhaczyć.
+ */
+export interface Checklist {
+  id?: number;
+  name: string;
+  note?: string;
+  categoryId?: number;
+  order: number;
+  createdAt: number;
+}
+
+export interface ChecklistItem {
+  id?: number;
+  listId: number;
+  text: string;
+  done: boolean;
+  order: number;
+  createdAt: number;
+}
+
 export interface Note {
   id?: number;
   title: string;

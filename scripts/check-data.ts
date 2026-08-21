@@ -55,7 +55,17 @@ import {
   updateTaskSeries,
 } from '../src/data/tasks';
 import { rangeInfo } from '../src/lib/dates';
-import { validTask } from '../src/data/validate';
+import { validChecklist, validChecklistItem, validTask } from '../src/data/validate';
+import {
+  addChecklist,
+  addItem,
+  clearDone,
+  deleteChecklist,
+  splitItems,
+  summarizeList,
+  toggleItem,
+  uncheckAll,
+} from '../src/data/lists';
 import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
 import { pl as slownikPl } from '../src/i18n/pl';
 import { srLatn } from '../src/i18n/srLatn';
@@ -712,7 +722,10 @@ check(
 );
 
 // 20. Układ zakładek
-check('domyślny układ pokazuje wszystkie zakładki', visibleTabs(normalizeLayout({})).length === 4);
+check(
+  'domyślny układ pokazuje wszystkie zakładki',
+  visibleTabs(normalizeLayout({})).length === DEFAULT_TAB_ORDER.length,
+);
 check(
   'nieznane zakładki wypadają z układu',
   normalizeLayout({ order: ['kosmos', 'zadania'], hidden: [] }).order[0] === 'zadania',
@@ -1058,6 +1071,74 @@ await db.tasks.clear();
 await addTask({ title: 'Tylko jutro', starred: false, dueDate: '2026-08-14' });
 const jednaSekcja = groupByDaySections(buildTaskTree(await db.tasks.toArray()), '2026-08-13');
 check('puste sekcje nie powstają', jednaSekcja.length === 1 && jednaSekcja[0]?.kind === 'dzien');
+
+// 27. Listy do odhaczania
+await db.lists.clear();
+await db.listItems.clear();
+
+const listaId = await addChecklist({ name: '  Zakupy  ', note: '  kupić przed piątkiem  ' });
+const zapisanaLista = await db.lists.get(listaId);
+check('nazwa listy jest przycinana', zapisanaLista?.name === 'Zakupy');
+check('notatka listy jest przycinana', zapisanaLista?.note === 'kupić przed piątkiem');
+
+await addItem(listaId, 'mleko');
+await addItem(listaId, '  chleb  ');
+await addItem(listaId, '   ');
+await addItem(listaId, 'jajka');
+const pozycje = await db.listItems.where('listId').equals(listaId).toArray();
+check('puste pozycje nie powstają', pozycje.length === 3);
+check('tekst pozycji jest przycinany', pozycje.some((p) => p.text === 'chleb'));
+check('pozycje dostają kolejne numery', pozycje.map((p) => p.order).sort().join(',') === '0,1,2');
+
+const doOdhaczenia = pozycje.find((p) => p.text === 'mleko')!;
+await toggleItem(doOdhaczenia.id!, true);
+
+const pozycjePoOdhaczeniu = await db.listItems.where('listId').equals(listaId).toArray();
+const podzial = splitItems(pozycjePoOdhaczeniu);
+check('odhaczona pozycja schodzi do zrobionych', podzial.done.length === 1);
+check('reszta zostaje otwarta', podzial.open.length === 2);
+check('otwarte idą w kolejności dopisywania', podzial.open[0]?.text === 'chleb');
+
+const podsumowanieListy = summarizeList(pozycjePoOdhaczeniu);
+check('podsumowanieListy liczy odhaczone', podsumowanieListy.done === 1 && podsumowanieListy.total === 3);
+check(
+  'podgląd pokazuje tylko nieodhaczone',
+  podsumowanieListy.preview.join(',') === 'chleb,jajka',
+);
+
+await uncheckAll(listaId);
+check(
+  'odznaczenie wszystkiego zeruje odhaczenia',
+  (await db.listItems.where('listId').equals(listaId).toArray()).every((p) => !p.done),
+);
+
+// Kasowanie odhaczonych zostawia resztę
+await toggleItem(doOdhaczenia.id!, true);
+await clearDone(listaId);
+const poSprzataniu = await db.listItems.where('listId').equals(listaId).toArray();
+check('kasowanie odhaczonych zostawia otwarte', poSprzataniu.length === 2);
+check('skasowana pozycja znika', !poSprzataniu.some((p) => p.text === 'mleko'));
+
+// Kasowanie listy zabiera jej pozycje
+await deleteChecklist(listaId);
+check('kasowanie listy usuwa listę', (await db.lists.count()) === 0);
+check('kasowanie listy usuwa jej pozycje', (await db.listItems.count()) === 0);
+
+// Wczytywanie kopii
+check('lista bez nazwy jest odrzucana', validChecklist({ name: '  ', order: 0, createdAt: 1 }) === null);
+check(
+  'poprawna lista przechodzi',
+  validChecklist({ name: 'Apteka', order: 0, createdAt: 1 })?.name === 'Apteka',
+);
+check(
+  'pozycja bez listy jest odrzucana',
+  validChecklistItem({ text: 'mleko', done: false, order: 0, createdAt: 1 }) === null,
+);
+check(
+  'poprawna pozycja przechodzi',
+  validChecklistItem({ listId: 1, text: 'mleko', done: false, order: 0, createdAt: 1 })?.text ===
+    'mleko',
+);
 
 console.log(
   problems.length === 0

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CalendarScreen } from './features/calendar/CalendarScreen';
 import { HabitsScreen } from './features/habits/HabitsScreen';
+import { ListsScreen } from './features/lists/ListsScreen';
 import { OverviewScreen } from './features/overview/OverviewScreen';
 import { SettingsScreen } from './features/settings/SettingsScreen';
 import { TasksScreen } from './features/tasks/TasksScreen';
@@ -41,6 +42,7 @@ export function App() {
           {tab === 'przeglad' && <OverviewScreen onOpenSettings={openSettings} />}
           {tab === 'kalendarz' && <CalendarScreen onOpenSettings={openSettings} />}
           {tab === 'zadania' && <TasksScreen onOpenSettings={openSettings} />}
+          {tab === 'listy' && <ListsScreen onOpenSettings={openSettings} />}
           {tab === 'nawyki' && <HabitsScreen onOpenSettings={openSettings} />}
           <TabBar tabs={tabs} active={tab} onChange={setTab} />
         </>

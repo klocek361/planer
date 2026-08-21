@@ -26,6 +26,7 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
     habits: t.kopia.liczby.nawyki,
     habitEntries: t.kopia.liczby.odhaczenia,
     notes: t.kopia.liczby.notatki,
+    lists: t.kopia.liczby.listy,
   };
 
   const [busy, setBusy] = useState(false);

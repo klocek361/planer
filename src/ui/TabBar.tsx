@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { CalendarIcon, HabitsIcon, OverviewIcon, TasksIcon } from './icons';
+import { CalendarIcon, HabitsIcon, ListsIcon, OverviewIcon, TasksIcon } from './icons';
 import type { TabId } from '../app/tabs';
 import { useT } from '../i18n';
 
@@ -7,6 +7,7 @@ const ICONS: Record<TabId, (p: { className?: string }) => ReactElement> = {
   przeglad: OverviewIcon,
   kalendarz: CalendarIcon,
   zadania: TasksIcon,
+  listy: ListsIcon,
   nawyki: HabitsIcon,
 };
 

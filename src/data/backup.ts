@@ -7,6 +7,8 @@ import {
   sanitizeTheme,
   sanitizeThemeList,
   validCategory,
+  validChecklist,
+  validChecklistItem,
   validEvent,
   validHabit,
   validHabitEntry,
@@ -15,7 +17,16 @@ import {
 } from './validate';
 import type { Theme } from '../theme/types';
 import { db } from './db';
-import type { Category, EventItem, Habit, HabitEntry, Note, Task } from './types';
+import type {
+  Category,
+  Checklist,
+  ChecklistItem,
+  EventItem,
+  Habit,
+  HabitEntry,
+  Note,
+  Task,
+} from './types';
 import { currentDict } from '../i18n';
 
 /**
@@ -24,7 +35,9 @@ import { currentDict } from '../i18n';
  */
 
 const FORMAT = 'planer-kaskowy';
-const FORMAT_VERSION = 2;
+// Wersja 3 dokłada listy. Pliki w wersji 2 i 1 dalej się wczytują —
+// brakujące sekcje wchodzą jako puste.
+const FORMAT_VERSION = 3;
 
 export interface BackupFile {
   aplikacja: string;
@@ -37,6 +50,8 @@ export interface BackupFile {
     habits: Habit[];
     habitEntries: HabitEntry[];
     notes: Note[];
+    lists: Checklist[];
+    listItems: ChecklistItem[];
   };
   motyw: {
     aktualny: Theme;
@@ -46,14 +61,17 @@ export interface BackupFile {
 }
 
 export async function buildBackup(): Promise<BackupFile> {
-  const [categories, events, tasks, habits, habitEntries, notes] = await Promise.all([
-    db.categories.toArray(),
-    db.events.toArray(),
-    db.tasks.toArray(),
-    db.habits.toArray(),
-    db.habitEntries.toArray(),
-    db.notes.toArray(),
-  ]);
+  const [categories, events, tasks, habits, habitEntries, notes, lists, listItems] =
+    await Promise.all([
+      db.categories.toArray(),
+      db.events.toArray(),
+      db.tasks.toArray(),
+      db.habits.toArray(),
+      db.habitEntries.toArray(),
+      db.notes.toArray(),
+      db.lists.toArray(),
+      db.listItems.toArray(),
+    ]);
 
   const { theme, saved } = useThemeStore.getState();
   const { order, hidden, calendarTasks } = useLayoutStore.getState();
@@ -62,7 +80,7 @@ export async function buildBackup(): Promise<BackupFile> {
     aplikacja: FORMAT,
     wersja: FORMAT_VERSION,
     zapisano: new Date().toISOString(),
-    dane: { categories, events, tasks, habits, habitEntries, notes },
+    dane: { categories, events, tasks, habits, habitEntries, notes, lists, listItems },
     motyw: { aktualny: theme, zapisane: saved },
     uklad: { order, hidden, calendarTasks },
   };
@@ -94,6 +112,7 @@ export interface BackupSummary {
   habits: number;
   habitEntries: number;
   notes: number;
+  lists: number;
 }
 
 export function summarize(backup: BackupFile): BackupSummary {
@@ -104,6 +123,7 @@ export function summarize(backup: BackupFile): BackupSummary {
     habits: backup.dane.habits.length,
     habitEntries: backup.dane.habitEntries.length,
     notes: backup.dane.notes.length,
+    lists: backup.dane.lists.length,
   };
 }
 
@@ -153,6 +173,9 @@ export function parseBackup(json: string): ParsedBackup {
   const habits = keepValid(dane.habits as unknown[], validHabit);
   const habitEntries = keepValid(dane.habitEntries as unknown[], validHabitEntry);
   const notes = keepValid(dane.notes as unknown[], validNote);
+  // Kopie sprzed wprowadzenia list nie mają tych sekcji — wchodzą jako puste.
+  const lists = keepValid((dane.lists ?? []) as unknown[], validChecklist);
+  const listItems = keepValid((dane.listItems ?? []) as unknown[], validChecklistItem);
 
   const skipped =
     categories.skipped +
@@ -160,7 +183,9 @@ export function parseBackup(json: string): ParsedBackup {
     tasks.skipped +
     habits.skipped +
     habitEntries.skipped +
-    notes.skipped;
+    notes.skipped +
+    lists.skipped +
+    listItems.skipped;
 
   const motyw =
     typeof candidate.motyw === 'object' && candidate.motyw !== null
@@ -179,6 +204,8 @@ export function parseBackup(json: string): ParsedBackup {
         habits: habits.kept,
         habitEntries: habitEntries.kept,
         notes: notes.kept,
+        lists: lists.kept,
+        listItems: listItems.kept,
       },
       motyw: {
         aktualny: sanitizeTheme(motyw.aktualny),
@@ -202,7 +229,16 @@ function fail(message: string): never {
 export async function restoreBackup(backup: BackupFile): Promise<void> {
   await db.transaction(
     'rw',
-    [db.categories, db.events, db.tasks, db.habits, db.habitEntries, db.notes],
+    [
+      db.categories,
+      db.events,
+      db.tasks,
+      db.habits,
+      db.habitEntries,
+      db.notes,
+      db.lists,
+      db.listItems,
+    ],
     async () => {
       await Promise.all([
         db.categories.clear(),
@@ -211,6 +247,8 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
         db.habits.clear(),
         db.habitEntries.clear(),
         db.notes.clear(),
+        db.lists.clear(),
+        db.listItems.clear(),
       ]);
       await Promise.all([
         db.categories.bulkAdd(backup.dane.categories),
@@ -219,6 +257,8 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
         db.habits.bulkAdd(backup.dane.habits),
         db.habitEntries.bulkAdd(backup.dane.habitEntries),
         db.notes.bulkAdd(backup.dane.notes),
+        db.lists.bulkAdd(backup.dane.lists),
+        db.listItems.bulkAdd(backup.dane.listItems),
       ]);
     },
   );

@@ -1,7 +1,13 @@
-export type TabId = 'przeglad' | 'kalendarz' | 'zadania' | 'nawyki';
+export type TabId = 'przeglad' | 'kalendarz' | 'zadania' | 'listy' | 'nawyki';
 
 /** Kolejność, w jakiej zakładki pojawiają się w świeżo zainstalowanej aplikacji. */
-export const DEFAULT_TAB_ORDER: TabId[] = ['przeglad', 'kalendarz', 'zadania', 'nawyki'];
+export const DEFAULT_TAB_ORDER: TabId[] = [
+  'przeglad',
+  'kalendarz',
+  'zadania',
+  'listy',
+  'nawyki',
+];
 
 /** Jak zadania z terminem pokazują się w siatce kalendarza. */
 export type CalendarTasks = 'nazwy' | 'licznik';
