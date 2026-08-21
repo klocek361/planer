@@ -1,6 +1,7 @@
 import { fromKey, toKey } from '../lib/dates';
 import { db } from './db';
-import type { Category, Task } from './types';
+import { MAX_REPEAT_COUNT, type Category, type Repeat, type Task } from './types';
+import { addMonths } from 'date-fns';
 
 export interface TaskDraft {
   title: string;
@@ -12,14 +13,87 @@ export interface TaskDraft {
   parentId?: number;
 }
 
-export async function addTask(draft: TaskDraft): Promise<void> {
+/**
+ * Kolejne terminy serii, licząc od pierwszego. Miesięczny krok idzie przez
+ * `addMonths`, więc 31 stycznia trafia na koniec lutego zamiast wyciekać na
+ * marzec — to samo zachowanie co przy seriach wydarzeń.
+ */
+export function taskSeriesDates(startKey: string, repeat: Repeat): string[] {
+  const count = Math.min(MAX_REPEAT_COUNT, Math.max(1, Math.round(repeat.count)));
+  const start = fromKey(startKey);
+  const keys: string[] = [];
+
+  for (let i = 0; i < count; i += 1) {
+    if (repeat.freq === 'miesiac') {
+      keys.push(toKey(addMonths(start, i)));
+      continue;
+    }
+    const step = repeat.freq === 'dzien' ? 1 : repeat.freq === 'tydzien' ? 7 : 14;
+    const day = new Date(start);
+    day.setDate(day.getDate() + i * step);
+    keys.push(toKey(day));
+  }
+  return keys;
+}
+
+/** Ile dni trwa zadanie — żeby powtórzenia zachowały tę samą długość. */
+function dlugoscWDniach(draft: TaskDraft): number {
+  if (!draft.startDate || !draft.dueDate) return 0;
+  return Math.round(
+    (fromKey(draft.dueDate).getTime() - fromKey(draft.startDate).getTime()) / 86_400_000,
+  );
+}
+
+/**
+ * Dodaje zadanie, a przy podanej regule — całą serię naraz.
+ * Powtarzać da się tylko zadanie z terminem: bez daty nie ma czego przesuwać.
+ */
+export async function addTask(draft: TaskDraft, repeat?: Repeat): Promise<void> {
   const count = await db.tasks.count();
-  await db.tasks.add({
-    ...draft,
-    title: draft.title.trim(),
-    done: false,
-    order: count,
-    createdAt: Date.now(),
+  const createdAt = Date.now();
+  const wspolne = { ...draft, title: draft.title.trim(), done: false };
+
+  if (!repeat || repeat.count < 2 || !draft.dueDate) {
+    await db.tasks.add({ ...wspolne, order: count, createdAt });
+    return;
+  }
+
+  const seriesId = createdAt;
+  const dlugosc = dlugoscWDniach(draft);
+
+  await db.tasks.bulkAdd(
+    taskSeriesDates(draft.dueDate, repeat).map((dueDate, i) => {
+      // Zadanie wielodniowe zachowuje swoją długość w każdym powtórzeniu.
+      const start = fromKey(dueDate);
+      start.setDate(start.getDate() - dlugosc);
+      return {
+        ...wspolne,
+        startDate: draft.startDate ? toKey(start) : undefined,
+        dueDate,
+        seriesId,
+        repeat,
+        order: count + i,
+        createdAt,
+      };
+    }),
+  );
+}
+
+/** Zmiana obejmująca całą serię; terminy zostają nietknięte. */
+export async function updateTaskSeries(
+  seriesId: number,
+  changes: Partial<Omit<Task, 'id' | 'seriesId' | 'dueDate' | 'startDate'>>,
+): Promise<void> {
+  await db.tasks.where('seriesId').equals(seriesId).modify(changes);
+}
+
+/** Kasuje całą serię razem z podzadaniami każdego powtórzenia. */
+export async function deleteTaskSeries(seriesId: number): Promise<void> {
+  await db.transaction('rw', db.tasks, async () => {
+    const wSerii = await db.tasks.where('seriesId').equals(seriesId).toArray();
+    const identyfikatory = wSerii.map((task) => task.id!).filter((id) => id !== undefined);
+    await db.tasks.where('parentId').anyOf(identyfikatory).delete();
+    await db.tasks.bulkDelete(identyfikatory);
   });
 }
 

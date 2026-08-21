@@ -44,7 +44,15 @@ import {
   monthScale,
 } from '../src/lib/dates';
 import { seriesDates } from '../src/data/events';
-import { coversDay, groupByCategory, groupByDay, taskDays } from '../src/data/tasks';
+import {
+  coversDay,
+  deleteTaskSeries,
+  groupByCategory,
+  groupByDay,
+  taskDays,
+  taskSeriesDates,
+  updateTaskSeries,
+} from '../src/data/tasks';
 import { rangeInfo } from '../src/lib/dates';
 import { validTask } from '../src/data/validate';
 import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
@@ -940,6 +948,80 @@ const dobryZakres = validTask({
   createdAt: 1,
 });
 check('poprawny zakres przechodzi', dobryZakres?.startDate === '2026-08-10');
+
+// 25. Zadania cykliczne
+check('seria tygodniowa zadań ma cztery terminy', taskSeriesDates('2026-08-03', { freq: 'tydzien', count: 4 }).length === 4);
+check(
+  'kolejne terminy zadania idą co siedem dni',
+  taskSeriesDates('2026-08-03', { freq: 'tydzien', count: 4 })[3] === '2026-08-24',
+);
+check(
+  'seria miesięczna zadań nie ucieka poza luty',
+  taskSeriesDates('2027-01-31', { freq: 'miesiac', count: 2 })[1] === '2027-02-28',
+);
+
+await db.tasks.clear();
+await addTask(
+  { title: 'Podlać kwiaty', starred: false, dueDate: '2026-08-03' },
+  { freq: 'tydzien', count: 3 },
+);
+const seriaZadan = await db.tasks.toArray();
+check('powtórzenia powstały jako osobne zadania', seriaZadan.length === 3);
+check('wszystkie dzielą jeden znacznik serii', new Set(seriaZadan.map((z) => z.seriesId)).size === 1);
+check('terminy rozłożone co tydzień', seriaZadan.map((z) => z.dueDate).join(',') === '2026-08-03,2026-08-10,2026-08-17');
+check('każde powtórzenie pamięta regułę', seriaZadan.every((z) => z.repeat?.freq === 'tydzien'));
+
+// Zadanie wielodniowe zachowuje długość w każdym powtórzeniu
+await db.tasks.clear();
+await addTask(
+  { title: 'Sprzątanie', starred: false, startDate: '2026-08-01', dueDate: '2026-08-03' },
+  { freq: 'tydzien', count: 2 },
+);
+const seriaWielodniowa = (await db.tasks.toArray()).sort((a, b) =>
+  (a.dueDate ?? '').localeCompare(b.dueDate ?? ''),
+);
+check(
+  'powtórzenie zachowuje długość zadania',
+  seriaWielodniowa[1]?.startDate === '2026-08-08' && seriaWielodniowa[1]?.dueDate === '2026-08-10',
+);
+
+// Zmiana całej serii nie rusza terminów
+const znacznik = seriaWielodniowa[0]!.seriesId!;
+await updateTaskSeries(znacznik, { starred: true });
+const poZmianie = await db.tasks.toArray();
+check('zmiana serii obejmuje wszystkie powtórzenia', poZmianie.every((z) => z.starred));
+check(
+  'zmiana serii nie rusza terminów',
+  poZmianie.some((z) => z.dueDate === '2026-08-03') && poZmianie.some((z) => z.dueDate === '2026-08-10'),
+);
+
+// Kasowanie serii zabiera też podzadania
+await db.tasks.add({
+  title: 'Podzadanie w serii',
+  done: false,
+  starred: false,
+  parentId: seriaWielodniowa[0]!.id,
+  order: 99,
+  createdAt: 1,
+});
+await deleteTaskSeries(znacznik);
+check('kasowanie serii usuwa wszystkie powtórzenia', (await db.tasks.count()) === 0);
+
+// Pojedyncze zadanie z serii da się skasować osobno
+await db.tasks.clear();
+await addTask(
+  { title: 'Bieganie', starred: false, dueDate: '2026-08-03' },
+  { freq: 'dzien', count: 3 },
+);
+const doPojedynczego = await db.tasks.toArray();
+await deleteTask(doPojedynczego[1]!.id!);
+check('skasowanie jednego terminu zostawia resztę serii', (await db.tasks.count()) === 2);
+
+// Powtarzanie bez terminu nie ma czego przesuwać
+await db.tasks.clear();
+await addTask({ title: 'Bez terminu', starred: false }, { freq: 'tydzien', count: 5 });
+check('zadanie bez terminu nie tworzy serii', (await db.tasks.count()) === 1);
+check('zadanie bez terminu nie dostaje znacznika serii', (await db.tasks.toArray())[0]?.seriesId === undefined);
 
 console.log(
   problems.length === 0
