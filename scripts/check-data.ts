@@ -67,6 +67,13 @@ import {
   uncheckAll,
 } from '../src/data/lists';
 import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
+import {
+  SECTION_IDS,
+  defaultSections,
+  normalizeAllSections,
+  normalizeSections,
+  visibleSections,
+} from '../src/app/sections';
 import { pl as slownikPl } from '../src/i18n/pl';
 import { srLatn } from '../src/i18n/srLatn';
 import { srCyrl } from '../src/i18n/srCyrl';
@@ -1138,6 +1145,51 @@ check(
   'poprawna pozycja przechodzi',
   validChecklistItem({ listId: 1, text: 'mleko', done: false, order: 0, createdAt: 1 })?.text ===
     'mleko',
+);
+
+// 28. Sekcje wewnątrz zakładek
+check(
+  'domyślnie widać wszystkie sekcje zadań',
+  visibleSections(defaultSections('zadania')).length === SECTION_IDS.zadania.length,
+);
+check(
+  'nieznana sekcja wypada z układu',
+  normalizeSections('zadania', { order: ['kosmos', 'dni'], hidden: [] }).order[0] === 'dni',
+);
+check(
+  'brakujące sekcje są dopisywane',
+  normalizeSections('zadania', { order: ['dni'], hidden: [] }).order.length ===
+    SECTION_IDS.zadania.length,
+);
+check(
+  'powtórzona sekcja występuje raz',
+  normalizeSections('zadania', { order: ['dni', 'dni'], hidden: [] }).order.filter(
+    (x) => x === 'dni',
+  ).length === 1,
+);
+check(
+  'nie da się wyłączyć wszystkich sekcji',
+  visibleSections(normalizeSections('zadania', { order: SECTION_IDS.zadania, hidden: SECTION_IDS.zadania }))
+    .length >= 1,
+);
+check(
+  'wyłączona sekcja znika z widocznych',
+  visibleSections(normalizeSections('zadania', { order: SECTION_IDS.zadania, hidden: ['dni'] }))
+    .join(',') === 'lista,kategorie',
+);
+check(
+  'kolejność sekcji jest zachowywana',
+  normalizeSections('przeglad', { order: ['tydzien', 'liczniki', 'dzis'], hidden: [] }).order.join(
+    ',',
+  ) === 'tydzien,liczniki,dzis',
+);
+check(
+  'komplet układów uzupełnia brakujące zakładki',
+  Object.keys(normalizeAllSections({})).sort().join(',') === 'przeglad,zadania',
+);
+check(
+  'sekcje z uszkodzonej kopii wracają do domyślnych',
+  visibleSections(normalizeAllSections('nonsens').zadania).length === SECTION_IDS.zadania.length,
 );
 
 console.log(

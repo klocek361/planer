@@ -190,6 +190,17 @@ export const en: Dict = {
     nastepnyTydzien: 'Next week',
   },
 
+  sekcje: {
+    tytul: 'Screen sections',
+    otworz: 'Section settings',
+    pokazuj: (nazwa) => `Show the ${nazwa} section`,
+    opis:
+      'The order in this list is the order on the screen. A section you switch off disappears from view, but nothing in it is lost — just switch it back on.',
+    liczniki: 'Counters for today',
+    dzis: '“Today” section',
+    tydzien: '“This week” section',
+  },
+
   ustawienia: {
     tytul: 'Settings',
     wyglad: 'Appearance',

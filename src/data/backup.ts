@@ -1,5 +1,7 @@
 import { normalizeLayout, type Layout } from '../app/tabs';
 import { useLayoutStore } from '../app/layoutStore';
+import { normalizeAllSections, type AllSections } from '../app/sections';
+import { useSectionsStore } from '../app/sectionsStore';
 import { toKey } from '../lib/dates';
 import { useThemeStore } from '../theme/store';
 import {
@@ -58,6 +60,7 @@ export interface BackupFile {
     zapisane: Theme[];
   };
   uklad: Layout;
+  sekcje: AllSections;
 }
 
 export async function buildBackup(): Promise<BackupFile> {
@@ -75,6 +78,7 @@ export async function buildBackup(): Promise<BackupFile> {
 
   const { theme, saved } = useThemeStore.getState();
   const { order, hidden, calendarTasks } = useLayoutStore.getState();
+  const { sekcje } = useSectionsStore.getState();
 
   return {
     aplikacja: FORMAT,
@@ -83,6 +87,7 @@ export async function buildBackup(): Promise<BackupFile> {
     dane: { categories, events, tasks, habits, habitEntries, notes, lists, listItems },
     motyw: { aktualny: theme, zapisane: saved },
     uklad: { order, hidden, calendarTasks },
+    sekcje,
   };
 }
 
@@ -213,6 +218,8 @@ export function parseBackup(json: string): ParsedBackup {
       },
       // Kopie w formacie 1 nie znały układu zakładek — wtedy wchodzi domyślny.
       uklad: normalizeLayout(candidate.uklad),
+      // Kopie sprzed wprowadzenia sekcji wchodzą z układem domyślnym.
+      sekcje: normalizeAllSections(candidate.sekcje),
     },
     skipped,
   };
@@ -267,4 +274,5 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
     useThemeStore.getState().replaceAll(backup.motyw.aktualny, backup.motyw.zapisane ?? []);
   }
   useLayoutStore.getState().replaceAll(normalizeLayout(backup.uklad));
+  useSectionsStore.getState().replaceAll(backup.sekcje);
 }

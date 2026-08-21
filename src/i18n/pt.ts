@@ -191,6 +191,17 @@ export const pt: Dict = {
     nastepnyTydzien: 'Semana seguinte',
   },
 
+  sekcje: {
+    tytul: 'Secções do ecrã',
+    otworz: 'Definições das secções',
+    pokazuj: (nazwa) => `Mostrar a secção ${nazwa}`,
+    opis:
+      'A ordem nesta lista é a ordem no ecrã. Uma secção desativada desaparece da vista, mas nada se perde — basta voltar a ativá-la.',
+    liczniki: 'Contadores para hoje',
+    dzis: 'Secção «Hoje»',
+    tydzien: 'Secção «Esta semana»',
+  },
+
   ustawienia: {
     tytul: 'Definições',
     wyglad: 'Aspeto',

@@ -187,6 +187,17 @@ export const srLatn: Dict = {
     nastepnyTydzien: 'Sledeća nedelja',
   },
 
+  sekcje: {
+    tytul: 'Sekcije ekrana',
+    otworz: 'Podešavanja sekcija',
+    pokazuj: (nazwa) => `Prikazuj sekciju ${nazwa}`,
+    opis:
+      'Redosled na listi je redosled na ekranu. Isključena sekcija nestaje iz prikaza, ali ništa iz nje se ne gubi — dovoljno je uključiti je nazad.',
+    liczniki: 'Brojači za danas',
+    dzis: 'Sekcija „Danas”',
+    tydzien: 'Sekcija „Ova nedelja”',
+  },
+
   ustawienia: {
     tytul: 'Podešavanja',
     wyglad: 'Izgled',
