@@ -1,5 +1,6 @@
 import type { EventItem } from '../../data/types';
 import { isDarkColor } from '../../theme/color';
+import { useT } from '../../i18n';
 import { RepeatIcon } from '../../ui/icons';
 
 /** Kolor kategorii albo neutralna szarość, gdy wydarzenie nie ma przypisania. */
@@ -64,8 +65,9 @@ export function EventRow({
   color: string;
   onClick: () => void;
 }) {
+  const { t } = useT();
   const time = event.allDay
-    ? 'cały dzień'
+    ? t.wspolne.calyDzien
     : [event.startTime, event.endTime].filter(Boolean).join('–');
 
   return (

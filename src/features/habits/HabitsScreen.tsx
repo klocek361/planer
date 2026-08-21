@@ -11,6 +11,7 @@ import {
   startOfMonth,
   toKey,
 } from '../../lib/dates';
+import { useT } from '../../i18n';
 import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
 import { SettingsButton } from '../../ui/SettingsButton';
@@ -26,6 +27,7 @@ import { HabitSheet } from './HabitSheet';
 const STRIP_DAYS = 28;
 
 export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const { t } = useT();
   const [editing, setEditing] = useState<Habit | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
@@ -61,7 +63,7 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
 
   return (
     <Screen
-      title="Nawyki"
+      title={t.zakladki.nawyki}
       action={
         <div className="flex items-center gap-1">
           <button
@@ -70,7 +72,7 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
               setEditing(null);
               setSheetOpen(true);
             }}
-            aria-label="Nowy nawyk"
+            aria-label={t.nawyki.nowyNawyk}
             className="text-muted active:text-ink -m-2 p-2"
           >
             <PlusIcon className="h-6 w-6" />
@@ -84,7 +86,7 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
           <button
             type="button"
             onClick={() => setMonth(addMonths(month, -1))}
-            aria-label="Poprzedni miesiąc"
+            aria-label={t.wspolne.poprzedniMiesiac}
             className="text-muted active:text-ink -m-1.5 p-1.5"
           >
             <ChevronLeftIcon className="h-5 w-5" />
@@ -102,7 +104,7 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
           <button
             type="button"
             onClick={() => setMonth(addMonths(month, 1))}
-            aria-label="Następny miesiąc"
+            aria-label={t.wspolne.nastepnyMiesiac}
             className="text-muted active:text-ink -m-1.5 p-1.5"
           >
             <ChevronRightIcon className="h-5 w-5" />
@@ -138,7 +140,7 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
 
       {habits !== undefined && active.length === 0 && (
         <p className="text-muted py-10 text-center text-sm">
-          Brak nawyków. Dodaj pierwszy plusem u góry.
+          {t.nawyki.brakNawykow}
         </p>
       )}
 

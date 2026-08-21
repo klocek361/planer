@@ -1,5 +1,6 @@
 import type { Task } from '../../data/types';
 import { dueInfo, type DueTone } from '../../lib/dates';
+import { useT } from '../../i18n';
 import { CheckIcon, PlusIcon, StarIcon } from '../../ui/icons';
 
 interface Props {
@@ -36,12 +37,13 @@ export function TaskRow({
   onEdit,
   onAddSubtask,
 }: Props) {
+  const { t } = useT();
   const meta: { text: string; className: string; dot?: string }[] = [];
   if (categoryName && !hideCategory) {
     meta.push({ text: categoryName, className: 'text-muted', dot: categoryColor });
   }
   if (task.dueDate && !hideDueDate) {
-    const due = dueInfo(task.dueDate);
+    const due = dueInfo(task.dueDate, t);
     meta.push({ text: due.text, className: DUE_CLASS[due.tone] });
   }
 

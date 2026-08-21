@@ -11,6 +11,7 @@ import type { Category } from '../../data/types';
 import { DEFAULT_CATEGORY_COLORS } from '../../theme/presets';
 import { Button } from '../../ui/Button';
 import { ColorPicker } from '../../ui/ColorPicker';
+import { useT } from '../../i18n';
 import { Screen } from '../../ui/Screen';
 import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
@@ -28,6 +29,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
   const [name, setName] = useState('');
   const [color, setColor] = useState(DEFAULT_CATEGORY_COLORS[0]!);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const { t } = useT();
 
   const openNew = () => {
     setName('');
@@ -61,13 +63,13 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <Screen
-      title="Kategorie"
+      title={t.ustawienia.kategorie}
       onBack={onBack}
       action={
         <button
           type="button"
           onClick={openNew}
-          aria-label="Nowa kategoria"
+          aria-label={t.kategorie.nowaKategoria}
           className="text-muted active:text-ink -m-2 p-2"
         >
           <PlusIcon className="h-6 w-6" />
@@ -75,7 +77,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
       }
     >
       <p className="text-muted pb-4 text-sm">
-        Kolory kategorii są wspólne dla wydarzeń, zadań i nawyków.
+        {t.kategorie.wstep}
       </p>
 
       <ul className="flex flex-col gap-1">
@@ -127,39 +129,39 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
 
       {categories !== undefined && list.length === 0 && (
         <p className="text-muted py-8 text-center text-sm">
-          Brak kategorii. Dodaj pierwszą plusem u góry.
+          {t.kategorie.brak}
         </p>
       )}
 
       <Sheet
         open={editing !== null}
-        title={editing?.mode === 'edycja' ? 'Edytuj kategorię' : 'Nowa kategoria'}
+        title={editing?.mode === 'edycja' ? t.kategorie.edytujKategorie : t.kategorie.nowaKategoria}
         onClose={() => setEditing(null)}
       >
         <div className="flex flex-col gap-5">
           <label className="flex flex-col gap-2">
-            <span className="text-muted text-xs font-medium">Nazwa</span>
+            <span className="text-muted text-xs font-medium">{t.wspolne.nazwa}</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="np. Zdrowie"
+              placeholder={t.kategorie.nazwaPrzyklad}
               className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
             />
           </label>
 
           <div className="flex flex-col gap-2">
-            <span className="text-muted text-xs font-medium">Kolor</span>
+            <span className="text-muted text-xs font-medium">{t.wspolne.kolor}</span>
             <ColorPicker value={color} onChange={setColor} presets={DEFAULT_CATEGORY_COLORS} />
           </div>
 
           <div className="flex gap-2">
             <Button variant="primary" className="flex-1" disabled={!name.trim()} onClick={save}>
-              Zapisz
+              {t.wspolne.zapisz}
             </Button>
             {editing?.mode === 'edycja' && (
               <Button
                 variant="danger"
-                aria-label="Usuń kategorię"
+                aria-label={t.kategorie.usunKategorie}
                 onClick={() => setConfirmOpen(true)}
                 className="px-4"
               >
@@ -170,16 +172,16 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
 
           {editing?.mode === 'edycja' && (
             <p className="text-muted -mt-2 text-xs">
-              Usunięcie kategorii nie kasuje wydarzeń ani zadań — tracą tylko przypisany kolor.
+              {t.kategorie.uwaga}
             </p>
           )}
 
           <ConfirmDialog
             open={confirmOpen}
-            title={`Usunąć kategorię „${
-              editing?.mode === 'edycja' ? editing.category.name : ''
-            }”?`}
-            message="Wydarzenia, zadania i nawyki zostaną — stracą tylko przypisany kolor."
+            title={t.kategorie.pytanie(
+              editing?.mode === 'edycja' ? editing.category.name : '',
+            )}
+            message={t.kategorie.opis}
             onConfirm={remove}
             onCancel={() => setConfirmOpen(false)}
           />

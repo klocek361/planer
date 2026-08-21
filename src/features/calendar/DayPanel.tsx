@@ -1,5 +1,6 @@
 import type { EventItem, Task } from '../../data/types';
 import { compareEvents, fromKey, fullDateLabel } from '../../lib/dates';
+import { useT } from '../../i18n';
 import { PlusIcon } from '../../ui/icons';
 import { TaskRow } from '../tasks/TaskRow';
 import { EventRow, eventColor } from './EventChip';
@@ -35,6 +36,7 @@ export function DayPanel({
   onStarTask,
   onEditTask,
 }: Props) {
+  const { t } = useT();
   const sorted = events.slice().sort(compareEvents);
 
   return (
@@ -80,7 +82,7 @@ export function DayPanel({
         className="bg-surface rounded-app text-muted mt-2 flex w-full shrink-0 items-center gap-2 px-4 py-3 text-sm font-medium"
       >
         <PlusIcon className="h-5 w-5" />
-        Nowe wydarzenie
+        {t.kalendarz.noweWydarzenie}
       </button>
     </div>
   );

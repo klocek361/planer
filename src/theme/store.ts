@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { currentDict } from '../i18n';
 import { persist } from 'zustand/middleware';
 import { sanitizeTheme, sanitizeThemeList } from '../data/validate';
 import { DEFAULT_THEME, PRESETS } from './presets';
@@ -43,7 +44,7 @@ export const useThemeStore = create<ThemeState>()(
           const entry: Theme = {
             ...structuredClone(s.theme),
             id: `wlasny-${Date.now()}`,
-            name: name.trim() || 'Mój motyw',
+            name: name.trim() || currentDict().wyglad.mojMotyw,
           };
           return { saved: [...s.saved, entry], theme: entry };
         }),

@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { useBackDismiss } from '../platform/back';
+import { useT } from '../i18n';
 import { Button } from './Button';
 
 interface Props {
@@ -25,10 +26,11 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = 'Usuń',
+  confirmLabel,
   onConfirm,
   onCancel,
 }: Props) {
+  const { t } = useT();
   // Androidowe cofnięcie ma anulować, nigdy nie kasować.
   useBackDismiss(open, onCancel);
 
@@ -38,7 +40,7 @@ export function ConfirmDialog({
         <div className="fixed inset-0 z-60 flex items-center justify-center px-8">
           <motion.button
             type="button"
-            aria-label="Anuluj"
+            aria-label={t.wspolne.anuluj}
             onClick={onCancel}
             className="absolute inset-0 bg-black/40"
             initial={{ opacity: 0 }}
@@ -61,10 +63,10 @@ export function ConfirmDialog({
 
             <div className="flex gap-2 pt-5">
               <Button className="flex-1" onClick={onCancel}>
-                Anuluj
+                {t.wspolne.anuluj}
               </Button>
               <Button variant="danger" onClick={onConfirm}>
-                {confirmLabel}
+                {confirmLabel ?? t.wspolne.usun}
               </Button>
             </div>
           </motion.div>

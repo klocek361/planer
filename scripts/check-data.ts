@@ -46,6 +46,12 @@ import {
 import { seriesDates } from '../src/data/events';
 import { groupByCategory, groupByDay } from '../src/data/tasks';
 import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
+import { pl as slownikPl } from '../src/i18n/pl';
+import { srLatn } from '../src/i18n/srLatn';
+import { srCyrl } from '../src/i18n/srCyrl';
+import { en as slownikEn } from '../src/i18n/en';
+import { pt as slownikPt } from '../src/i18n/pt';
+import { slavicForm } from '../src/i18n/plural';
 import type { Habit } from '../src/data/types';
 
 const problems: string[] = [];
@@ -674,22 +680,22 @@ check(
 );
 
 // 19. Odliczanie do terminu zadania
-check('dzisiejszy termin to "dziś"', dueInfo('2026-08-13', '2026-08-13').text === 'dziś');
-check('jutrzejszy termin to "jutro"', dueInfo('2026-08-14', '2026-08-13').text === 'jutro');
+check('dzisiejszy termin to "dziś"', dueInfo('2026-08-13', slownikPl, '2026-08-13').text === 'dziś');
+check('jutrzejszy termin to "jutro"', dueInfo('2026-08-14', slownikPl, '2026-08-13').text === 'jutro');
 check(
   'termin za trzy dni odlicza dni',
-  dueInfo('2026-08-16', '2026-08-13').text === 'do 16.08 · za 3 dni',
+  dueInfo('2026-08-16', slownikPl, '2026-08-13').text === 'do 16.08 · za 3 dni',
 );
-check('bliski termin jest wyróżniony', dueInfo('2026-08-16', '2026-08-13').tone === 'blisko');
-check('odległy termin jest zwykły', dueInfo('2026-08-30', '2026-08-13').tone === 'zwykly');
+check('bliski termin jest wyróżniony', dueInfo('2026-08-16', slownikPl, '2026-08-13').tone === 'blisko');
+check('odległy termin jest zwykły', dueInfo('2026-08-30', slownikPl, '2026-08-13').tone === 'zwykly');
 check(
   'przekroczony termin mówi o zaległości',
-  dueInfo('2026-08-11', '2026-08-13').text === '11.08 · 2 dni po terminie',
+  dueInfo('2026-08-11', slownikPl, '2026-08-13').text === '11.08 · 2 dni po terminie',
 );
-check('przekroczony termin ma ton zaległy', dueInfo('2026-08-11', '2026-08-13').tone === 'zalegly');
+check('przekroczony termin ma ton zaległy', dueInfo('2026-08-11', slownikPl, '2026-08-13').tone === 'zalegly');
 check(
   'bardzo odległy termin nie odlicza dni',
-  dueInfo('2026-12-24', '2026-08-13').text === 'do 24.12',
+  dueInfo('2026-12-24', slownikPl, '2026-08-13').text === 'do 24.12',
 );
 
 // 20. Układ zakładek
@@ -744,6 +750,77 @@ check(
   wgDni.find((g) => g.key === '2026-08-20')?.nodes[0]?.task.starred === true,
 );
 
+
+// 22. Tłumaczenia
+const slowniki = { pl: slownikPl, srLatn, srCyrl, en: slownikEn, pt: slownikPt };
+
+/** Zbiera wszystkie ścieżki kluczy, żeby dało się porównać słowniki co do jednego. */
+function sciezki(obj: unknown, prefiks = ''): string[] {
+  if (typeof obj !== 'object' || obj === null) return [prefiks];
+  const out: string[] = [];
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    out.push(...sciezki(value, prefiks ? `${prefiks}.${key}` : key));
+  }
+  return out.sort();
+}
+
+const wzorzec = sciezki(slownikPl);
+for (const [nazwa, slownik] of Object.entries(slowniki)) {
+  if (nazwa === 'pl') continue;
+  const moje = sciezki(slownik);
+  const brakuje = wzorzec.filter((k) => !moje.includes(k));
+  const nadmiar = moje.filter((k) => !wzorzec.includes(k));
+  check(`słownik ${nazwa} ma komplet kluczy`, brakuje.length === 0 && nadmiar.length === 0);
+}
+
+// Pusty tekst w tłumaczeniu wygląda na ekranie jak dziura po błędzie.
+for (const [nazwa, slownik] of Object.entries(slowniki)) {
+  const puste: string[] = [];
+  const szukaj = (obj: unknown, prefiks: string) => {
+    if (typeof obj === 'string') {
+      if (obj.trim().length === 0) puste.push(prefiks);
+      return;
+    }
+    if (typeof obj !== 'object' || obj === null) return;
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      szukaj(value, prefiks ? `${prefiks}.${key}` : key);
+    }
+  };
+  szukaj(slownik, '');
+  check(`słownik ${nazwa} nie ma pustych tekstów`, puste.length === 0);
+}
+
+check('cyrylica naprawdę jest cyrylicą', /^[\u0400-\u04FF]/.test(srCyrl.wspolne.zapisz));
+check('serbska łacinka nie zawiera cyrylicy', !/[\u0400-\u04FF]/.test(srLatn.wspolne.zapisz));
+check(
+  'dwuznaki przeszły na jedną literę',
+  srCyrl.kalendarz.powtarzanie === 'Понављање',
+);
+check(
+  'nazwa aplikacji zostaje łacinką w cyrylickim tekście',
+  srCyrl.kopia.bladObcy.includes('Planer Kaśkowy'),
+);
+
+check('forma dla 1 to one', slavicForm(1) === 'one');
+check('forma dla 2 to few', slavicForm(2) === 'few');
+check('forma dla 5 to many', slavicForm(5) === 'many');
+check('nastka 11 idzie do many', slavicForm(11) === 'many');
+check('nastka 12 idzie do many', slavicForm(12) === 'many');
+check('21 wraca do one', slavicForm(21) === 'one');
+check('22 wraca do few', slavicForm(22) === 'few');
+
+check(
+  'termin po serbsku odmienia dni',
+  dueInfo('2026-08-16', srLatn, '2026-08-13').text === 'do 16.08 · za 3 dana',
+);
+check(
+  'termin po angielsku nie odmienia',
+  dueInfo('2026-08-16', slownikEn, '2026-08-13').text === 'by 16.08 · in 3 days',
+);
+check(
+  'termin po portugalsku',
+  dueInfo('2026-08-16', slownikPt, '2026-08-13').text === 'até 16.08 · daqui a 3 dias',
+);
 
 console.log(
   problems.length === 0

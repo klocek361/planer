@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import { useBackDismiss } from '../platform/back';
+import { useT } from '../i18n';
 
 interface Props {
   open: boolean;
@@ -16,6 +17,7 @@ interface Props {
  * bo treść i przyciski lądują w zasięgu kciuka.
  */
 export function Sheet({ open, title, onClose, children }: Props) {
+  const { t } = useT();
   // Na Androidzie cofnięcie zamyka panel, a nie całą aplikację.
   useBackDismiss(open, onClose);
 
@@ -35,7 +37,7 @@ export function Sheet({ open, title, onClose, children }: Props) {
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <motion.button
             type="button"
-            aria-label="Zamknij"
+            aria-label={t.wspolne.zamknij}
             onClick={onClose}
             className="absolute inset-0 bg-black/30"
             initial={{ opacity: 0 }}
@@ -60,7 +62,7 @@ export function Sheet({ open, title, onClose, children }: Props) {
                 onClick={onClose}
                 className="text-muted active:text-ink -m-2 p-2 text-sm font-medium"
               >
-                Zamknij
+                {t.wspolne.zamknij}
               </button>
             </div>
             <div className="px-5 pb-5">{children}</div>

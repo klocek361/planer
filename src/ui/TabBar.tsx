@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { CalendarIcon, HabitsIcon, OverviewIcon, TasksIcon } from './icons';
-import { TAB_LABELS, type TabId } from '../app/tabs';
+import type { TabId } from '../app/tabs';
+import { useT } from '../i18n';
 
 const ICONS: Record<TabId, (p: { className?: string }) => ReactElement> = {
   przeglad: OverviewIcon,
@@ -22,6 +23,8 @@ interface Props {
  * od jednej do czterech pozycji.
  */
 export function TabBar({ tabs, active, onChange }: Props) {
+  const { t } = useT();
+
   return (
     <nav className="border-line bg-bg pb-safe shrink-0 border-t px-2">
       <ul className="flex">
@@ -40,7 +43,7 @@ export function TabBar({ tabs, active, onChange }: Props) {
               >
                 <Icon className="h-6 w-6" />
                 <span className="text-[0.6875rem] leading-none font-medium">
-                  {TAB_LABELS[id]}
+                  {t.zakladki[id]}
                 </span>
               </button>
             </li>

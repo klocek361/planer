@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Habit } from '../../data/types';
 import { currentStreak, habitWindow, isDayComplete, type DayState } from '../../data/habits';
 import { monthNameLabel, monthScale } from '../../lib/dates';
+import { useT } from '../../i18n';
 import { CheckIcon } from '../../ui/icons';
 
 interface Props {
@@ -37,6 +38,7 @@ export function HabitCard({
   onSetValue,
   onEdit,
 }: Props) {
+  const { t, plural, pluralWord } = useT();
   const byMonth = habit.period === 'miesiac';
 
   const strip = useMemo(
@@ -57,8 +59,8 @@ export function HabitCard({
   const doneSoFar = strip.states.filter((state) => state === 'zrobiony').length;
 
   const meta = [
-    streak > 0 ? `seria ${streak} ${streak === 1 ? 'dzień' : 'dni'}` : 'brak serii',
-    `${doneSoFar}/${strip.tracked.length} ${strip.tracked.length === 1 ? 'dzień' : 'dni'}`,
+    streak > 0 ? t.nawyki.seria(plural(streak, t.daty.dzien)) : t.nawyki.brakSerii,
+    `${doneSoFar}/${strip.tracked.length} ${pluralWord(strip.tracked.length, t.daty.dzien)}`,
   ];
   if (habit.kind === 'licznik' && habit.unit) meta.push(habit.unit.toLowerCase());
 
@@ -77,7 +79,7 @@ export function HabitCard({
             type="button"
             onClick={() => onSetValue(done ? 0 : 1)}
             aria-pressed={done}
-            aria-label={done ? `Odznacz ${habit.name}` : `Odhacz ${habit.name}`}
+            aria-label={done ? t.nawyki.odznacz(habit.name) : t.nawyki.odhacz(habit.name)}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors"
             style={{
               backgroundColor: done ? color : 'transparent',
@@ -89,7 +91,7 @@ export function HabitCard({
         ) : (
           <div className="flex shrink-0 items-center gap-1">
             <StepButton
-              label={`Odejmij od ${habit.name}`}
+              label={t.nawyki.odejmij(habit.name)}
               disabled={todayValue === 0}
               onClick={() => onSetValue(todayValue - 1)}
             >
@@ -102,7 +104,7 @@ export function HabitCard({
               {todayValue}/{habit.target}
             </span>
             <StepButton
-              label={`Dodaj do ${habit.name}`}
+              label={t.nawyki.dodaj(habit.name)}
               disabled={todayValue >= habit.target}
               onClick={() => onSetValue(todayValue + 1)}
             >

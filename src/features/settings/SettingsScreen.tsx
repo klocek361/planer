@@ -1,24 +1,28 @@
 import { useState } from 'react';
+import { useT } from '../../i18n';
 import { Screen } from '../../ui/Screen';
 import { useBackDismiss } from '../../platform/back';
 import { ChevronRightIcon } from '../../ui/icons';
 import { AppearanceScreen } from './AppearanceScreen';
 import { BackupScreen } from './BackupScreen';
 import { CalendarPrefsScreen } from './CalendarPrefsScreen';
+import { LanguageScreen } from './LanguageScreen';
 import { CategoriesScreen } from './CategoriesScreen';
 import { TabsScreen } from './TabsScreen';
 
-type View = 'menu' | 'kategorie' | 'wyglad' | 'zakladki' | 'kalendarz' | 'kopia';
+type View = 'menu' | 'kategorie' | 'wyglad' | 'zakladki' | 'kalendarz' | 'jezyk' | 'kopia';
 
-const ROWS: { id: Exclude<View, 'menu'>; label: string; hint: string }[] = [
-  { id: 'wyglad', label: 'Wygląd', hint: 'Kolory, krój i rozmiar pisma, tło' },
-  { id: 'kategorie', label: 'Kategorie', hint: 'Nazwy i kolory wspólne dla całej aplikacji' },
-  { id: 'zakladki', label: 'Zakładki', hint: 'Kolejność i włączanie dolnego paska' },
-  { id: 'kalendarz', label: 'Kalendarz', hint: 'Jak zadania wyglądają w siatce miesiąca' },
-  { id: 'kopia', label: 'Kopia zapasowa', hint: 'Zapis i odczyt wszystkich danych' },
+const ROWS: Exclude<View, 'menu'>[] = [
+  'wyglad',
+  'kategorie',
+  'zakladki',
+  'kalendarz',
+  'jezyk',
+  'kopia',
 ];
 
 export function SettingsScreen({ onClose }: { onClose: () => void }) {
+  const { t } = useT();
   const [view, setView] = useState<View>('menu');
   const back = () => setView('menu');
 
@@ -33,32 +37,36 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
 
   if (view === 'kalendarz') return <CalendarPrefsScreen onBack={back} />;
 
+  if (view === 'jezyk') return <LanguageScreen onBack={back} />;
+
   if (view === 'kopia') return <BackupScreen onBack={back} />;
 
   return (
     <Screen
-      title="Ustawienia"
+      title={t.ustawienia.tytul}
       action={
         <button
           type="button"
           onClick={onClose}
           className="bg-surface rounded-app text-ink px-3 py-1.5 text-sm font-medium"
         >
-          Gotowe
+          {t.wspolne.gotowe}
         </button>
       }
     >
       <ul className="flex flex-col gap-1">
         {ROWS.map((row) => (
-          <li key={row.id}>
+          <li key={row}>
             <button
               type="button"
-              onClick={() => setView(row.id)}
+              onClick={() => setView(row)}
               className="bg-surface rounded-app flex w-full items-center gap-3 px-4 py-3 text-left"
             >
               <span className="flex-1">
-                <span className="text-ink block text-sm font-medium">{row.label}</span>
-                <span className="text-muted block text-xs">{row.hint}</span>
+                <span className="text-ink block text-sm font-medium">{t.ustawienia[row]}</span>
+                <span className="text-muted block text-xs">
+                  {t.ustawienia[`${row}Opis` as const]}
+                </span>
               </span>
               <ChevronRightIcon className="text-faint h-5 w-5 shrink-0" />
             </button>

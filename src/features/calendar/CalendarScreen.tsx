@@ -16,6 +16,7 @@ import {
   toKey,
   type GridDay,
 } from '../../lib/dates';
+import { useT } from '../../i18n';
 import { tap } from '../../platform/haptics';
 import { SettingsButton } from '../../ui/SettingsButton';
 import { TaskSheet } from '../../features/tasks/TaskSheet';
@@ -27,6 +28,7 @@ import { MonthGrid } from './MonthGrid';
 const SWIPE_THRESHOLD = 55;
 
 export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const { t } = useT();
   const today = useMemo(() => new Date(), []);
   const [month, setMonth] = useState(() => startOfMonth(today));
   const [selectedKey, setSelectedKey] = useState(() => toKey(today));
@@ -156,7 +158,7 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
                 onClick={backToToday}
                 className="border-line text-ink rounded-full border px-3 py-1 text-xs font-semibold tracking-wide uppercase"
               >
-                Dzisiaj
+                {t.wspolne.dzisiaj}
               </button>
             )}
             <SettingsButton onClick={onOpenSettings} />

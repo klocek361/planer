@@ -3,6 +3,7 @@ import { COLOR_FIELDS, FONTS, TEXTURES } from '../../theme/catalog';
 import { READABLE_CONTRAST, contrastRatio } from '../../theme/color';
 import { DEFAULT_CATEGORY_COLORS, PRESETS } from '../../theme/presets';
 import { useThemeStore } from '../../theme/store';
+import { useT } from '../../i18n';
 import type { ColorKey } from '../../theme/types';
 import { Button } from '../../ui/Button';
 import { ColorPicker } from '../../ui/ColorPicker';
@@ -11,6 +12,7 @@ import { Sheet } from '../../ui/Sheet';
 import { TrashIcon } from '../../ui/icons';
 
 export function AppearanceScreen({ onBack }: { onBack: () => void }) {
+  const { t } = useT();
   const theme = useThemeStore((s) => s.theme);
   const saved = useThemeStore((s) => s.saved);
   const setColor = useThemeStore((s) => s.setColor);
@@ -29,12 +31,12 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
   const mutedContrast = contrastRatio(theme.colors.textMuted, theme.colors.bg);
 
   return (
-    <Screen title="Wygląd" onBack={onBack}>
+    <Screen title={t.ustawienia.wyglad} onBack={onBack}>
       <p className="text-muted pb-4 text-sm">
-        Każda zmiana jest widoczna od razu. Zacznij od gotowego zestawu i przerób go pod siebie.
+        {t.wyglad.wstep}
       </p>
 
-      <Section title="Gotowe zestawy">
+      <Section title={t.wyglad.gotoweZestawy}>
         <div className="flex flex-wrap gap-2">
           {PRESETS.map((preset) => (
             <button
@@ -54,14 +56,14 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
                 style={{ backgroundColor: preset.colors.accent }}
                 aria-hidden="true"
               />
-              {preset.name}
+              {t.presety[preset.id] ?? preset.name}
             </button>
           ))}
         </div>
       </Section>
 
       {saved.length > 0 && (
-        <Section title="Moje zestawy">
+        <Section title={t.wyglad.mojeZestawy}>
           <ul className="flex flex-col gap-1">
             {saved.map((entry) => (
               <li key={entry.id} className="flex items-center gap-1">
@@ -110,19 +112,21 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
               }`}
             >
               <span className="min-w-0">
-                <span className="block text-sm font-medium">{font.label}</span>
-                <span className="block text-xs opacity-70">{font.hint}</span>
+                <span className="block text-sm font-medium">{t.kroje[font.id]}</span>
+                <span className="block text-xs opacity-70">
+                  {t.kroje[`${font.id}Opis` as const]}
+                </span>
               </span>
               {/* Podgląd krojem, o którym mowa — także tego niewybranego. */}
               <span className="shrink-0 text-lg" style={{ fontFamily: font.stack }}>
-                Aa ąćę
+                {t.wyglad.probka}
               </span>
             </button>
           ))}
         </div>
 
         <Slider
-          label="Rozmiar pisma"
+          label={t.wyglad.rozmiarPisma}
           value={theme.typography.scale}
           min={0.85}
           max={1.45}
@@ -132,9 +136,9 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
         />
       </Section>
 
-      <Section title="Kształt">
+      <Section title={t.wyglad.ksztalt}>
         <Slider
-          label="Zaokrąglenie rogów"
+          label={t.wyglad.zaokraglenie}
           value={theme.shape.radius}
           min={0}
           max={28}
@@ -143,17 +147,19 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
           onChange={(radius) => patch({ shape: { ...theme.shape, radius } })}
         />
         <Slider
-          label="Gęstość interfejsu"
+          label={t.wyglad.gestosc}
           value={theme.shape.density}
           min={0.85}
           max={1.3}
           step={0.05}
-          format={(v) => (v < 0.98 ? 'ciasno' : v > 1.12 ? 'luźno' : 'średnio')}
+          format={(v) =>
+            v < 0.98 ? t.wyglad.ciasno : v > 1.12 ? t.wyglad.luzno : t.wyglad.srednio
+          }
           onChange={(density) => patch({ shape: { ...theme.shape, density } })}
         />
       </Section>
 
-      <Section title="Tło">
+      <Section title={t.wyglad.tlo}>
         <div className="flex flex-wrap gap-2">
           {TEXTURES.map((texture) => (
             <button
@@ -165,22 +171,21 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
                 theme.texture === texture.id ? 'bg-selected text-selected-ink' : 'bg-surface'
               }`}
             >
-              {texture.label}
+              {t.tekstury[texture.id]}
             </button>
           ))}
         </div>
       </Section>
 
-      <Section title="Kolory">
+      <Section title={t.wyglad.kolory}>
         {textContrast < READABLE_CONTRAST && (
           <Warning>
-            Tekst główny słabo odcina się od tła (kontrast {textContrast.toFixed(1)}, zalecane co
-            najmniej {READABLE_CONTRAST}). Przyciemnij tekst albo rozjaśnij tło.
+            {t.wyglad.ostrzezenieTekst(textContrast.toFixed(1), READABLE_CONTRAST)}
           </Warning>
         )}
         {textContrast >= READABLE_CONTRAST && mutedContrast < 3 && (
           <Warning>
-            Tekst przygaszony może być trudny do odczytania (kontrast {mutedContrast.toFixed(1)}).
+            {t.wyglad.ostrzezeniePrzygaszony(mutedContrast.toFixed(1))}
           </Warning>
         )}
 
@@ -198,8 +203,12 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
                   aria-hidden="true"
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="text-ink block text-sm font-medium">{field.label}</span>
-                  <span className="text-muted block text-xs">{field.hint}</span>
+                  <span className="text-ink block text-sm font-medium">
+                    {t.kolory[field.key]}
+                  </span>
+                  <span className="text-muted block text-xs">
+                    {t.kolory[`${field.key}Opis` as const]}
+                  </span>
                 </span>
                 <span className="text-faint shrink-0 font-mono text-xs">
                   {theme.colors[field.key]}
@@ -219,20 +228,20 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
             setSaveOpen(true);
           }}
         >
-          Zapisz jako mój zestaw
+          {t.wyglad.zapiszJakoMoj}
         </Button>
-        <Button onClick={reset}>Przywróć domyślny</Button>
+        <Button onClick={reset}>{t.wyglad.przywrocDomyslny}</Button>
       </div>
 
       <Sheet
         open={editingColor !== null}
-        title={COLOR_FIELDS.find((f) => f.key === editingColor)?.label ?? 'Kolor'}
+        title={editingColor ? t.kolory[editingColor] : t.wspolne.kolor}
         onClose={() => setEditingColor(null)}
       >
         {editingColor && (
           <div className="flex flex-col gap-4">
             <p className="text-muted -mt-2 text-sm">
-              {COLOR_FIELDS.find((f) => f.key === editingColor)?.hint}
+              {t.kolory[`${editingColor}Opis` as const]}
             </p>
             <ColorPicker
               value={theme.colors[editingColor]}
@@ -240,20 +249,20 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
               presets={DEFAULT_CATEGORY_COLORS}
             />
             <Button variant="primary" onClick={() => setEditingColor(null)}>
-              Gotowe
+              {t.wspolne.gotowe}
             </Button>
           </div>
         )}
       </Sheet>
 
-      <Sheet open={saveOpen} title="Zapisz zestaw" onClose={() => setSaveOpen(false)}>
+      <Sheet open={saveOpen} title={t.wyglad.zapiszZestaw} onClose={() => setSaveOpen(false)}>
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-2">
-            <span className="text-muted text-xs font-medium">Nazwa</span>
+            <span className="text-muted text-xs font-medium">{t.wspolne.nazwa}</span>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="np. Mój pastelowy"
+              placeholder={t.wyglad.nazwaPrzyklad}
               className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
             />
           </label>
@@ -265,7 +274,7 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
               setSaveOpen(false);
             }}
           >
-            Zapisz
+            {t.wspolne.zapisz}
           </Button>
         </div>
       </Sheet>

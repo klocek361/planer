@@ -11,6 +11,7 @@ import {
   weekDays,
   weekRangeLabel,
 } from '../../lib/dates';
+import { useT } from '../../i18n';
 import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
 import { SettingsButton } from '../../ui/SettingsButton';
@@ -36,6 +37,7 @@ function shiftDays(date: Date, days: number): Date {
  * do tych samych arkuszy edycji, co pozostałe zakładki.
  */
 export function OverviewScreen({ onOpenSettings }: Props) {
+  const { t } = useT();
   const [weekBase, setWeekBase] = useState(() => new Date());
   const [editing, setEditing] = useState<Task | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -151,21 +153,25 @@ export function OverviewScreen({ onOpenSettings }: Props) {
   );
 
   return (
-    <Screen title="Przegląd" action={<SettingsButton onClick={onOpenSettings} />}>
+    <Screen title={t.zakladki.przeglad} action={<SettingsButton onClick={onOpenSettings} />}>
       <div className="flex flex-col gap-6 pt-1">
         <div className="grid grid-cols-3 gap-2">
           <StatCard
-            label="Na dziś"
+            label={t.przeglad.naDzis}
             value={`${doneToday}/${todayTotal}`}
             ratio={todayTotal === 0 ? 0 : doneToday / todayTotal}
           />
-          <StatCard label="Wydarzenia" value={String(todayEvents.length)} />
-          <StatCard label="Zaległe" value={String(overdue.length)} alert={overdue.length > 0} />
+          <StatCard label={t.przeglad.wydarzenia} value={String(todayEvents.length)} />
+          <StatCard
+            label={t.przeglad.zalegle}
+            value={String(overdue.length)}
+            alert={overdue.length > 0}
+          />
         </div>
 
-        <Section title="Dziś" hint={dayHeadingLabel(todayKey)}>
+        <Section title={t.wspolne.dzis} hint={dayHeadingLabel(todayKey)}>
           {todayEvents.length === 0 && todayTasks.length === 0 && activeHabits.length === 0 ? (
-            <p className="text-muted py-4 text-center text-sm">Dziś nic nie zaplanowano.</p>
+            <p className="text-muted py-4 text-center text-sm">{t.przeglad.nicNaDzis}</p>
           ) : (
             <div className="flex flex-col gap-4">
               {todayEvents.length > 0 && (
@@ -192,7 +198,7 @@ export function OverviewScreen({ onOpenSettings }: Props) {
 
               {activeHabits.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  <SubHeading text={`Nawyki ${habitsDone}/${activeHabits.length}`} />
+                  <SubHeading text={t.przeglad.nawykiLicznik(habitsDone, activeHabits.length)} />
                   <ul className="flex flex-col gap-1">
                     {activeHabits.map((habit) => (
                       <li key={habit.id}>
@@ -215,14 +221,14 @@ export function OverviewScreen({ onOpenSettings }: Props) {
         </Section>
 
         <Section
-          title="Ten tydzień"
+          title={t.przeglad.tenTydzien}
           hint={weekRangeLabel(week)}
           nav={
             <div className="flex items-center gap-0.5">
               <button
                 type="button"
                 onClick={() => setWeekBase(shiftDays(weekBase, -7))}
-                aria-label="Poprzedni tydzień"
+                aria-label={t.przeglad.poprzedniTydzien}
                 className="text-muted active:text-ink -m-1.5 p-1.5"
               >
                 <ChevronLeftIcon className="h-5 w-5" />
@@ -233,13 +239,13 @@ export function OverviewScreen({ onOpenSettings }: Props) {
                   onClick={() => setWeekBase(new Date())}
                   className="text-accent px-1 text-xs font-medium"
                 >
-                  Dziś
+                  {t.wspolne.dzis}
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setWeekBase(shiftDays(weekBase, 7))}
-                aria-label="Następny tydzień"
+                aria-label={t.przeglad.nastepnyTydzien}
                 className="text-muted active:text-ink -m-1.5 p-1.5"
               >
                 <ChevronRightIcon className="h-5 w-5" />
@@ -274,7 +280,7 @@ export function OverviewScreen({ onOpenSettings }: Props) {
 
           {week.every(
             (key) => (eventsByDay.get(key) ?? []).length === 0 && (tasksByDay.get(key) ?? []).length === 0,
-          ) && <p className="text-muted py-4 text-center text-sm">W tym tygodniu pusto.</p>}
+          ) && <p className="text-muted py-4 text-center text-sm">{t.przeglad.pustyTydzien}</p>}
         </Section>
       </div>
 
