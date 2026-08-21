@@ -28,6 +28,34 @@ export function TasksIcon({ className }: IconProps) {
   );
 }
 
+/** Ołówek — edycja nazwy i notatki listy. */
+export function EditIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 20h4l10-10-4-4L4 16v4zM14 6l4 4" />
+    </svg>
+  );
+}
+
+export function ListsIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 6.5 5.5 8 8 5M4 12.5 5.5 14 8 11M4 18.5 5.5 20 8 17M11 6.5h9M11 12.5h9M11 18.5h9" />
+    </svg>
+  );
+}
+
+/** Trzy kropki — wejście w ustawienia sekcji danego ekranu. */
+export function MoreIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function HabitsIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

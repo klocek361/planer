@@ -1,6 +1,15 @@
 import Dexie, { type Table } from 'dexie';
 import { DEFAULT_CATEGORY_COLORS } from '../theme/presets';
-import type { Category, EventItem, Habit, HabitEntry, Note, Task } from './types';
+import type {
+  Category,
+  Checklist,
+  ChecklistItem,
+  EventItem,
+  Habit,
+  HabitEntry,
+  Note,
+  Task,
+} from './types';
 
 class PlanerDB extends Dexie {
   categories!: Table<Category, number>;
@@ -9,6 +18,8 @@ class PlanerDB extends Dexie {
   habits!: Table<Habit, number>;
   habitEntries!: Table<HabitEntry, number>;
   notes!: Table<Note, number>;
+  lists!: Table<Checklist, number>;
+  listItems!: Table<ChecklistItem, number>;
 
   constructor() {
     super('planer-kaskowy');
@@ -57,6 +68,12 @@ class PlanerDB extends Dexie {
     // indeks wystarczy — istniejące zadania po prostu nie należą do żadnej.
     this.version(4).stores({
       tasks: '++id, done, dueDate, categoryId, parentId, order, seriesId',
+    });
+
+    // Wersja 5: listy do odhaczania. Nowe tabele, więc nic nie trzeba migrować.
+    this.version(5).stores({
+      lists: '++id, order',
+      listItems: '++id, listId, [listId+done], order',
     });
 
     // Uruchamiane raz, przy pierwszym otwarciu aplikacji na danym telefonie.

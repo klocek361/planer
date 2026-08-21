@@ -11,7 +11,17 @@ import { FONTS, TEXTURES } from '../theme/catalog';
 import { DEFAULT_THEME } from '../theme/presets';
 import type { ColorKey, Theme } from '../theme/types';
 import { MAX_REPEAT_COUNT, REPEAT_FREQS } from './types';
-import type { Category, EventItem, Habit, HabitEntry, Note, Repeat, Task } from './types';
+import type {
+  Category,
+  Checklist,
+  ChecklistItem,
+  EventItem,
+  Habit,
+  HabitEntry,
+  Note,
+  Repeat,
+  Task,
+} from './types';
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 const isOptionalText = (v: unknown): v is string | undefined => v === undefined || isText(v);
@@ -153,6 +163,38 @@ export function validHabitEntry(input: unknown): HabitEntry | null {
     habitId: r.habitId,
     date: r.date,
     value: Math.round(r.value),
+  };
+}
+
+export function validChecklist(input: unknown): Checklist | null {
+  const r = record(input);
+  if (!r) return null;
+  if (!isText(r.name) || !isNumber(r.order) || !isNumber(r.createdAt)) return null;
+  if (!isOptionalText(r.note) || !isOptionalId(r.categoryId) || !isOptionalId(r.id)) return null;
+
+  return {
+    id: r.id as number | undefined,
+    name: r.name,
+    note: r.note as string | undefined,
+    categoryId: r.categoryId as number | undefined,
+    order: r.order,
+    createdAt: r.createdAt,
+  };
+}
+
+export function validChecklistItem(input: unknown): ChecklistItem | null {
+  const r = record(input);
+  if (!r) return null;
+  if (!isText(r.text) || !isNumber(r.listId) || !isFlag(r.done)) return null;
+  if (!isNumber(r.order) || !isNumber(r.createdAt) || !isOptionalId(r.id)) return null;
+
+  return {
+    id: r.id as number | undefined,
+    listId: r.listId,
+    text: r.text,
+    done: r.done,
+    order: r.order,
+    createdAt: r.createdAt,
   };
 }
 
