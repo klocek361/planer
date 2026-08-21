@@ -141,6 +141,9 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
               {pending.backup.zapisano
                 ? t.kopia.zDnia(fullDateLabel(new Date(pending.backup.zapisano)))
                 : t.kopia.bezDaty}{' '}
+              {pending.backup.wersjaAplikacji && (
+                <>{t.kopia.zWersji(pending.backup.wersjaAplikacji)} </>
+              )}
               {t.kopia.zawiera}
             </p>
             <ul className="text-ink flex flex-col gap-1 text-sm">

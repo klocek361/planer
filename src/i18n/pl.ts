@@ -217,6 +217,7 @@ export const pl = {
     jezykOpis: 'Język interfejsu i nazw miesięcy',
     kopia: 'Kopia zapasowa',
     kopiaOpis: 'Zapis i odczyt wszystkich danych',
+    wersja: (numer: string) => `Planer Kaśkowy ${numer}`,
   },
 
   zakladkiEkran: {
@@ -297,6 +298,7 @@ export const pl = {
     bezDaty: 'Kopia bez daty zapisu.',
     zDnia: (data: string) => `Kopia z dnia ${data}.`,
     zawiera: 'Zawiera:',
+    zWersji: (numer: string) => `Zapisana w wersji ${numer}.`,
     ostrzezenieDane:
       'Dane są tylko na tym telefonie. Usunięcie ikony z ekranu początkowego kasuje je bezpowrotnie — rób kopię co jakiś czas.',
     stanAplikacji: (lista: string) => `W aplikacji jest teraz: ${lista}.`,
