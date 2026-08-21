@@ -166,33 +166,38 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
         </div>
       </header>
 
-      <div
-        className="px-safe shrink-0"
-        onTouchStart={(e) => {
-          const touch = e.touches[0];
-          if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
-        }}
-        onTouchEnd={handleTouchEnd}
-      >
-        <motion.div
-          key={toKey(month)}
-          initial={hasMounted.current ? { opacity: 0, x: direction * 18 } : false}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.16, ease: 'easeOut' }}
+      {/*
+        Siatka i panel dnia dzielą jeden przewijany obszar. Wcześniej siatka
+        była sztywna, a panel dostawał „resztę” wysokości — przy powiększonym
+        piśmie tej reszty nie zostawało i rozpiska dnia uciekała pod pasek
+        zakładek, bez możliwości przewinięcia.
+      */}
+      <div className="px-safe min-h-0 flex-1 overflow-y-auto pb-2">
+        <div
+          onTouchStart={(e) => {
+            const touch = e.touches[0];
+            if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
+          }}
+          onTouchEnd={handleTouchEnd}
         >
-          <MonthGrid
-            days={days}
-            eventsByDate={eventsByDate}
-            tasksByDate={tasksByDate}
-            categoryColors={categoryColors}
-            taskMode={taskMode}
-            selectedKey={selectedKey}
-            onSelect={selectDay}
-          />
-        </motion.div>
-      </div>
+          <motion.div
+            key={toKey(month)}
+            initial={hasMounted.current ? { opacity: 0, x: direction * 18 } : false}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
+          >
+            <MonthGrid
+              days={days}
+              eventsByDate={eventsByDate}
+              tasksByDate={tasksByDate}
+              categoryColors={categoryColors}
+              taskMode={taskMode}
+              selectedKey={selectedKey}
+              onSelect={selectDay}
+            />
+          </motion.div>
+        </div>
 
-      <div className="px-safe flex min-h-0 flex-1 flex-col pb-2">
         <DayPanel
           dateKey={selectedKey}
           events={selectedEvents}

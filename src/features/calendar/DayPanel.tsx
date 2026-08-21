@@ -23,6 +23,10 @@ interface Props {
  * Panel pod siatką: pełna data wybranego dnia, jego wydarzenia i zadania.
  * Tu nazwy nie są przycinane — jeśli w komórce coś się nie zmieściło, to jest
  * miejsce, w którym da się to przeczytać w całości.
+ *
+ * Panel rośnie do naturalnej wysokości; przewija się cały ekran kalendarza,
+ * a nie sama lista. Przy powiększonym piśmie własne przewijanie listy kończyło
+ * się tym, że nie było już czego przewijać — na listę nie zostawało miejsca.
  */
 export function DayPanel({
   dateKey,
@@ -40,16 +44,12 @@ export function DayPanel({
   const sorted = events.slice().sort(compareEvents);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col pt-3">
-      <h2 className="text-ink shrink-0 pb-2 text-lg font-bold">
+    <div className="flex flex-col pt-3">
+      <h2 className="text-ink pb-2 text-lg font-bold">
         {fullDateLabel(fromKey(dateKey))}
       </h2>
 
-      {/*
-        Lista ma naturalną wysokość, żeby przycisk dodawania trzymał się tuż pod
-        datą. Dopiero gdy wpisów jest dużo, lista kurczy się i zaczyna przewijać.
-      */}
-      <ul className="flex min-h-0 shrink flex-col gap-1 overflow-y-auto">
+      <ul className="flex flex-col gap-1">
         {sorted.map((event) => (
           <li key={`w-${event.id}`}>
             <EventRow
@@ -79,7 +79,7 @@ export function DayPanel({
       <button
         type="button"
         onClick={onAdd}
-        className="bg-surface rounded-app text-muted mt-2 flex w-full shrink-0 items-center gap-2 px-4 py-3 text-sm font-medium"
+        className="bg-surface rounded-app text-muted mt-2 flex w-full items-center gap-2 px-4 py-3 text-sm font-medium"
       >
         <PlusIcon className="h-5 w-5" />
         {t.kalendarz.noweWydarzenie}
