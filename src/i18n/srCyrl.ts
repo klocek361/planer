@@ -40,6 +40,10 @@ export const srCyrl: Dict = {
     dzien: { one: 'дан', few: 'дана', many: 'дана' } as Plural,
     zadanie: { one: 'задатак', few: 'задатка', many: 'задатака' } as Plural,
     wpis: { one: 'унос', few: 'уноса', many: 'уноса' } as Plural,
+    wydarzenie: { one: 'догађај', few: 'догађаја', many: 'догађаја' } as Plural,
+    nawyk: { one: 'навика', few: 'навике', many: 'навика' } as Plural,
+    odhaczenie: { one: 'штиклирање', few: 'штиклирања', many: 'штиклирања' } as Plural,
+    kategoria: { one: 'категорија', few: 'категорије', many: 'категорија' } as Plural,
     jutro: 'сутра',
     doDnia: (data) => `до ${data}`,
     doDniaZa: (data, ile) => `до ${data} · за ${ile}`,
@@ -99,6 +103,8 @@ export const srCyrl: Dict = {
     ukryjZrobione: 'Сакриј урађено',
     pusto: 'Овде нема ничега.',
     bezKategorii: 'Без категорије',
+    dodajGwiazdke: (tytul) => `Означи ${tytul} звездицом`,
+    zdejmijGwiazdke: (tytul) => `Скини звездицу са ${tytul}`,
   },
 
   nawyki: {
@@ -205,6 +211,7 @@ export const srCyrl: Dict = {
     gotoweZestawy: 'Готови сетови',
     mojeZestawy: 'Моји сетови',
     mojMotyw: 'Мој сет',
+    usunZestaw: (nazwa) => `Обриши сет ${nazwa}`,
     kodKoloru: 'Упиши код у облику #RRGGBB, на пример #9C6F4A.',
     probka: 'Аа чћш',
     ksztalt: 'Облик',
@@ -238,6 +245,9 @@ export const srCyrl: Dict = {
     bezDaty: 'Копија без датума чувања.',
     zDnia: (data) => `Копија од ${data}.`,
     zawiera: 'Садржи:',
+    ostrzezenieDane:
+      'Подаци су само на овом телефону. Брисање иконе са почетног екрана брише их неповратно — прави копију с времена на време.',
+    stanAplikacji: (lista) => `У апликацији је сада: ${lista}.`,
     resztaDobra: 'Остатак копије може да се учита.',
     ostrzezenie: 'Све што је сада у апликацији биће замењено.',
     wgrajIZastap: 'Учитај и замени',

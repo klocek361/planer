@@ -52,6 +52,8 @@ import { srCyrl } from '../src/i18n/srCyrl';
 import { en as slownikEn } from '../src/i18n/en';
 import { pt as slownikPt } from '../src/i18n/pt';
 import { slavicForm } from '../src/i18n/plural';
+import { setDateLocale, weekdayInitials } from '../src/lib/dates';
+import { enGB, pl as plDate, pt as ptDate, sr as srDate } from 'date-fns/locale';
 import type { Habit } from '../src/data/types';
 
 const problems: string[] = [];
@@ -821,6 +823,21 @@ check(
   'termin po portugalsku',
   dueInfo('2026-08-16', slownikPt, '2026-08-13').text === 'até 16.08 · daqui a 3 dias',
 );
+
+// 23. Nagłówki dni tygodnia idą za językiem
+const literyDni = (locale: Parameters<typeof setDateLocale>[0]) => {
+  setDateLocale(locale);
+  return weekdayInitials();
+};
+
+check('po polsku dni to P W Ś C P S N', literyDni(plDate).join('') === 'PWŚCPSN');
+check('po angielsku dni to M T W T F S S', literyDni(enGB).join('') === 'MTWTFSS');
+check('po portugalsku tydzień zaczyna się od S', literyDni(ptDate)[0] === 'S');
+check('po serbsku dni są cyrylicą', /^[\u0400-\u04FF]+$/.test(literyDni(srDate).join('')));
+check('zawsze siedem nagłówków', literyDni(plDate).length === 7);
+
+// Wracamy do polskiego, żeby dalsze sprawdzenia nie zależały od kolejności.
+setDateLocale(plDate);
 
 console.log(
   problems.length === 0

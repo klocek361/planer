@@ -41,6 +41,10 @@ export const pl = {
     dzien: { one: 'dzień', few: 'dni', many: 'dni' } as Plural,
     zadanie: { one: 'zadanie', few: 'zadania', many: 'zadań' } as Plural,
     wpis: { one: 'wpis', few: 'wpisy', many: 'wpisów' } as Plural,
+    wydarzenie: { one: 'wydarzenie', few: 'wydarzenia', many: 'wydarzeń' } as Plural,
+    nawyk: { one: 'nawyk', few: 'nawyki', many: 'nawyków' } as Plural,
+    odhaczenie: { one: 'odhaczenie', few: 'odhaczenia', many: 'odhaczeń' } as Plural,
+    kategoria: { one: 'kategoria', few: 'kategorie', many: 'kategorii' } as Plural,
     jutro: 'jutro',
     doDnia: (data: string) => `do ${data}`,
     doDniaZa: (data: string, ile: string) => `do ${data} · za ${ile}`,
@@ -100,6 +104,8 @@ export const pl = {
     ukryjZrobione: 'Ukryj zrobione',
     pusto: 'Nic tu nie ma.',
     bezKategorii: 'Bez kategorii',
+    dodajGwiazdke: (tytul: string) => `Oznacz ${tytul} gwiazdką`,
+    zdejmijGwiazdke: (tytul: string) => `Zdejmij gwiazdkę z ${tytul}`,
   },
 
   nawyki: {
@@ -206,6 +212,7 @@ export const pl = {
     gotoweZestawy: 'Gotowe zestawy',
     mojeZestawy: 'Moje zestawy',
     mojMotyw: 'Mój zestaw',
+    usunZestaw: (nazwa: string) => `Usuń zestaw ${nazwa}`,
     kodKoloru: 'Wpisz kod w formacie #RRGGBB, na przykład #9C6F4A.',
     probka: 'Aa ąćę',
     ksztalt: 'Kształt',
@@ -239,6 +246,9 @@ export const pl = {
     bezDaty: 'Kopia bez daty zapisu.',
     zDnia: (data: string) => `Kopia z dnia ${data}.`,
     zawiera: 'Zawiera:',
+    ostrzezenieDane:
+      'Dane są tylko na tym telefonie. Usunięcie ikony z ekranu początkowego kasuje je bezpowrotnie — rób kopię co jakiś czas.',
+    stanAplikacji: (lista: string) => `W aplikacji jest teraz: ${lista}.`,
     resztaDobra: 'Reszta kopii nadaje się do wgrania.',
     ostrzezenie: 'Wszystko, co jest teraz w aplikacji, zostanie zastąpione.',
     wgrajIZastap: 'Wgraj i zastąp',

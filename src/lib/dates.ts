@@ -215,8 +215,21 @@ export function previousDay(key: string): string {
   return toKey(day);
 }
 
-/** Nagłówki kolumn: poniedziałek → niedziela. */
-export const WEEKDAY_LABELS = ['P', 'W', 'Ś', 'C', 'P', 'S', 'N'] as const;
+/**
+ * Nagłówki kolumn siatki: poniedziałek → niedziela, jedną literą.
+ *
+ * Liczone z bieżącego języka, a nie wpisane na sztywno — po angielsku muszą
+ * wyjść M T W T F S S, a po serbsku П У С Ч П С Н. Za punkt odniesienia służy
+ * dowolny poniedziałek; date-fns podaje formę „najwęższą”, my ją tylko
+ * podnosimy do wielkiej litery.
+ */
+const PONIEDZIALEK_ODNIESIENIA = new Date(2026, 0, 5);
+
+export function weekdayInitials(): string[] {
+  return daysFrom(PONIEDZIALEK_ODNIESIENIA, 7).map((key) =>
+    format(fromKey(key), 'EEEEE', { locale: activeLocale }).toUpperCase(),
+  );
+}
 
 export interface GridDay {
   date: Date;

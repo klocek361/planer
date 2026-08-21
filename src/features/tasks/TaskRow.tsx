@@ -97,7 +97,11 @@ export function TaskRow({
           type="button"
           onClick={onToggleStar}
           aria-pressed={task.starred}
-          aria-label={task.starred ? `Zdejmij gwiazdkę z ${task.title}` : `Oznacz ${task.title} gwiazdką`}
+          aria-label={
+          task.starred
+            ? t.zadania.zdejmijGwiazdke(task.title)
+            : t.zadania.dodajGwiazdke(task.title)
+        }
           className={`mt-1.5 shrink-0 p-1 ${task.starred ? 'text-star' : 'text-faint'}`}
         >
           <StarIcon className={nested ? 'h-4 w-4' : 'h-[1.125rem] w-[1.125rem]'} filled={task.starred} />

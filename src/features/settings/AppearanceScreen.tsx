@@ -88,7 +88,7 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
                 <button
                   type="button"
                   onClick={() => deleteSaved(entry.id)}
-                  aria-label={`Usuń zestaw ${entry.name}`}
+                  aria-label={t.wyglad.usunZestaw(entry.name)}
                   className="text-muted p-2"
                 >
                   <TrashIcon className="h-5 w-5" />

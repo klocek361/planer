@@ -17,7 +17,7 @@ import { Screen } from '../../ui/Screen';
 import { Sheet } from '../../ui/Sheet';
 
 export function BackupScreen({ onBack }: { onBack: () => void }) {
-  const { t } = useT();
+  const { t, plural } = useT();
   // Nazwy tabel w podsumowaniu kopii — klucz to nazwa tabeli w bazie.
   const tableLabels: Record<string, string> = {
     categories: t.kopia.liczby.kategorie,
@@ -88,14 +88,20 @@ export function BackupScreen({ onBack }: { onBack: () => void }) {
           color: 'var(--c-weekend)',
         }}
       >
-        Dane są tylko na tym telefonie. Usunięcie ikony z ekranu początkowego kasuje je
-        bezpowrotnie — rób kopię co jakiś czas.
+        {t.kopia.ostrzezenieDane}
       </div>
 
       {counts && (
         <p className="text-muted pb-5 text-sm">
-          W aplikacji jest teraz: {counts.events} wydarzeń, {counts.tasks} zadań, {counts.habits}{' '}
-          nawyków ({counts.habitEntries} odhaczeń) i {counts.categories} kategorii.
+          {t.kopia.stanAplikacji(
+            [
+              plural(counts.events, t.daty.wydarzenie),
+              plural(counts.tasks, t.daty.zadanie),
+              plural(counts.habits, t.daty.nawyk),
+              plural(counts.habitEntries, t.daty.odhaczenie),
+              plural(counts.categories, t.daty.kategoria),
+            ].join(', '),
+          )}
         </p>
       )}
 

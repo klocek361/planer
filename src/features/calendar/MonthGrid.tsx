@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import type { CalendarTasks } from '../../app/tabs';
 import type { EventItem, Task } from '../../data/types';
-import { WEEKDAY_LABELS, compareEvents, type GridDay } from '../../lib/dates';
+import { compareEvents, weekdayInitials, type GridDay } from '../../lib/dates';
 import { useT } from '../../i18n';
 import { EventChip, eventColor } from './EventChip';
 
@@ -32,12 +33,15 @@ export function MonthGrid({
   selectedKey,
   onSelect,
 }: Props) {
+  const { lang } = useT();
   const showNames = taskMode === 'nazwy';
+  // `lang` w zależnościach, żeby zmiana języka przeliczyła litery dni.
+  const naglowki = useMemo(() => weekdayInitials(), [lang]);
 
   return (
     <div className="flex shrink-0 flex-col">
       <div className="grid shrink-0 grid-cols-7 pb-1">
-        {WEEKDAY_LABELS.map((label, index) => (
+        {naglowki.map((label, index) => (
           <div
             key={`${label}-${index}`}
             className={`text-center text-xs font-medium ${
