@@ -2,10 +2,15 @@
 <html lang="pl">
   <head>
     <meta charset="UTF-8" />
-    <!-- viewport-fit=cover pozwala rysować pod notchem; odstępy dokłada env(safe-area-inset-*) -->
+    <!--
+      viewport-fit=cover pozwala rysować pod notchem; odstępy dokłada env(safe-area-inset-*).
+      interactive-widget=resizes-content sprawia, że klawiatura Androida skraca
+      widok zamiast go zasłaniać — bez tego pole tekstowe w wysuwanym panelu
+      chowa się pod klawiaturą. iOS ten parametr pomija.
+    -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content"
     />
     <meta name="theme-color" content="#FFFFFF" />
     <meta name="mobile-web-app-capable" content="yes" />
