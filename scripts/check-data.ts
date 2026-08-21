@@ -293,6 +293,28 @@ check('wyzerowanie kasuje wpis', (await db.habitEntries.where('habitId').equals(
 await setHabitValue(woda.id!, '2026-08-13', -4);
 check('ujemna wartość nie tworzy wpisu', (await db.habitEntries.where('habitId').equals(woda.id!).count()) === 0);
 
+// Licznik zatrzymuje się na celu — przy szybkim stukaniu w plus łatwo
+// przeskoczyć poza limit, a 9/8 nie znaczy nic więcej niż 8/8.
+await setHabitValue(woda.id!, '2026-08-14', 99);
+const przyLimicie = await db.habitEntries
+  .where('[habitId+date]')
+  .equals([woda.id!, '2026-08-14'])
+  .first();
+check('licznik nie przekracza celu', przyLimicie?.value === 8);
+
+await setHabitValue(medytacja.id!, '2026-08-14', 5);
+const takNiePrzyLimicie = await db.habitEntries
+  .where('[habitId+date]')
+  .equals([medytacja.id!, '2026-08-14'])
+  .first();
+check('nawyk tak-nie nie da się odhaczyć więcej niż raz', takNiePrzyLimicie?.value === 1);
+
+await setHabitValue(-1, '2026-08-14', 3);
+check(
+  'wpis dla nieistniejącego nawyku nie powstaje',
+  (await db.habitEntries.where('habitId').equals(-1).count()) === 0,
+);
+
 // Serie liczone względem ustalonego „dzisiaj”
 const dzis = '2026-08-13';
 const seria = new Map<string, number>([

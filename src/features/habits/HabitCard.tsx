@@ -103,6 +103,7 @@ export function HabitCard({
             </span>
             <StepButton
               label={`Dodaj do ${habit.name}`}
+              disabled={todayValue >= habit.target}
               onClick={() => onSetValue(todayValue + 1)}
             >
               +
