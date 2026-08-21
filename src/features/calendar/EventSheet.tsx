@@ -17,6 +17,7 @@ import {
 import { dotDateLabel, fromKey, fullDateLabel } from '../../lib/dates';
 import { Button } from '../../ui/Button';
 import { CategoryPicker } from '../../ui/CategoryChip';
+import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
 import { TrashIcon } from '../../ui/icons';
 
@@ -57,6 +58,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
   const [repeat, setRepeat] = useState<RepeatChoice>('brak');
   const [count, setCount] = useState(DEFAULT_COUNT);
   const [scope, setScope] = useState<Scope>('ten');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Wypełnia formularz przy każdym otwarciu — inaczej zostałyby dane poprzedniego wpisu.
   useEffect(() => {
@@ -118,6 +120,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
   };
 
   const remove = async () => {
+    setConfirmOpen(false);
     if (event?.id === undefined) return;
     if (wholeSeries) await deleteSeries(event.seriesId!);
     else await deleteEvent(event.id);
@@ -278,7 +281,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
             Zapisz
           </Button>
           {event && (
-            <Button variant="danger" aria-label="Usuń wydarzenie" onClick={remove} className="px-4">
+            <Button variant="danger" aria-label="Usuń wydarzenie" onClick={() => setConfirmOpen(true)} className="px-4">
               <TrashIcon className="h-5 w-5" />
             </Button>
           )}
@@ -290,6 +293,22 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
             bez zmian.
           </p>
         )}
+
+        <ConfirmDialog
+          open={confirmOpen}
+          title={
+            wholeSeries
+              ? `Usunąć całą serię „${event?.title ?? ''}”?`
+              : `Usunąć wydarzenie „${event?.title ?? ''}”?`
+          }
+          message={
+            wholeSeries
+              ? 'Znikną wszystkie terminy tej serii, także te już minione.'
+              : 'Tego nie da się cofnąć.'
+          }
+          onConfirm={remove}
+          onCancel={() => setConfirmOpen(false)}
+        />
       </div>
     </Sheet>
   );

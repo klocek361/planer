@@ -10,6 +10,7 @@ import {
 } from '../../data/types';
 import { Button } from '../../ui/Button';
 import { CategoryPicker } from '../../ui/CategoryChip';
+import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
 import { TrashIcon } from '../../ui/icons';
 
@@ -34,6 +35,7 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
   const [unit, setUnit] = useState('');
   const [period, setPeriod] = useState<HabitPeriod>('ciagly');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -66,6 +68,7 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
   };
 
   const remove = async () => {
+    setConfirmOpen(false);
     if (habit?.id) await deleteHabit(habit.id);
     onClose();
   };
@@ -159,7 +162,7 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
             Zapisz
           </Button>
           {habit && (
-            <Button variant="danger" aria-label="Usuń nawyk" onClick={remove} className="px-4">
+            <Button variant="danger" aria-label="Usuń nawyk" onClick={() => setConfirmOpen(true)} className="px-4">
               <TrashIcon className="h-5 w-5" />
             </Button>
           )}
@@ -170,6 +173,14 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
             Usunięcie nawyku kasuje też całą jego historię.
           </p>
         )}
+
+        <ConfirmDialog
+          open={confirmOpen}
+          title={`Usunąć nawyk „${habit?.name ?? ''}”?`}
+          message="Zniknie razem z całą historią odhaczeń. Tego nie da się cofnąć."
+          onConfirm={remove}
+          onCancel={() => setConfirmOpen(false)}
+        />
       </div>
     </Sheet>
   );
