@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import type { ReactNode } from 'react';
+import { useBackDismiss } from '../platform/back';
 
 interface Props {
   open: boolean;
@@ -15,6 +16,9 @@ interface Props {
  * bo treść i przyciski lądują w zasięgu kciuka.
  */
 export function Sheet({ open, title, onClose, children }: Props) {
+  // Na Androidzie cofnięcie zamyka panel, a nie całą aplikację.
+  useBackDismiss(open, onClose);
+
   // Blokuje przewijanie treści pod spodem, dopóki panel jest otwarty.
   useEffect(() => {
     if (!open) return;

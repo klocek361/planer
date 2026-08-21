@@ -5,6 +5,7 @@ import { OverviewScreen } from './features/overview/OverviewScreen';
 import { SettingsScreen } from './features/settings/SettingsScreen';
 import { TasksScreen } from './features/tasks/TasksScreen';
 import { useApplyTheme } from './theme/useApplyTheme';
+import { useBackDismiss } from './platform/back';
 import { TabBar } from './ui/TabBar';
 import { useLayoutStore } from './app/layoutStore';
 import { visibleTabs, type TabId } from './app/tabs';
@@ -19,6 +20,10 @@ export function App() {
   const [tab, setTab] = useState<TabId>(() => tabs[0] ?? 'kalendarz');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const openSettings = () => setSettingsOpen(true);
+  const closeSettings = () => setSettingsOpen(false);
+
+  // Cofnięcie zamyka ustawienia zamiast wychodzić z aplikacji.
+  useBackDismiss(settingsOpen, closeSettings);
 
   // Po wyłączeniu zakładki, na której akurat stoimy, trzeba przeskoczyć na
   // pierwszą widoczną — inaczej ekran zostałby pusty.
@@ -30,7 +35,7 @@ export function App() {
   return (
     <div className="flex h-[100dvh] flex-col">
       {settingsOpen ? (
-        <SettingsScreen onClose={() => setSettingsOpen(false)} />
+        <SettingsScreen onClose={closeSettings} />
       ) : (
         <>
           {tab === 'przeglad' && <OverviewScreen onOpenSettings={openSettings} />}

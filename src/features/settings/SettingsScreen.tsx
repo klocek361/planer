@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Screen } from '../../ui/Screen';
+import { useBackDismiss } from '../../platform/back';
 import { ChevronRightIcon } from '../../ui/icons';
 import { AppearanceScreen } from './AppearanceScreen';
 import { BackupScreen } from './BackupScreen';
@@ -18,6 +19,9 @@ const ROWS: { id: Exclude<View, 'menu'>; label: string; hint: string }[] = [
 export function SettingsScreen({ onClose }: { onClose: () => void }) {
   const [view, setView] = useState<View>('menu');
   const back = () => setView('menu');
+
+  // Cofnięcie z podekranu wraca do menu ustawień, a nie zamyka ustawień.
+  useBackDismiss(view !== 'menu', back);
 
   if (view === 'kategorie') return <CategoriesScreen onBack={back} />;
 
