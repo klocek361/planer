@@ -12,10 +12,12 @@ import {
   weekRangeLabel,
 } from '../../lib/dates';
 import { useT } from '../../i18n';
+import { useVisibleSections } from '../../app/sectionsStore';
+import { SectionsSheet } from '../../ui/SectionsSheet';
 import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
 import { SettingsButton } from '../../ui/SettingsButton';
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from '../../ui/icons';
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, MoreIcon } from '../../ui/icons';
 import { EventRow, eventColor } from '../calendar/EventChip';
 import { TaskRow } from '../tasks/TaskRow';
 import { TaskSheet } from '../tasks/TaskSheet';
@@ -41,6 +43,16 @@ export function OverviewScreen({ onOpenSettings }: Props) {
   const [weekBase, setWeekBase] = useState(() => new Date());
   const [editing, setEditing] = useState<Task | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sekcjeOpen, setSekcjeOpen] = useState(false);
+
+  // Które bloki ekranu pokazać i w jakiej kolejności.
+  const widoczneSekcje = useVisibleSections('przeglad');
+  const nazwaSekcji = (id: string) =>
+    id === 'liczniki'
+      ? t.sekcje.liczniki
+      : id === 'dzis'
+        ? t.sekcje.dzis
+        : t.sekcje.tydzien;
 
   const todayKey = useMemo(() => toKey(new Date()), []);
   const week = useMemo(() => weekDays(weekBase), [weekBase]);
@@ -156,137 +168,173 @@ export function OverviewScreen({ onOpenSettings }: Props) {
     />
   );
 
-  return (
-    <Screen title={t.zakladki.przeglad} action={<SettingsButton onClick={onOpenSettings} />}>
-      <div className="flex flex-col gap-6 pt-1">
-        <div className="grid grid-cols-3 gap-2">
-          <StatCard
-            label={t.przeglad.naDzis}
-            value={`${doneToday}/${todayTotal}`}
-            ratio={todayTotal === 0 ? 0 : doneToday / todayTotal}
-          />
-          <StatCard label={t.przeglad.wydarzenia} value={String(todayEvents.length)} />
-          <StatCard
-            label={t.przeglad.zalegle}
-            value={String(overdue.length)}
-            alert={overdue.length > 0}
-          />
-        </div>
-
-        <Section title={t.wspolne.dzis} hint={dayHeadingLabel(todayKey)}>
-          {todayEvents.length === 0 && todayTasks.length === 0 && activeHabits.length === 0 ? (
-            <p className="text-muted py-4 text-center text-sm">{t.przeglad.nicNaDzis}</p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {todayEvents.length > 0 && (
-                <ul className="flex flex-col gap-1.5">
-                  {todayEvents.map((event) => (
-                    <li key={event.id}>
-                      <EventRow
-                        event={event}
-                        color={eventColor(event, categoryColors)}
-                        onClick={() => undefined}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {todayTasks.length > 0 && (
-                <ul className="flex flex-col gap-1">
-                  {todayTasks.map((task) => (
-                    <li key={task.id}>{taskRow(task, true)}</li>
-                  ))}
-                </ul>
-              )}
-
-              {activeHabits.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <SubHeading text={t.przeglad.nawykiLicznik(habitsDone, activeHabits.length)} />
-                  <ul className="flex flex-col gap-1">
-                    {activeHabits.map((habit) => (
-                      <li key={habit.id}>
-                        <HabitTick
-                          habit={habit}
-                          color={
-                            (habit.categoryId ? categoryColors.get(habit.categoryId) : undefined) ??
-                            'var(--c-accent)'
-                          }
-                          value={habitValues.get(habit.id!)?.get(todayKey) ?? 0}
-                          todayKey={todayKey}
+  /*
+    Trzy bloki ekranu trzymane osobno, żeby dało się je ustawić w dowolnej
+    kolejności i pojedynczo wyłączyć. Klucz odpowiada identyfikatorowi sekcji.
+  */
+  const bloki: Record<string, ReactNode> = {
+    liczniki: (
+          <div className="grid grid-cols-3 gap-2">
+            <StatCard
+              label={t.przeglad.naDzis}
+              value={`${doneToday}/${todayTotal}`}
+              ratio={todayTotal === 0 ? 0 : doneToday / todayTotal}
+            />
+            <StatCard label={t.przeglad.wydarzenia} value={String(todayEvents.length)} />
+            <StatCard
+              label={t.przeglad.zalegle}
+              value={String(overdue.length)}
+              alert={overdue.length > 0}
+            />
+          </div>
+    ),
+    dzis: (
+          <Section title={t.wspolne.dzis} hint={dayHeadingLabel(todayKey)}>
+            {todayEvents.length === 0 && todayTasks.length === 0 && activeHabits.length === 0 ? (
+              <p className="text-muted py-4 text-center text-sm">{t.przeglad.nicNaDzis}</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {todayEvents.length > 0 && (
+                  <ul className="flex flex-col gap-1.5">
+                    {todayEvents.map((event) => (
+                      <li key={event.id}>
+                        <EventRow
+                          event={event}
+                          color={eventColor(event, categoryColors)}
+                          onClick={() => undefined}
                         />
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </Section>
+                )}
 
-        <Section
-          title={t.przeglad.tenTydzien}
-          hint={weekRangeLabel(week)}
-          nav={
-            <div className="flex items-center gap-0.5">
-              <button
-                type="button"
-                onClick={() => setWeekBase(shiftDays(weekBase, -7))}
-                aria-label={t.przeglad.poprzedniTydzien}
-                className="text-muted active:text-ink -m-1.5 p-1.5"
-              >
-                <ChevronLeftIcon className="h-5 w-5" />
-              </button>
-              {!isThisWeek && (
+                {todayTasks.length > 0 && (
+                  <ul className="flex flex-col gap-1">
+                    {todayTasks.map((task) => (
+                      <li key={task.id}>{taskRow(task, true)}</li>
+                    ))}
+                  </ul>
+                )}
+
+                {activeHabits.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <SubHeading text={t.przeglad.nawykiLicznik(habitsDone, activeHabits.length)} />
+                    <ul className="flex flex-col gap-1">
+                      {activeHabits.map((habit) => (
+                        <li key={habit.id}>
+                          <HabitTick
+                            habit={habit}
+                            color={
+                              (habit.categoryId ? categoryColors.get(habit.categoryId) : undefined) ??
+                              'var(--c-accent)'
+                            }
+                            value={habitValues.get(habit.id!)?.get(todayKey) ?? 0}
+                            todayKey={todayKey}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </Section>
+    ),
+    tydzien: (
+          <Section
+            title={t.przeglad.tenTydzien}
+            hint={weekRangeLabel(week)}
+            nav={
+              <div className="flex items-center gap-0.5">
                 <button
                   type="button"
-                  onClick={() => setWeekBase(new Date())}
-                  className="text-accent px-1 text-xs font-medium"
+                  onClick={() => setWeekBase(shiftDays(weekBase, -7))}
+                  aria-label={t.przeglad.poprzedniTydzien}
+                  className="text-muted active:text-ink -m-1.5 p-1.5"
                 >
-                  {t.wspolne.dzis}
+                  <ChevronLeftIcon className="h-5 w-5" />
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setWeekBase(shiftDays(weekBase, 7))}
-                aria-label={t.przeglad.nastepnyTydzien}
-                className="text-muted active:text-ink -m-1.5 p-1.5"
-              >
-                <ChevronRightIcon className="h-5 w-5" />
-              </button>
-            </div>
-          }
-        >
-          <ul className="flex flex-col gap-4">
-            {week.map((key) => {
-              const dayEvents = eventsByDay.get(key) ?? [];
-              const dayTasks = tasksByDay.get(key) ?? [];
-              if (dayEvents.length === 0 && dayTasks.length === 0) return null;
+                {!isThisWeek && (
+                  <button
+                    type="button"
+                    onClick={() => setWeekBase(new Date())}
+                    className="text-accent px-1 text-xs font-medium"
+                  >
+                    {t.wspolne.dzis}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setWeekBase(shiftDays(weekBase, 7))}
+                  aria-label={t.przeglad.nastepnyTydzien}
+                  className="text-muted active:text-ink -m-1.5 p-1.5"
+                >
+                  <ChevronRightIcon className="h-5 w-5" />
+                </button>
+              </div>
+            }
+          >
+            <ul className="flex flex-col gap-4">
+              {week.map((key) => {
+                const dayEvents = eventsByDay.get(key) ?? [];
+                const dayTasks = tasksByDay.get(key) ?? [];
+                if (dayEvents.length === 0 && dayTasks.length === 0) return null;
 
-              return (
-                <li key={key} className="flex flex-col gap-1.5">
-                  <SubHeading text={dayHeadingLabel(key)} strong={key === todayKey} />
-                  {dayEvents.map((event) => (
-                    <EventRow
-                      key={event.id}
-                      event={event}
-                      color={eventColor(event, categoryColors)}
-                      onClick={() => undefined}
-                    />
-                  ))}
-                  {dayTasks.map((task) => (
-                    <div key={task.id}>{taskRow(task, true)}</div>
-                  ))}
-                </li>
-              );
-            })}
-          </ul>
+                return (
+                  <li key={key} className="flex flex-col gap-1.5">
+                    <SubHeading text={dayHeadingLabel(key)} strong={key === todayKey} />
+                    {dayEvents.map((event) => (
+                      <EventRow
+                        key={event.id}
+                        event={event}
+                        color={eventColor(event, categoryColors)}
+                        onClick={() => undefined}
+                      />
+                    ))}
+                    {dayTasks.map((task) => (
+                      <div key={task.id}>{taskRow(task, true)}</div>
+                    ))}
+                  </li>
+                );
+              })}
+            </ul>
 
-          {week.every(
-            (key) => (eventsByDay.get(key) ?? []).length === 0 && (tasksByDay.get(key) ?? []).length === 0,
-          ) && <p className="text-muted py-4 text-center text-sm">{t.przeglad.pustyTydzien}</p>}
-        </Section>
+            {week.every(
+              (key) => (eventsByDay.get(key) ?? []).length === 0 && (tasksByDay.get(key) ?? []).length === 0,
+            ) && <p className="text-muted py-4 text-center text-sm">{t.przeglad.pustyTydzien}</p>}
+          </Section>
+    ),
+  };
+
+  return (
+    <Screen
+      title={t.zakladki.przeglad}
+      action={
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setSekcjeOpen(true)}
+            aria-label={t.sekcje.otworz}
+            className="text-muted active:text-ink -m-2 p-2"
+          >
+            <MoreIcon className="h-6 w-6" />
+          </button>
+          <SettingsButton onClick={onOpenSettings} />
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-6 pt-1">
+        {widoczneSekcje.map((id) => (
+          <div key={id}>{bloki[id]}</div>
+        ))}
       </div>
+
+      <SectionsSheet
+        open={sekcjeOpen}
+        owner="przeglad"
+        label={nazwaSekcji}
+        onClose={() => setSekcjeOpen(false)}
+      />
 
       <TaskSheet
         open={sheetOpen}

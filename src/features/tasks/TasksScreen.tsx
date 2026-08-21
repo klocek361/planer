@@ -20,16 +20,16 @@ import {
   weekdayShort,
 } from '../../lib/dates';
 import { useT } from '../../i18n';
+import { useVisibleSections } from '../../app/sectionsStore';
+import { SectionsSheet } from '../../ui/SectionsSheet';
 import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
 import { SettingsButton } from '../../ui/SettingsButton';
-import { PlusIcon } from '../../ui/icons';
+import { MoreIcon, PlusIcon } from '../../ui/icons';
 import { TaskRow } from './TaskRow';
 import { TaskSheet } from './TaskSheet';
 
 type Mode = 'lista' | 'kategorie' | 'dni';
-
-const MODES: Mode[] = ['lista', 'kategorie', 'dni'];
 
 /** Pasek dat: kilka dni wstecz, żeby dało się cofnąć bez szukania. */
 const STRIP_BACK = 3;
@@ -47,10 +47,20 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
   };
 
   const [mode, setMode] = useState<Mode>('lista');
+  const [sekcjeOpen, setSekcjeOpen] = useState(false);
+
+  // Tryby widoczne w przełączniku bierzemy z ustawień sekcji tego ekranu.
+  const widoczneTryby = useVisibleSections('zadania') as Mode[];
   const [showDone, setShowDone] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [parentId, setParentId] = useState<number | undefined>(undefined);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Po wyłączeniu trybu, na którym akurat stoimy, trzeba przeskoczyć na
+  // pierwszy widoczny — inaczej ekran zostałby pusty.
+  useEffect(() => {
+    if (widoczneTryby.length > 0 && !widoczneTryby.includes(mode)) setMode(widoczneTryby[0]!);
+  }, [widoczneTryby, mode]);
 
   const todayKey = useMemo(() => toKey(new Date()), []);
   const [selectedDay, setSelectedDay] = useState(todayKey);
@@ -200,12 +210,20 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
           >
             <PlusIcon className="h-6 w-6" />
           </button>
+          <button
+            type="button"
+            onClick={() => setSekcjeOpen(true)}
+            aria-label={t.sekcje.otworz}
+            className="text-muted active:text-ink -m-2 p-2"
+          >
+            <MoreIcon className="h-6 w-6" />
+          </button>
           <SettingsButton onClick={onOpenSettings} />
         </div>
       }
     >
       <div className="bg-surface rounded-app mb-3 flex gap-1 p-1">
-        {MODES.map((item) => (
+        {widoczneTryby.map((item) => (
           <button
             key={item}
             type="button"
@@ -315,6 +333,13 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
           {showDone && renderNodes(done)}
         </div>
       )}
+
+      <SectionsSheet
+        open={sekcjeOpen}
+        owner="zadania"
+        label={(id) => modeLabel[id as Mode]}
+        onClose={() => setSekcjeOpen(false)}
+      />
 
       <TaskSheet
         open={sheetOpen}

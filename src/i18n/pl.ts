@@ -192,6 +192,17 @@ export const pl = {
     nastepnyTydzien: 'Następny tydzień',
   },
 
+  sekcje: {
+    tytul: 'Sekcje ekranu',
+    otworz: 'Ustawienia sekcji',
+    pokazuj: (nazwa: string) => `Pokazuj sekcję ${nazwa}`,
+    opis:
+      'Kolejność na liście to kolejność na ekranie. Wyłączona sekcja znika z widoku, ale nic z niej nie ginie — wystarczy włączyć ją z powrotem.',
+    liczniki: 'Liczniki na dziś',
+    dzis: 'Sekcja „Dziś”',
+    tydzien: 'Sekcja „Ten tydzień”',
+  },
+
   ustawienia: {
     tytul: 'Ustawienia',
     wyglad: 'Wygląd',
