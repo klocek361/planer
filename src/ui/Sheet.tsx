@@ -49,7 +49,11 @@ export function Sheet({ open, title, onClose, children }: Props) {
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="bg-bg pb-safe relative max-h-[88dvh] overflow-y-auto rounded-t-3xl"
+            // overflow-x-hidden to zabezpieczenie na przyszłość: w panelu nic
+            // nie ma się przewijać w bok, więc gdyby jakieś pole znów nie
+            // zmieściło się na szerokość, lepiej żeby zostało przycięte niż
+            // rozjechało cały panel.
+            className="bg-bg pb-safe relative max-h-[88dvh] overflow-x-hidden overflow-y-auto rounded-t-3xl"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

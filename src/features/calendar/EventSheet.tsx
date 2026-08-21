@@ -159,22 +159,22 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
 
         {!allDay && (
           <div className="flex gap-3">
-            <label className="flex flex-1 flex-col gap-2">
+            <label className="flex min-w-0 flex-1 flex-col gap-2">
               <span className="text-muted text-xs font-medium">{t.kalendarz.od}</span>
               <input
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
+                className="bg-surface rounded-app text-ink w-full min-w-0 px-3 py-2.5 text-base"
               />
             </label>
-            <label className="flex flex-1 flex-col gap-2">
+            <label className="flex min-w-0 flex-1 flex-col gap-2">
               <span className="text-muted text-xs font-medium">{t.kalendarz.do}</span>
               <input
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
+                className="bg-surface rounded-app text-ink w-full min-w-0 px-3 py-2.5 text-base"
               />
             </label>
           </div>
