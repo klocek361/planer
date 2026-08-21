@@ -1,26 +1,32 @@
 import type { ReactElement } from 'react';
-import { CalendarIcon, HabitsIcon, TasksIcon } from './icons';
-import type { TabId } from '../app/tabs';
+import { CalendarIcon, HabitsIcon, OverviewIcon, TasksIcon } from './icons';
+import { TAB_LABELS, type TabId } from '../app/tabs';
 
-const TABS: { id: TabId; label: string; Icon: (p: { className?: string }) => ReactElement }[] = [
-  { id: 'kalendarz', label: 'Kalendarz', Icon: CalendarIcon },
-  { id: 'zadania', label: 'Zadania', Icon: TasksIcon },
-  { id: 'nawyki', label: 'Nawyki', Icon: HabitsIcon },
-];
+const ICONS: Record<TabId, (p: { className?: string }) => ReactElement> = {
+  przeglad: OverviewIcon,
+  kalendarz: CalendarIcon,
+  zadania: TasksIcon,
+  nawyki: HabitsIcon,
+};
 
 interface Props {
+  /** Zakładki do pokazania, w kolejności ustawionej przez użytkowniczkę. */
+  tabs: TabId[];
   active: TabId;
   onChange: (id: TabId) => void;
 }
 
 /**
  * Nawigacja na dole ekranu — przy 6,7 cala góra jest poza zasięgiem kciuka.
+ * Zestaw i kolejność zakładek biorą się z ustawień, więc pasek może mieć
+ * od jednej do czterech pozycji.
  */
-export function TabBar({ active, onChange }: Props) {
+export function TabBar({ tabs, active, onChange }: Props) {
   return (
     <nav className="border-line bg-bg pb-safe shrink-0 border-t px-2">
       <ul className="flex">
-        {TABS.map(({ id, label, Icon }) => {
+        {tabs.map((id) => {
+          const Icon = ICONS[id];
           const isActive = id === active;
           return (
             <li key={id} className="flex-1">
@@ -33,7 +39,9 @@ export function TabBar({ active, onChange }: Props) {
                 }`}
               >
                 <Icon className="h-6 w-6" />
-                <span className="text-[0.6875rem] leading-none font-medium">{label}</span>
+                <span className="text-[0.6875rem] leading-none font-medium">
+                  {TAB_LABELS[id]}
+                </span>
               </button>
             </li>
           );

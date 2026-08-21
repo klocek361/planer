@@ -10,7 +10,8 @@
 import { FONTS, TEXTURES } from '../theme/catalog';
 import { DEFAULT_THEME } from '../theme/presets';
 import type { ColorKey, Theme } from '../theme/types';
-import type { Category, EventItem, Habit, HabitEntry, Note, Task } from './types';
+import { MAX_REPEAT_COUNT, REPEAT_LABELS } from './types';
+import type { Category, EventItem, Habit, HabitEntry, Note, Repeat, Task } from './types';
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 const isOptionalText = (v: unknown): v is string | undefined => v === undefined || isText(v);
@@ -48,13 +49,24 @@ export function validCategory(input: unknown): Category | null {
   return { id: r.id as number | undefined, name: r.name, color: r.color, order: r.order };
 }
 
+const REPEAT_FREQS = new Set(Object.keys(REPEAT_LABELS));
+
+/** Reguła powtarzania z pliku; przy byle wątpliwości wydarzenie zostaje pojedyncze. */
+function validRepeat(input: unknown): Repeat | undefined {
+  const r = record(input);
+  if (!r || !REPEAT_FREQS.has(r.freq as string) || !isNumber(r.count)) return undefined;
+  const count = Math.round(r.count);
+  if (count < 2 || count > MAX_REPEAT_COUNT) return undefined;
+  return { freq: r.freq as Repeat['freq'], count };
+}
+
 export function validEvent(input: unknown): EventItem | null {
   const r = record(input);
   if (!r) return null;
   if (!isText(r.title) || !isDateKey(r.date) || !isFlag(r.allDay)) return null;
   if (!isOptionalTime(r.startTime) || !isOptionalTime(r.endTime)) return null;
   if (!isOptionalId(r.categoryId) || !isOptionalId(r.id) || !isNumber(r.createdAt)) return null;
-  if (!isOptionalText(r.note)) return null;
+  if (!isOptionalText(r.note) || !isOptionalId(r.seriesId)) return null;
 
   return {
     id: r.id as number | undefined,
@@ -65,6 +77,8 @@ export function validEvent(input: unknown): EventItem | null {
     endTime: r.endTime as string | undefined,
     categoryId: r.categoryId as number | undefined,
     note: r.note as string | undefined,
+    seriesId: r.seriesId as number | undefined,
+    repeat: validRepeat(r.repeat),
     createdAt: r.createdAt,
   };
 }
@@ -73,16 +87,19 @@ export function validTask(input: unknown): Task | null {
   const r = record(input);
   if (!r) return null;
   if (!isText(r.title) || !isFlag(r.done) || !isNumber(r.order) || !isNumber(r.createdAt)) return null;
-  if (r.priority !== 0 && r.priority !== 1 && r.priority !== 2) return null;
   if (!isOptionalDateKey(r.dueDate) || !isOptionalId(r.categoryId)) return null;
   if (!isOptionalId(r.parentId) || !isOptionalId(r.id) || !isOptionalId(r.doneAt)) return null;
+
+  // Kopie sprzed wprowadzenia gwiazdki trzymały trzy poziomy ważności.
+  // "Ważne" i "Pilne" wchodzą jako gwiazdka, "Zwykłe" jako zadanie bez niej.
+  const starred = isFlag(r.starred) ? r.starred : isNumber(r.priority) && r.priority > 0;
 
   return {
     id: r.id as number | undefined,
     title: r.title,
     done: r.done,
     doneAt: r.doneAt as number | undefined,
-    priority: r.priority,
+    starred,
     dueDate: r.dueDate as string | undefined,
     categoryId: r.categoryId as number | undefined,
     parentId: r.parentId as number | undefined,
@@ -106,6 +123,8 @@ export function validHabit(input: unknown): Habit | null {
     // Nawyk tak-nie zawsze ma cel 1, niezależnie od tego, co było w pliku.
     target: r.kind === 'tak-nie' ? 1 : Math.round(r.target),
     unit: r.unit as string | undefined,
+    // Kopie sprzed wprowadzenia trybów liczyły wyłącznie od dnia założenia.
+    period: r.period === 'miesiac' ? 'miesiac' : 'ciagly',
     categoryId: r.categoryId as number | undefined,
     order: r.order,
     archived: r.archived,

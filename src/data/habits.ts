@@ -1,12 +1,13 @@
-import { previousDay, toKey } from '../lib/dates';
+import { habitStrip, monthDays, previousDay, toKey } from '../lib/dates';
 import { db } from './db';
-import type { Habit, HabitEntry, HabitKind } from './types';
+import type { Habit, HabitEntry, HabitKind, HabitPeriod } from './types';
 
 export interface HabitDraft {
   name: string;
   kind: HabitKind;
   target: number;
   unit?: string;
+  period: HabitPeriod;
   categoryId?: number;
 }
 
@@ -73,6 +74,53 @@ export function indexEntries(entries: HabitEntry[]): Map<number, Map<string, num
 
 export function isDayComplete(habit: Habit, value: number | undefined): boolean {
   return (value ?? 0) >= habit.target;
+}
+
+/**
+ * Stan pojedynczego pola na pasku nawyku.
+ * - 'przed'    — dzień sprzed założenia nawyku; nie liczy się do niczego.
+ * - 'zrobiony' — cel osiągnięty.
+ * - 'pusty'    — dzień minął, celu nie ma.
+ * - 'przyszly' — jeszcze przed nami.
+ */
+export type DayState = 'przed' | 'zrobiony' | 'pusty' | 'przyszly';
+
+export interface HabitWindow {
+  /** Wszystkie pola paska, od lewej do prawej. */
+  keys: string[];
+  /** Dni, które już minęły i wliczają się do statystyk. */
+  tracked: string[];
+  /** Stan każdego pola, w tej samej kolejności co `keys`. */
+  states: DayState[];
+}
+
+/**
+ * Okno paska nawyku dla wybranego trybu liczenia.
+ *
+ * Tryb 'ciagly' biegnie od dnia założenia i przesuwa się dopiero, gdy historia
+ * przerośnie szerokość paska. Tryb 'miesiac' pokazuje jeden konkretny miesiąc
+ * w całości — dni sprzed założenia nawyku zostają puste, ale widoczne, żeby
+ * numeracja dni zgadzała się z kalendarzem.
+ */
+export function habitWindow(
+  habit: Habit,
+  options: { stripDays: number; month: Date; todayKey: string; days?: Map<string, number> },
+): HabitWindow {
+  const { stripDays, month, todayKey, days } = options;
+  const createdKey = toKey(new Date(habit.createdAt));
+
+  const keys =
+    habit.period === 'miesiac' ? monthDays(month) : habitStrip(habit.createdAt, stripDays);
+
+  const tracked = keys.filter((key) => key <= todayKey && key >= createdKey);
+
+  const states = keys.map((key): DayState => {
+    if (key > todayKey) return 'przyszly';
+    if (key < createdKey) return 'przed';
+    return isDayComplete(habit, days?.get(key)) ? 'zrobiony' : 'pusty';
+  });
+
+  return { keys, tracked, states };
 }
 
 /**

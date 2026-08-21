@@ -112,3 +112,36 @@ export function NoteIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Gwiazdka oznaczająca ważne zadanie. Wypełniona, gdy jest zaznaczona. */
+export function StarIcon({ className, filled = false }: IconProps & { filled?: boolean }) {
+  return (
+    <svg
+      {...base}
+      fill={filled ? 'currentColor' : 'none'}
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="m12 3.6 2.6 5.3 5.8.9-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.8l5.8-.9z" />
+    </svg>
+  );
+}
+
+/** Strzałki w kółko — znaczek wydarzenia, które się powtarza. */
+export function RepeatIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 12a8 8 0 0 1 8-8c2.6 0 4.9 1.3 6.3 3.2M20 12a8 8 0 0 1-8 8c-2.6 0-4.9-1.3-6.3-3.2" />
+      <path d="M18 3.5V7.5h-4M6 20.5V16.5h4" />
+    </svg>
+  );
+}
+
+/** Znaczek przeglądu — kilka kresek o różnej długości. */
+export function OverviewIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 6h16M4 12h11M4 18h7" />
+    </svg>
+  );
+}

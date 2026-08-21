@@ -1,8 +1,21 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../data/db';
-import { buildTaskTree, toggleTask } from '../../data/tasks';
-import type { Task } from '../../data/types';
+import {
+  buildTaskTree,
+  groupByCategory,
+  toggleTask,
+  updateTask,
+  type TaskNode,
+} from '../../data/tasks';
+import type { Category, Task } from '../../data/types';
+import {
+  dayHeadingLabel,
+  dayOfMonth,
+  daysFrom,
+  toKey,
+  weekdayShort,
+} from '../../lib/dates';
 import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
 import { SettingsButton } from '../../ui/SettingsButton';
@@ -10,35 +23,71 @@ import { PlusIcon } from '../../ui/icons';
 import { TaskRow } from './TaskRow';
 import { TaskSheet } from './TaskSheet';
 
-type Filter = 'do-zrobienia' | 'zrobione';
+type Mode = 'lista' | 'kategorie' | 'dni';
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'do-zrobienia', label: 'Do zrobienia' },
-  { id: 'zrobione', label: 'Zrobione' },
+const MODES: { id: Mode; label: string }[] = [
+  { id: 'lista', label: 'Wszystkie' },
+  { id: 'kategorie', label: 'Kategorie' },
+  { id: 'dni', label: 'Dni' },
 ];
 
+/** Pasek dat: kilka dni wstecz, żeby dało się cofnąć bez szukania. */
+const STRIP_BACK = 3;
+const STRIP_LENGTH = 45;
+
+/** Zaznaczenie zastępujące konkretny dzień. */
+type SpecialDay = 'zalegle' | 'bez-terminu' | null;
+
 export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
-  const [filter, setFilter] = useState<Filter>('do-zrobienia');
+  const [mode, setMode] = useState<Mode>('lista');
+  const [showDone, setShowDone] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [parentId, setParentId] = useState<number | undefined>(undefined);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  const todayKey = useMemo(() => toKey(new Date()), []);
+  const [selectedDay, setSelectedDay] = useState(todayKey);
+  const [special, setSpecial] = useState<SpecialDay>(null);
 
   const categories = useLiveQuery(() => db.categories.orderBy('order').toArray());
   const tasks = useLiveQuery(() => db.tasks.toArray());
 
   const categoryById = useMemo(() => {
-    const map = new Map<number, { name: string; color: string }>();
-    for (const category of categories ?? []) {
-      if (category.id) map.set(category.id, { name: category.name, color: category.color });
-    }
+    const map = new Map<number, Category>();
+    for (const category of categories ?? []) if (category.id) map.set(category.id, category);
     return map;
   }, [categories]);
 
-  // Filtr działa na zadaniach nadrzędnych — podzadania zawsze idą razem z rodzicem.
-  const tree = useMemo(() => {
-    const all = buildTaskTree(tasks ?? []);
-    return all.filter(({ task }) => (filter === 'zrobione' ? task.done : !task.done));
-  }, [tasks, filter]);
+  const tree = useMemo(() => buildTaskTree(tasks ?? []), [tasks]);
+  const open = useMemo(() => tree.filter(({ task }) => !task.done), [tree]);
+  const done = useMemo(() => tree.filter(({ task }) => task.done), [tree]);
+
+  const overdue = useMemo(
+    () => open.filter(({ task }) => task.dueDate !== undefined && task.dueDate < todayKey),
+    [open, todayKey],
+  );
+  const undated = useMemo(() => open.filter(({ task }) => task.dueDate === undefined), [open]);
+
+  const countsByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const { task } of open) {
+      if (!task.dueDate) continue;
+      map.set(task.dueDate, (map.get(task.dueDate) ?? 0) + 1);
+    }
+    return map;
+  }, [open]);
+
+  const strip = useMemo(() => {
+    const start = new Date();
+    start.setDate(start.getDate() - STRIP_BACK);
+    return daysFrom(start, STRIP_LENGTH);
+  }, []);
+
+  const dayNodes = useMemo(() => {
+    if (special === 'zalegle') return overdue;
+    if (special === 'bez-terminu') return undated;
+    return open.filter(({ task }) => task.dueDate === selectedDay);
+  }, [special, overdue, undated, open, selectedDay]);
 
   const openNew = () => {
     setEditing(null);
@@ -63,6 +112,54 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
     void toggleTask(task.id!, !task.done);
   };
 
+  const toggleStar = (task: Task) => {
+    tap();
+    void updateTask(task.id!, { starred: !task.starred });
+  };
+
+  const renderNodes = (nodes: TaskNode[], options?: { hideCategory?: boolean; hideDueDate?: boolean }) => (
+    <ul className="flex flex-col gap-1">
+      {nodes.map(({ task, subtasks }) => (
+        <li key={task.id} className="flex flex-col">
+          <TaskRow
+            task={task}
+            categoryName={task.categoryId ? categoryById.get(task.categoryId)?.name : undefined}
+            categoryColor={task.categoryId ? categoryById.get(task.categoryId)?.color : undefined}
+            hideCategory={options?.hideCategory}
+            hideDueDate={options?.hideDueDate}
+            onToggle={() => toggle(task)}
+            onToggleStar={() => toggleStar(task)}
+            onEdit={() => openEdit(task)}
+            onAddSubtask={() => openSubtask(task.id!)}
+          />
+          {subtasks.map((subtask) => (
+            <TaskRow
+              key={subtask.id}
+              task={subtask}
+              categoryName={
+                subtask.categoryId ? categoryById.get(subtask.categoryId)?.name : undefined
+              }
+              categoryColor={
+                subtask.categoryId ? categoryById.get(subtask.categoryId)?.color : undefined
+              }
+              hideCategory={options?.hideCategory}
+              hideDueDate={options?.hideDueDate}
+              nested
+              onToggle={() => toggle(subtask)}
+              onToggleStar={() => toggleStar(subtask)}
+              onEdit={() => openEdit(subtask)}
+            />
+          ))}
+        </li>
+      ))}
+    </ul>
+  );
+
+  const groups = useMemo(
+    () => groupByCategory(open, categories ?? []),
+    [open, categories],
+  );
+
   return (
     <Screen
       title="Zadania"
@@ -81,14 +178,14 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
       }
     >
       <div className="bg-surface rounded-app mb-3 flex gap-1 p-1">
-        {FILTERS.map((item) => (
+        {MODES.map((item) => (
           <button
             key={item.id}
             type="button"
-            onClick={() => setFilter(item.id)}
-            aria-pressed={filter === item.id}
+            onClick={() => setMode(item.id)}
+            aria-pressed={mode === item.id}
             className={`rounded-app flex-1 py-1.5 text-sm font-medium transition-colors ${
-              filter === item.id ? 'bg-bg text-ink' : 'text-muted'
+              mode === item.id ? 'bg-bg text-ink' : 'text-muted'
             }`}
           >
             {item.label}
@@ -96,46 +193,82 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
         ))}
       </div>
 
-      <ul className="flex flex-col gap-1">
-        {tree.map(({ task, subtasks }) => {
-          const category = task.categoryId ? categoryById.get(task.categoryId) : undefined;
-          return (
-            <li key={task.id} className="flex flex-col">
-              <TaskRow
-                task={task}
-                categoryName={category?.name}
-                categoryColor={category?.color}
-                onToggle={() => toggle(task)}
-                onEdit={() => openEdit(task)}
-                onAddSubtask={() => openSubtask(task.id!)}
-              />
-              {subtasks.map((subtask) => {
-                const subcategory = subtask.categoryId
-                  ? categoryById.get(subtask.categoryId)
-                  : undefined;
-                return (
-                  <TaskRow
-                    key={subtask.id}
-                    task={subtask}
-                    categoryName={subcategory?.name}
-                    categoryColor={subcategory?.color}
-                    nested
-                    onToggle={() => toggle(subtask)}
-                    onEdit={() => openEdit(subtask)}
-                  />
-                );
-              })}
-            </li>
-          );
-        })}
-      </ul>
+      {mode === 'dni' && (
+        <DayStrip
+          days={strip}
+          todayKey={todayKey}
+          selected={special === null ? selectedDay : null}
+          counts={countsByDay}
+          onSelect={(key) => {
+            tap();
+            setSpecial(null);
+            setSelectedDay(key);
+          }}
+          overdueCount={overdue.length}
+          undatedCount={undated.length}
+          special={special}
+          onSpecial={(value) => {
+            tap();
+            setSpecial((current) => (current === value ? null : value));
+          }}
+        />
+      )}
 
-      {tasks !== undefined && tree.length === 0 && (
+      {mode === 'lista' && renderNodes(open)}
+
+      {mode === 'kategorie' && (
+        <div className="flex flex-col gap-4">
+          {groups.map((group) => (
+            <section key={group.category?.id ?? 'bez-kategorii'}>
+              <GroupHeading
+                label={group.category?.name ?? 'Bez kategorii'}
+                color={group.category?.color}
+                count={group.nodes.length}
+              />
+              {renderNodes(group.nodes, { hideCategory: true })}
+            </section>
+          ))}
+        </div>
+      )}
+
+      {mode === 'dni' && (
+        <section>
+          <GroupHeading
+            label={
+              special === 'zalegle'
+                ? 'Zaległe'
+                : special === 'bez-terminu'
+                  ? 'Bez terminu'
+                  : dayHeadingLabel(selectedDay)
+            }
+            count={dayNodes.length}
+          />
+          {renderNodes(dayNodes, { hideDueDate: special === null })}
+          {dayNodes.length === 0 && (
+            <p className="text-muted py-6 text-center text-sm">
+              {special === null ? 'Ten dzień jest wolny.' : 'Nic tu nie ma.'}
+            </p>
+          )}
+        </section>
+      )}
+
+      {tasks !== undefined && open.length === 0 && mode !== 'dni' && (
         <p className="text-muted py-10 text-center text-sm">
-          {filter === 'zrobione'
-            ? 'Nic jeszcze nie odhaczone.'
-            : 'Brak zadań. Dodaj pierwsze plusem u góry.'}
+          Brak zadań. Dodaj pierwsze plusem u góry.
         </p>
+      )}
+
+      {done.length > 0 && (
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setShowDone((value) => !value)}
+            className="text-muted w-full py-2 text-center text-sm"
+          >
+            {showDone ? 'Ukryj zrobione' : `Zrobione (${done.length})`}
+          </button>
+          {showDone && renderNodes(done)}
+        </div>
       )}
 
       <TaskSheet
@@ -143,8 +276,148 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
         task={editing}
         parentId={parentId}
         categories={categories ?? []}
+        defaultDueDate={mode === 'dni' && special === null ? selectedDay : undefined}
         onClose={() => setSheetOpen(false)}
       />
     </Screen>
+  );
+}
+
+/** Nagłówek bloku — nazwa kategorii albo data, zawsze z licznikiem zadań. */
+function GroupHeading({ label, color, count }: { label: string; color?: string; count: number }) {
+  return (
+    <div className="flex items-center gap-2 pt-1 pb-1.5">
+      {color && (
+        <span
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: color }}
+          aria-hidden="true"
+        />
+      )}
+      <h2 className="text-muted min-w-0 flex-1 truncate text-xs font-semibold tracking-wide uppercase">
+        {label}
+      </h2>
+      <span className="text-faint shrink-0 text-xs tabular-nums">{count}</span>
+    </div>
+  );
+}
+
+interface StripProps {
+  days: string[];
+  todayKey: string;
+  /** null, gdy wybrane jest zaznaczenie specjalne zamiast konkretnego dnia. */
+  selected: string | null;
+  counts: Map<string, number>;
+  onSelect: (key: string) => void;
+  overdueCount: number;
+  undatedCount: number;
+  special: SpecialDay;
+  onSpecial: (value: Exclude<SpecialDay, null>) => void;
+}
+
+/**
+ * Pasek dat do przeklikiwania. Przewija się poziomo, a wybrany dzień sam
+ * wjeżdża na środek — inaczej po powrocie do zakładki trzeba by go szukać.
+ */
+function DayStrip({
+  days,
+  todayKey,
+  selected,
+  counts,
+  onSelect,
+  overdueCount,
+  undatedCount,
+  special,
+  onSpecial,
+}: StripProps) {
+  const activeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [selected]);
+
+  return (
+    <div className="mb-3 flex flex-col gap-2">
+      <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+        {days.map((key) => {
+          const isSelected = key === selected;
+          const count = counts.get(key) ?? 0;
+          return (
+            <button
+              key={key}
+              ref={isSelected ? activeRef : undefined}
+              type="button"
+              onClick={() => onSelect(key)}
+              aria-pressed={isSelected}
+              className={`rounded-app flex w-12 shrink-0 flex-col items-center gap-0.5 py-1.5 transition-colors ${
+                isSelected ? 'bg-selected' : key === todayKey ? 'bg-surface-alt' : 'bg-surface'
+              }`}
+            >
+              <span
+                className={`text-[0.625rem] leading-none ${
+                  isSelected ? 'text-selected-ink' : 'text-muted'
+                }`}
+              >
+                {weekdayShort(key)}
+              </span>
+              <span
+                className={`text-base leading-none font-semibold tabular-nums ${
+                  isSelected ? 'text-selected-ink' : 'text-ink'
+                }`}
+              >
+                {dayOfMonth(key)}
+              </span>
+              <span
+                className={`h-1 w-1 rounded-full ${count > 0 ? '' : 'opacity-0'}`}
+                style={{
+                  backgroundColor: isSelected ? 'var(--c-selected-text)' : 'var(--c-accent)',
+                }}
+                aria-hidden="true"
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex gap-2">
+        <FilterChip
+          label="Zaległe"
+          count={overdueCount}
+          active={special === 'zalegle'}
+          onClick={() => onSpecial('zalegle')}
+        />
+        <FilterChip
+          label="Bez terminu"
+          count={undatedCount}
+          active={special === 'bez-terminu'}
+          onClick={() => onSpecial('bez-terminu')}
+        />
+      </div>
+    </div>
+  );
+}
+
+function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-app flex-1 px-3 py-1.5 text-xs font-medium transition-colors ${
+        active ? 'bg-selected text-selected-ink' : 'bg-surface text-muted'
+      }`}
+    >
+      {label} <span className="tabular-nums">{count}</span>
+    </button>
   );
 }

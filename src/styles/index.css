@@ -15,6 +15,7 @@
   --color-faint: var(--c-text-faint);
   --color-accent: var(--c-accent);
   --color-weekend: var(--c-weekend);
+  --color-star: var(--c-star);
   --color-selected: var(--c-selected-bg);
   --color-selected-ink: var(--c-selected-text);
   --color-line: var(--c-border);
@@ -39,6 +40,7 @@
   --c-text-faint: #c6c5c1;
   --c-accent: #9c6f4a;
   --c-weekend: #9c6f4a;
+  --c-star: #c9a227;
   --c-selected-bg: #2c2c2a;
   --c-selected-text: #ffffff;
   --c-border: #e6e5e2;

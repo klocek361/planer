@@ -58,6 +58,7 @@ export const COLOR_FIELDS: { key: ColorKey; label: string; hint: string }[] = [
   { key: 'textFaint', label: 'Tekst ledwie widoczny', hint: 'Dni z sąsiednich miesięcy' },
   { key: 'accent', label: 'Akcent', hint: 'Aktywna zakładka i elementy wyróżnione' },
   { key: 'weekend', label: 'Weekend', hint: 'Cyfry sobót i niedziel' },
+  { key: 'star', label: 'Gwiazdka', hint: 'Znaczek ważnego zadania' },
   { key: 'selectedBg', label: 'Zaznaczony dzień — tło', hint: 'Kafelek klikniętego dnia' },
   { key: 'selectedText', label: 'Zaznaczony dzień — cyfra', hint: 'Tekst na tym kafelku' },
   { key: 'border', label: 'Linie i obramowania', hint: 'Delikatne kreski rozdzielające' },

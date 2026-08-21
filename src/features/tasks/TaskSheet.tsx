@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { addTask, deleteTask, updateTask } from '../../data/tasks';
-import { PRIORITY_LABELS, type Category, type Priority, type Task } from '../../data/types';
+import type { Category, Task } from '../../data/types';
 import { Button } from '../../ui/Button';
 import { CategoryPicker } from '../../ui/CategoryChip';
 import { Sheet } from '../../ui/Sheet';
-import { TrashIcon } from '../../ui/icons';
+import { StarIcon, TrashIcon } from '../../ui/icons';
 
 interface Props {
   open: boolean;
@@ -13,24 +13,31 @@ interface Props {
   /** Ustawione, gdy dodajemy podzadanie do wskazanego zadania. */
   parentId?: number;
   categories: Category[];
+  /** Termin wpisany z góry — gdy zadanie dodajemy z widoku konkretnego dnia. */
+  defaultDueDate?: string;
   onClose: () => void;
 }
 
-const PRIORITIES: Priority[] = [0, 1, 2];
-
-export function TaskSheet({ open, task, parentId, categories, onClose }: Props) {
+export function TaskSheet({
+  open,
+  task,
+  parentId,
+  categories,
+  defaultDueDate,
+  onClose,
+}: Props) {
   const [title, setTitle] = useState('');
-  const [priority, setPriority] = useState<Priority>(0);
+  const [starred, setStarred] = useState(false);
   const [dueDate, setDueDate] = useState('');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (!open) return;
     setTitle(task?.title ?? '');
-    setPriority(task?.priority ?? 0);
-    setDueDate(task?.dueDate ?? '');
+    setStarred(task?.starred ?? false);
+    setDueDate(task?.dueDate ?? defaultDueDate ?? '');
     setCategoryId(task?.categoryId);
-  }, [open, task]);
+  }, [open, task, defaultDueDate]);
 
   const trimmed = title.trim();
 
@@ -38,7 +45,7 @@ export function TaskSheet({ open, task, parentId, categories, onClose }: Props) 
     if (!trimmed) return;
     const draft = {
       title: trimmed,
-      priority,
+      starred,
       dueDate: dueDate || undefined,
       categoryId,
     };
@@ -67,24 +74,18 @@ export function TaskSheet({ open, task, parentId, categories, onClose }: Props) 
           />
         </label>
 
-        <div className="flex flex-col gap-2">
-          <span className="text-muted text-xs font-medium">Ważność</span>
-          <div className="flex gap-2">
-            {PRIORITIES.map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => setPriority(level)}
-                aria-pressed={priority === level}
-                className={`rounded-app flex-1 px-3 py-2 text-sm ${
-                  priority === level ? 'bg-selected text-selected-ink' : 'bg-surface text-ink'
-                }`}
-              >
-                {PRIORITY_LABELS[level]}
-              </button>
-            ))}
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => setStarred((value) => !value)}
+          aria-pressed={starred}
+          className="bg-surface rounded-app flex items-center justify-between px-3 py-2.5 text-left"
+        >
+          <span className="text-ink text-sm font-medium">Ważne</span>
+          <StarIcon
+            className={`h-6 w-6 ${starred ? 'text-star' : 'text-faint'}`}
+            filled={starred}
+          />
+        </button>
 
         <label className="flex flex-col gap-2">
           <span className="text-muted text-xs font-medium">Termin</span>

@@ -13,6 +13,7 @@ export type ColorKey =
   | 'textFaint'
   | 'accent'
   | 'weekend'
+  | 'star'
   | 'selectedBg'
   | 'selectedText'
   | 'border';

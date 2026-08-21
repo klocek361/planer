@@ -22,6 +22,7 @@ dev-dist/
 # Materiały wyjściowe: treść zamówienia i zrzut cudzego kalendarza
 # z prawdziwymi nazwami wydarzeń — repozytorium jest publiczne.
 prompt
+prompty/
 *.jpg
 *.jpeg
 *.png
