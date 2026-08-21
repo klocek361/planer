@@ -7,13 +7,8 @@ import {
   updateEvent,
   updateSeries,
 } from '../../data/events';
-import {
-  MAX_REPEAT_COUNT,
-  REPEAT_LABELS,
-  type Category,
-  type EventItem,
-  type RepeatFreq,
-} from '../../data/types';
+import { MAX_REPEAT_COUNT, type Category, type EventItem, type RepeatFreq } from '../../data/types';
+import { useT } from '../../i18n';
 import { dotDateLabel, fromKey, fullDateLabel } from '../../lib/dates';
 import { Button } from '../../ui/Button';
 import { CategoryPicker } from '../../ui/CategoryChip';
@@ -37,18 +32,22 @@ const DEFAULT_COUNT = 4;
 /** 'brak' to wydarzenie pojedyncze — reszta to reguły powtarzania. */
 type RepeatChoice = 'brak' | RepeatFreq;
 
-const REPEAT_CHOICES: { id: RepeatChoice; label: string }[] = [
-  { id: 'brak', label: 'Raz' },
-  { id: 'dzien', label: REPEAT_LABELS.dzien },
-  { id: 'tydzien', label: REPEAT_LABELS.tydzien },
-  { id: 'dwa-tygodnie', label: REPEAT_LABELS['dwa-tygodnie'] },
-  { id: 'miesiac', label: REPEAT_LABELS.miesiac },
-];
+const REPEAT_CHOICES: RepeatChoice[] = ['brak', 'dzien', 'tydzien', 'dwa-tygodnie', 'miesiac'];
 
 /** Czy zmiana dotyczy jednego terminu, czy całej serii. */
 type Scope = 'ten' | 'seria';
 
 export function EventSheet({ open, dateKey, event, categories, onClose }: Props) {
+  const { t } = useT();
+
+  const repeatLabel: Record<RepeatChoice, string> = {
+    brak: t.kalendarz.raz,
+    dzien: t.kalendarz.codziennie,
+    tydzien: t.kalendarz.coTydzien,
+    'dwa-tygodnie': t.kalendarz.coDwaTygodnie,
+    miesiac: t.kalendarz.coMiesiac,
+  };
+
   const [title, setTitle] = useState('');
   const [allDay, setAllDay] = useState(false);
   const [startTime, setStartTime] = useState(DEFAULT_START);
@@ -130,18 +129,18 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
   return (
     <Sheet
       open={open}
-      title={event ? 'Edytuj wydarzenie' : 'Nowe wydarzenie'}
+      title={event ? t.kalendarz.edytujWydarzenie : t.kalendarz.noweWydarzenie}
       onClose={onClose}
     >
       <div className="flex flex-col gap-5">
         <p className="text-muted -mt-2 text-sm">{fullDateLabel(fromKey(dateKey))}</p>
 
         <label className="flex flex-col gap-2">
-          <span className="text-muted text-xs font-medium">Nazwa</span>
+          <span className="text-muted text-xs font-medium">{t.wspolne.nazwa}</span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="np. Wizyta u dentysty"
+            placeholder={t.kalendarz.nazwaPrzyklad}
             className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
           />
         </label>
@@ -149,7 +148,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
         <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId} />
 
         <label className="bg-surface rounded-app flex items-center justify-between px-3 py-2.5">
-          <span className="text-ink text-sm font-medium">Całodniowe</span>
+          <span className="text-ink text-sm font-medium">{t.kalendarz.calodniowe}</span>
           <input
             type="checkbox"
             checked={allDay}
@@ -161,7 +160,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
         {!allDay && (
           <div className="flex gap-3">
             <label className="flex flex-1 flex-col gap-2">
-              <span className="text-muted text-xs font-medium">Od</span>
+              <span className="text-muted text-xs font-medium">{t.kalendarz.od}</span>
               <input
                 type="time"
                 value={startTime}
@@ -170,7 +169,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
               />
             </label>
             <label className="flex flex-1 flex-col gap-2">
-              <span className="text-muted text-xs font-medium">Do</span>
+              <span className="text-muted text-xs font-medium">{t.kalendarz.do}</span>
               <input
                 type="time"
                 value={endTime}
@@ -183,7 +182,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
 
         {!timesValid && (
           <p className="text-weekend -mt-3 text-xs">
-            Godzina zakończenia jest wcześniejsza niż rozpoczęcia.
+            {t.kalendarz.zlyZakres}
           </p>
         )}
 
@@ -191,19 +190,19 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
             istniejącej serii to w praktyce nowa seria. */}
         {!event && (
           <div className="flex flex-col gap-2">
-            <span className="text-muted text-xs font-medium">Powtarzanie</span>
+            <span className="text-muted text-xs font-medium">{t.kalendarz.powtarzanie}</span>
             <div className="flex flex-wrap gap-1.5">
               {REPEAT_CHOICES.map((choice) => (
                 <button
-                  key={choice.id}
+                  key={choice}
                   type="button"
-                  onClick={() => setRepeat(choice.id)}
-                  aria-pressed={repeat === choice.id}
+                  onClick={() => setRepeat(choice)}
+                  aria-pressed={repeat === choice}
                   className={`rounded-app px-3 py-1.5 text-sm ${
-                    repeat === choice.id ? 'bg-selected text-selected-ink' : 'bg-surface text-ink'
+                    repeat === choice ? 'bg-selected text-selected-ink' : 'bg-surface text-ink'
                   }`}
                 >
-                  {choice.label}
+                  {repeatLabel[choice]}
                 </button>
               ))}
             </div>
@@ -211,7 +210,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
             {repeat !== 'brak' && (
               <div className="flex items-center gap-3 pt-1">
                 <label className="flex items-center gap-2">
-                  <span className="text-muted text-xs font-medium">Ile razy</span>
+                  <span className="text-muted text-xs font-medium">{t.kalendarz.ileRazy}</span>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -230,7 +229,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
                   />
                 </label>
                 {lastDate && (
-                  <span className="text-muted text-xs">ostatni raz {dotDateLabel(lastDate)}</span>
+                  <span className="text-muted text-xs">{t.kalendarz.ostatniRaz(dotDateLabel(lastDate))}</span>
                 )}
               </div>
             )}
@@ -240,13 +239,13 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
         {inSeries && (
           <div className="flex flex-col gap-2">
             <span className="text-muted text-xs font-medium">
-              To wydarzenie należy do serii. Zmiana dotyczy:
+              {t.kalendarz.naleziDoSerii}
             </span>
             <div className="flex gap-2">
               {(
                 [
-                  { id: 'ten' as const, label: 'Tego terminu' },
-                  { id: 'seria' as const, label: 'Całej serii' },
+                  { id: 'ten' as const, label: t.kalendarz.tegoTerminu },
+                  { id: 'seria' as const, label: t.kalendarz.calejSerii },
                 ]
               ).map((option) => (
                 <button
@@ -266,22 +265,22 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
         )}
 
         <label className="flex flex-col gap-2">
-          <span className="text-muted text-xs font-medium">Notatka</span>
+          <span className="text-muted text-xs font-medium">{t.kalendarz.notatka}</span>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            placeholder="nieobowiązkowa"
+            placeholder={t.kalendarz.notatkaPrzyklad}
             className="bg-surface rounded-app text-ink resize-none px-3 py-2.5 text-base"
           />
         </label>
 
         <div className="flex gap-2">
           <Button variant="primary" className="flex-1" disabled={!canSave} onClick={save}>
-            Zapisz
+            {t.wspolne.zapisz}
           </Button>
           {event && (
-            <Button variant="danger" aria-label="Usuń wydarzenie" onClick={() => setConfirmOpen(true)} className="px-4">
+            <Button variant="danger" aria-label={t.kalendarz.usunWydarzenie} onClick={() => setConfirmOpen(true)} className="px-4">
               <TrashIcon className="h-5 w-5" />
             </Button>
           )}
@@ -289,8 +288,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
 
         {wholeSeries && (
           <p className="text-muted -mt-2 text-xs">
-            Zapis zmieni wszystkie terminy serii, a kosz skasuje je wszystkie. Same daty zostają
-            bez zmian.
+            {t.kalendarz.uwagaSeria}
           </p>
         )}
 
@@ -298,13 +296,11 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
           open={confirmOpen}
           title={
             wholeSeries
-              ? `Usunąć całą serię „${event?.title ?? ''}”?`
-              : `Usunąć wydarzenie „${event?.title ?? ''}”?`
+              ? t.kalendarz.pytanieSeria(event?.title ?? '')
+              : t.kalendarz.pytanieWydarzenie(event?.title ?? '')
           }
           message={
-            wholeSeries
-              ? 'Znikną wszystkie terminy tej serii, także te już minione.'
-              : 'Tego nie da się cofnąć.'
+            wholeSeries ? t.kalendarz.opisSeria : t.wspolne.nieodwracalne
           }
           onConfirm={remove}
           onCancel={() => setConfirmOpen(false)}

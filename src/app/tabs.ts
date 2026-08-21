@@ -3,32 +3,8 @@ export type TabId = 'przeglad' | 'kalendarz' | 'zadania' | 'nawyki';
 /** Kolejność, w jakiej zakładki pojawiają się w świeżo zainstalowanej aplikacji. */
 export const DEFAULT_TAB_ORDER: TabId[] = ['przeglad', 'kalendarz', 'zadania', 'nawyki'];
 
-export const TAB_LABELS: Record<TabId, string> = {
-  przeglad: 'Przegląd',
-  kalendarz: 'Kalendarz',
-  zadania: 'Zadania',
-  nawyki: 'Nawyki',
-};
-
-export const TAB_HINTS: Record<TabId, string> = {
-  przeglad: 'Dzień i tydzień w skrócie',
-  kalendarz: 'Siatka miesiąca i wydarzenia',
-  zadania: 'Lista zadań i podzadań',
-  nawyki: 'Codzienne odhaczanie',
-};
-
 /** Jak zadania z terminem pokazują się w siatce kalendarza. */
 export type CalendarTasks = 'nazwy' | 'licznik';
-
-export const CALENDAR_TASKS_LABELS: Record<CalendarTasks, string> = {
-  nazwy: 'Nazwy zadań',
-  licznik: 'Kropka z liczbą',
-};
-
-export const CALENDAR_TASKS_HINTS: Record<CalendarTasks, string> = {
-  nazwy: 'Widać, co jest do zrobienia — ale w komórce robi się ciasno',
-  licznik: 'Sama liczba zadań na dany dzień; siatka zostaje lekka',
-};
 
 export interface Layout {
   /** Kolejność zakładek na dolnym pasku. */

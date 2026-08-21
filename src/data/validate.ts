@@ -10,7 +10,7 @@
 import { FONTS, TEXTURES } from '../theme/catalog';
 import { DEFAULT_THEME } from '../theme/presets';
 import type { ColorKey, Theme } from '../theme/types';
-import { MAX_REPEAT_COUNT, REPEAT_LABELS } from './types';
+import { MAX_REPEAT_COUNT, REPEAT_FREQS } from './types';
 import type { Category, EventItem, Habit, HabitEntry, Note, Repeat, Task } from './types';
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
@@ -49,12 +49,12 @@ export function validCategory(input: unknown): Category | null {
   return { id: r.id as number | undefined, name: r.name, color: r.color, order: r.order };
 }
 
-const REPEAT_FREQS = new Set(Object.keys(REPEAT_LABELS));
+const DOZWOLONE_REGULY = new Set<string>(REPEAT_FREQS);
 
 /** Reguła powtarzania z pliku; przy byle wątpliwości wydarzenie zostaje pojedyncze. */
 function validRepeat(input: unknown): Repeat | undefined {
   const r = record(input);
-  if (!r || !REPEAT_FREQS.has(r.freq as string) || !isNumber(r.count)) return undefined;
+  if (!r || !DOZWOLONE_REGULY.has(r.freq as string) || !isNumber(r.count)) return undefined;
   const count = Math.round(r.count);
   if (count < 2 || count > MAX_REPEAT_COUNT) return undefined;
   return { freq: r.freq as Repeat['freq'], count };

@@ -1,22 +1,20 @@
 import { useLayoutStore } from '../../app/layoutStore';
-import {
-  CALENDAR_TASKS_HINTS,
-  CALENDAR_TASKS_LABELS,
-  type CalendarTasks,
-} from '../../app/tabs';
+import type { CalendarTasks } from '../../app/tabs';
+import { useT } from '../../i18n';
 import { Screen } from '../../ui/Screen';
 
 const MODES: CalendarTasks[] = ['nazwy', 'licznik'];
 
 /** Jak zadania z terminem pokazują się w siatce miesiąca. */
 export function CalendarPrefsScreen({ onBack }: { onBack: () => void }) {
+  const { t } = useT();
   const mode = useLayoutStore((state) => state.calendarTasks);
   const setMode = useLayoutStore((state) => state.setCalendarTasks);
 
   return (
-    <Screen title="Kalendarz" onBack={onBack}>
+    <Screen title={t.ustawienia.kalendarz} onBack={onBack}>
       <p className="text-muted px-1 pb-3 text-xs">
-        Zadania z terminem pokazują się w siatce miesiąca. Wybierz, ile mają zajmować miejsca.
+        {t.kalendarzEkran.wstep}
       </p>
 
       <ul className="flex flex-col gap-1">
@@ -33,9 +31,11 @@ export function CalendarPrefsScreen({ onBack }: { onBack: () => void }) {
                 }`}
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">{CALENDAR_TASKS_LABELS[item]}</span>
+                  <span className="block text-sm font-medium">
+                    {item === 'nazwy' ? t.kalendarzEkran.nazwy : t.kalendarzEkran.licznik}
+                  </span>
                   <span className={`block text-xs ${active ? 'opacity-70' : 'text-muted'}`}>
-                    {CALENDAR_TASKS_HINTS[item]}
+                    {item === 'nazwy' ? t.kalendarzEkran.nazwyOpis : t.kalendarzEkran.licznikOpis}
                   </span>
                 </span>
                 <Preview mode={item} active={active} />
@@ -46,14 +46,11 @@ export function CalendarPrefsScreen({ onBack }: { onBack: () => void }) {
       </ul>
 
       <p className="text-muted px-1 pt-3 text-xs">
-        W obu trybach dotknięcie dnia pokazuje jego zadania w całości pod siatką — razem z tymi,
-        które się w komórce nie zmieściły. Nazwa dłuższa niż komórka przepływa w bok, ale tylko
-        w zaznaczonym dniu; gdyby jechały wszystkie naraz, siatki nie dałoby się czytać.
+        {t.kalendarzEkran.opisPrzeplywania}
       </p>
 
       <p className="text-muted px-1 pt-2 text-xs">
-        W siatce pokazują się zadania jeszcze niezrobione. Odhaczone znikają z kafelka, ale
-        zostają w panelu pod spodem.
+        {t.kalendarzEkran.opisOdhaczonych}
       </p>
     </Screen>
   );

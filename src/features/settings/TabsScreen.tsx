@@ -1,5 +1,6 @@
 import { useLayoutStore } from '../../app/layoutStore';
-import { TAB_HINTS, TAB_LABELS, visibleTabs } from '../../app/tabs';
+import { visibleTabs } from '../../app/tabs';
+import { useT } from '../../i18n';
 import { Button } from '../../ui/Button';
 import { Screen } from '../../ui/Screen';
 import { ArrowDownIcon, ArrowUpIcon } from '../../ui/icons';
@@ -9,6 +10,7 @@ import { ArrowDownIcon, ArrowUpIcon } from '../../ui/icons';
  * na telefonie w jednej ręce celniejsze, a lista ma najwyżej cztery pozycje.
  */
 export function TabsScreen({ onBack }: { onBack: () => void }) {
+  const { t } = useT();
   const order = useLayoutStore((state) => state.order);
   const hidden = useLayoutStore((state) => state.hidden);
   const move = useLayoutStore((state) => state.move);
@@ -21,7 +23,7 @@ export function TabsScreen({ onBack }: { onBack: () => void }) {
   const lastOne = visible.length === 1;
 
   return (
-    <Screen title="Zakładki" onBack={onBack}>
+    <Screen title={t.ustawienia.zakladki} onBack={onBack}>
       <ul className="flex flex-col gap-1">
         {order.map((tab, index) => {
           const isHidden = hidden.includes(tab);
@@ -36,10 +38,10 @@ export function TabsScreen({ onBack }: { onBack: () => void }) {
                 <span
                   className={`block text-sm font-medium ${isHidden ? 'text-faint' : 'text-ink'}`}
                 >
-                  {TAB_LABELS[tab]}
+                  {t.zakladki[tab]}
                 </span>
                 <span className="text-muted block truncate text-xs">
-                  {isHidden ? 'Wyłączona' : TAB_HINTS[tab]}
+                  {isHidden ? t.zakladkiEkran.wylaczona : t.zakladki[`${tab}Opis` as const]}
                 </span>
               </span>
 
@@ -48,7 +50,7 @@ export function TabsScreen({ onBack }: { onBack: () => void }) {
                   type="button"
                   onClick={() => move(tab, -1)}
                   disabled={index === 0}
-                  aria-label={`Przesuń ${TAB_LABELS[tab]} wyżej`}
+                  aria-label={t.zakladkiEkran.wyzej(t.zakladki[tab])}
                   className="text-muted active:text-ink p-1.5 disabled:opacity-25"
                 >
                   <ArrowUpIcon className="h-5 w-5" />
@@ -57,7 +59,7 @@ export function TabsScreen({ onBack }: { onBack: () => void }) {
                   type="button"
                   onClick={() => move(tab, 1)}
                   disabled={index === order.length - 1}
-                  aria-label={`Przesuń ${TAB_LABELS[tab]} niżej`}
+                  aria-label={t.zakladkiEkran.nizej(t.zakladki[tab])}
                   className="text-muted active:text-ink p-1.5 disabled:opacity-25"
                 >
                   <ArrowDownIcon className="h-5 w-5" />
@@ -68,7 +70,7 @@ export function TabsScreen({ onBack }: { onBack: () => void }) {
                   checked={!isHidden}
                   disabled={lockedOn}
                   onChange={() => toggle(tab)}
-                  aria-label={`Pokazuj zakładkę ${TAB_LABELS[tab]}`}
+                  aria-label={t.zakladkiEkran.pokazuj(t.zakladki[tab])}
                   className="accent-accent ml-1 h-5 w-5 disabled:opacity-40"
                 />
               </div>
@@ -78,13 +80,12 @@ export function TabsScreen({ onBack }: { onBack: () => void }) {
       </ul>
 
       <p className="text-muted px-1 pt-3 text-xs">
-        Kolejność na liście to kolejność na pasku u dołu ekranu. Wyłączona zakładka znika z paska,
-        ale nic z niej nie ginie — wystarczy włączyć ją z powrotem.
+        {t.zakladkiEkran.opis}
       </p>
 
       <div className="pt-4">
         <Button variant="soft" onClick={reset}>
-          Przywróć domyślne
+          {t.wspolne.przywrocDomyslne}
         </Button>
       </div>
     </Screen>

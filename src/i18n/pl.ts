@@ -1,0 +1,330 @@
+import type { Plural } from './plural';
+
+/**
+ * Słownik polski — wzorzec dla pozostałych języków.
+ *
+ * Typ `Dict` wywodzi się z tego obiektu, więc każdy brakujący klucz w serbskim
+ * słowniku zatrzyma budowanie aplikacji. Lepiej złapać to na typecheck niż
+ * zobaczyć puste miejsce na telefonie.
+ */
+export const pl = {
+  wspolne: {
+    zapisz: 'Zapisz',
+    anuluj: 'Anuluj',
+    zamknij: 'Zamknij',
+    wstecz: 'Wstecz',
+    gotowe: 'Gotowe',
+    usun: 'Usuń',
+    nazwa: 'Nazwa',
+    kolor: 'Kolor',
+    dzis: 'Dziś',
+    dzisiaj: 'Dzisiaj',
+    calyDzien: 'cały dzień',
+    nieodwracalne: 'Tego nie da się cofnąć.',
+    przywrocDomyslne: 'Przywróć domyślne',
+    poprzedniMiesiac: 'Poprzedni miesiąc',
+    nastepnyMiesiac: 'Następny miesiąc',
+  },
+
+  zakladki: {
+    przeglad: 'Przegląd',
+    kalendarz: 'Kalendarz',
+    zadania: 'Zadania',
+    nawyki: 'Nawyki',
+    przegladOpis: 'Dzień i tydzień w skrócie',
+    kalendarzOpis: 'Siatka miesiąca i wydarzenia',
+    zadaniaOpis: 'Lista zadań i podzadań',
+    nawykiOpis: 'Codzienne odhaczanie',
+  },
+
+  daty: {
+    dzien: { one: 'dzień', few: 'dni', many: 'dni' } as Plural,
+    zadanie: { one: 'zadanie', few: 'zadania', many: 'zadań' } as Plural,
+    wpis: { one: 'wpis', few: 'wpisy', many: 'wpisów' } as Plural,
+    jutro: 'jutro',
+    doDnia: (data: string) => `do ${data}`,
+    doDniaZa: (data: string, ile: string) => `do ${data} · za ${ile}`,
+    poTerminie: (data: string, ile: string) => `${data} · ${ile} po terminie`,
+  },
+
+  kalendarz: {
+    noweWydarzenie: 'Nowe wydarzenie',
+    edytujWydarzenie: 'Edytuj wydarzenie',
+    nazwaPrzyklad: 'np. Wizyta u dentysty',
+    calodniowe: 'Całodniowe',
+    od: 'Od',
+    do: 'Do',
+    zlyZakres: 'Godzina zakończenia jest wcześniejsza niż rozpoczęcia.',
+    powtarzanie: 'Powtarzanie',
+    raz: 'Raz',
+    codziennie: 'Codziennie',
+    coTydzien: 'Co tydzień',
+    coDwaTygodnie: 'Co dwa tygodnie',
+    coMiesiac: 'Co miesiąc',
+    ileRazy: 'Ile razy',
+    ostatniRaz: (data: string) => `ostatni raz ${data}`,
+    naleziDoSerii: 'To wydarzenie należy do serii. Zmiana dotyczy:',
+    tegoTerminu: 'Tego terminu',
+    calejSerii: 'Całej serii',
+    notatka: 'Notatka',
+    notatkaPrzyklad: 'nieobowiązkowa',
+    uwagaSeria:
+      'Zapis zmieni wszystkie terminy serii, a kosz skasuje je wszystkie. Same daty zostają bez zmian.',
+    usunWydarzenie: 'Usuń wydarzenie',
+    pytanieWydarzenie: (tytul: string) => `Usunąć wydarzenie „${tytul}”?`,
+    pytanieSeria: (tytul: string) => `Usunąć całą serię „${tytul}”?`,
+    opisSeria: 'Znikną wszystkie terminy tej serii, także te już minione.',
+  },
+
+  zadania: {
+    noweZadanie: 'Nowe zadanie',
+    nowePodzadanie: 'Nowe podzadanie',
+    edytujZadanie: 'Edytuj zadanie',
+    coDoZrobienia: 'Co jest do zrobienia',
+    nazwaPrzyklad: 'np. Kupić prezent',
+    wazne: 'Ważne',
+    termin: 'Termin',
+    usunTermin: 'Usuń termin',
+    usunZadanie: 'Usuń zadanie',
+    uwagaPodzadania: 'Usunięcie zadania kasuje też jego podzadania.',
+    pytanieZadanie: (tytul: string) => `Usunąć zadanie „${tytul}”?`,
+    opisZPodzadaniami: 'Zniknie razem ze swoimi podzadaniami. Tego nie da się cofnąć.',
+    trybWszystkie: 'Wszystkie',
+    trybKategorie: 'Kategorie',
+    trybDni: 'Dni',
+    zalegle: 'Zaległe',
+    bezTerminu: 'Bez terminu',
+    zrobione: (ile: number) => `Zrobione (${ile})`,
+    brakZadan: 'Brak zadań. Dodaj pierwsze plusem u góry.',
+    dzienWolny: 'Ten dzień jest wolny.',
+    ukryjZrobione: 'Ukryj zrobione',
+    pusto: 'Nic tu nie ma.',
+    bezKategorii: 'Bez kategorii',
+  },
+
+  nawyki: {
+    nowyNawyk: 'Nowy nawyk',
+    edytujNawyk: 'Edytuj nawyk',
+    nazwaPrzyklad: 'np. Wypić wodę',
+    rodzaj: 'Rodzaj',
+    takNie: 'Tak / nie',
+    takNieOpis: 'Odhaczasz raz dziennie',
+    licznik: 'Licznik',
+    licznikOpis: 'Zliczasz powtórzenia do celu',
+    odliczanie: 'Odliczanie',
+    ciagle: 'Ciągle',
+    ciagleOpis: 'Liczy dni od założenia',
+    miesiacami: 'Miesiącami',
+    miesiacamiOpis: 'Liczy od 1. dnia miesiąca',
+    celDzienny: 'Cel dzienny',
+    jednostka: 'Jednostka',
+    jednostkaPrzyklad: 'np. szklanek',
+    zlyCel: 'Cel musi być liczbą co najmniej 1.',
+    usunNawyk: 'Usuń nawyk',
+    uwagaHistoria: 'Usunięcie nawyku kasuje też całą jego historię.',
+    pytanieNawyk: (nazwa: string) => `Usunąć nawyk „${nazwa}”?`,
+    opisNawyk: 'Zniknie razem z całą historią odhaczeń. Tego nie da się cofnąć.',
+    brakNawykow: 'Brak nawyków. Dodaj pierwszy plusem u góry.',
+    seria: (ile: string) => `seria ${ile}`,
+    brakSerii: 'brak serii',
+    postep: (zrobione: number, wszystkie: string) => `${zrobione}/${wszystkie}`,
+    odznacz: (nazwa: string) => `Odznacz ${nazwa}`,
+    odhacz: (nazwa: string) => `Odhacz ${nazwa}`,
+    odejmij: (nazwa: string) => `Odejmij od ${nazwa}`,
+    dodaj: (nazwa: string) => `Dodaj do ${nazwa}`,
+  },
+
+  przeglad: {
+    naDzis: 'Na dziś',
+    wydarzenia: 'Wydarzenia',
+    zalegle: 'Zaległe',
+    tenTydzien: 'Ten tydzień',
+    nicNaDzis: 'Dziś nic nie zaplanowano.',
+    pustyTydzien: 'W tym tygodniu pusto.',
+    nawykiLicznik: (zrobione: number, wszystkie: number) => `Nawyki ${zrobione}/${wszystkie}`,
+    poprzedniTydzien: 'Poprzedni tydzień',
+    nastepnyTydzien: 'Następny tydzień',
+  },
+
+  ustawienia: {
+    tytul: 'Ustawienia',
+    wyglad: 'Wygląd',
+    wygladOpis: 'Kolory, krój i rozmiar pisma, tło',
+    kategorie: 'Kategorie',
+    kategorieOpis: 'Nazwy i kolory wspólne dla całej aplikacji',
+    zakladki: 'Zakładki',
+    zakladkiOpis: 'Kolejność i włączanie dolnego paska',
+    kalendarz: 'Kalendarz',
+    kalendarzOpis: 'Jak zadania wyglądają w siatce miesiąca',
+    jezyk: 'Język',
+    jezykOpis: 'Język interfejsu i nazw miesięcy',
+    kopia: 'Kopia zapasowa',
+    kopiaOpis: 'Zapis i odczyt wszystkich danych',
+  },
+
+  zakladkiEkran: {
+    wylaczona: 'Wyłączona',
+    wyzej: (nazwa: string) => `Przesuń ${nazwa} wyżej`,
+    nizej: (nazwa: string) => `Przesuń ${nazwa} niżej`,
+    pokazuj: (nazwa: string) => `Pokazuj zakładkę ${nazwa}`,
+    opis:
+      'Kolejność na liście to kolejność na pasku u dołu ekranu. Wyłączona zakładka znika z paska, ale nic z niej nie ginie — wystarczy włączyć ją z powrotem.',
+  },
+
+  kalendarzEkran: {
+    nazwy: 'Nazwy zadań',
+    nazwyOpis: 'Widać, co jest do zrobienia — ale w komórce robi się ciasno',
+    licznik: 'Kropka z liczbą',
+    licznikOpis: 'Sama liczba zadań na dany dzień; siatka zostaje lekka',
+    wstep: 'Zadania z terminem pokazują się w siatce miesiąca. Wybierz, ile mają zajmować miejsca.',
+    opisPrzeplywania:
+      'W obu trybach dotknięcie dnia pokazuje jego zadania w całości pod siatką — razem z tymi, które się w komórce nie zmieściły. Nazwa dłuższa niż komórka przepływa w bok, ale tylko w zaznaczonym dniu; gdyby jechały wszystkie naraz, siatki nie dałoby się czytać.',
+    opisOdhaczonych:
+      'W siatce pokazują się zadania jeszcze niezrobione. Odhaczone znikają z kafelka, ale zostają w panelu pod spodem.',
+    zadanTegoDnia: (ile: string) => `${ile} tego dnia`,
+  },
+
+  jezykEkran: {
+    wstep:
+      'Zmiana działa od razu i obejmuje też nazwy miesięcy oraz dni tygodnia. Twoje wpisy zostają w języku, w którym je napisałaś.',
+  },
+
+  kategorie: {
+    nowaKategoria: 'Nowa kategoria',
+    nazwaPrzyklad: 'np. Zdrowie',
+    edytujKategorie: 'Edytuj kategorię',
+    usunKategorie: 'Usuń kategorię',
+    wstep: 'Kolory kategorii są wspólne dla wydarzeń, zadań i nawyków.',
+    brak: 'Brak kategorii. Dodaj pierwszą plusem u góry.',
+    uwaga: 'Usunięcie kategorii nie kasuje wydarzeń ani zadań — tracą tylko przypisany kolor.',
+    pytanie: (nazwa: string) => `Usunąć kategorię „${nazwa}”?`,
+    opis: 'Wydarzenia, zadania i nawyki zostaną — stracą tylko przypisany kolor.',
+  },
+
+  wyglad: {
+    wstep: 'Każda zmiana jest widoczna od razu. Zacznij od gotowego zestawu i przerób go pod siebie.',
+    gotoweZestawy: 'Gotowe zestawy',
+    mojeZestawy: 'Moje zestawy',
+    mojMotyw: 'Mój zestaw',
+    kodKoloru: 'Wpisz kod w formacie #RRGGBB, na przykład #9C6F4A.',
+    probka: 'Aa ąćę',
+    ksztalt: 'Kształt',
+    zaokraglenie: 'Zaokrąglenie rogów',
+    gestosc: 'Gęstość interfejsu',
+    luzno: 'luźno',
+    srednio: 'średnio',
+    tlo: 'Tło',
+    kolory: 'Kolory',
+    rozmiarPisma: 'Rozmiar pisma',
+    ciasno: 'ciasno',
+    ostrzezenieTekst: (kontrast: string, min: number) =>
+      `Tekst główny słabo odcina się od tła (kontrast ${kontrast}, zalecane co najmniej ${min}). Przyciemnij tekst albo rozjaśnij tło.`,
+    ostrzezeniePrzygaszony: (kontrast: string) =>
+      `Tekst przygaszony może być trudny do odczytania (kontrast ${kontrast}).`,
+    zapiszZestaw: 'Zapisz zestaw',
+    zapiszJakoMoj: 'Zapisz jako mój zestaw',
+    przywrocDomyslny: 'Przywróć domyślny',
+    nazwaPrzyklad: 'np. Mój pastelowy',
+  },
+
+  kopia: {
+    tytul: 'Kopia zapasowa',
+    zapiszDoPliku: 'Zapisz kopię do pliku',
+    wskazowkaZapisu:
+      'Na iPhonie otworzy się okno udostępniania — wybierz „Zapisz w Plikach”, żeby kopia trafiła na iCloud Drive.',
+    wgrajZPliku: 'Wgraj kopię z pliku',
+    wskazowkaWgrania: 'Wgranie zastąpi wszystko, co jest teraz w aplikacji.',
+    wgrano: 'Kopia została wgrana.',
+    pytanie: 'Wgrać tę kopię?',
+    bezDaty: 'Kopia bez daty zapisu.',
+    zDnia: (data: string) => `Kopia z dnia ${data}.`,
+    zawiera: 'Zawiera:',
+    resztaDobra: 'Reszta kopii nadaje się do wgrania.',
+    ostrzezenie: 'Wszystko, co jest teraz w aplikacji, zostanie zastąpione.',
+    wgrajIZastap: 'Wgraj i zastąp',
+    bledyZapisu: 'Nie udało się zapisać pliku.',
+    bledyOdczytu: 'Nie udało się odczytać pliku.',
+    bledyWgrania: 'Nie udało się wgrać kopii.',
+    uszkodzone: (ile: number) =>
+      ile === 1
+        ? '1 wpis był uszkodzony i został pominięty.'
+        : `${ile} ${ile % 10 >= 2 && ile % 10 <= 4 && (ile % 100 < 12 || ile % 100 > 14) ? 'wpisy były' : 'wpisów było'} uszkodzonych i zostało pominiętych.`,
+    liczby: {
+      kategorie: 'Kategorie',
+      wydarzenia: 'Wydarzenia',
+      zadania: 'Zadania',
+      nawyki: 'Nawyki',
+      odhaczenia: 'Odhaczenia nawyków',
+      notatki: 'Notatki',
+    },
+    bladNieplik: 'To nie jest plik kopii zapasowej — nie udało się go odczytać.',
+    bladZawartosc: 'Plik ma nieznaną zawartość.',
+    bladObcy: 'Ten plik nie pochodzi z Planera Kaśkowego.',
+    bladNowsza: 'Kopia pochodzi z nowszej wersji aplikacji. Zaktualizuj aplikację i spróbuj ponownie.',
+  },
+
+  kroje: {
+    system: 'Systemowy',
+    systemOpis: 'Krój systemowy telefonu — najbardziej naturalny',
+    inter: 'Neutralny',
+    interOpis: 'Czysty i bezosobowy, dobrze czytelny w małych rozmiarach',
+    literata: 'Szeryfowy',
+    literataOpis: 'Cieplejszy, książkowy charakter',
+    nunito: 'Zaokrąglony',
+    nunitoOpis: 'Miękki i przyjazny',
+    jetbrains: 'Techniczny',
+    jetbrainsOpis: 'Stała szerokość znaków, cyfry idealnie w kolumnach',
+    caveat: 'Odręczny',
+    caveatOpis: 'Styl notesu pisanego ręcznie',
+  },
+
+  kolory: {
+    bg: 'Tło aplikacji',
+    bgOpis: 'Główne tło pod wszystkim',
+    surface: 'Panele i przyciski',
+    surfaceOpis: 'Tło kart, pól i przycisków',
+    surfaceAlt: 'Dzisiejszy dzień',
+    surfaceAltOpis: 'Podświetlenie bieżącej daty',
+    text: 'Tekst główny',
+    textOpis: 'Cyfry dni, tytuły, treść',
+    textMuted: 'Tekst przygaszony',
+    textMutedOpis: 'Nagłówki dni tygodnia, podpisy',
+    textFaint: 'Tekst ledwie widoczny',
+    textFaintOpis: 'Dni z sąsiednich miesięcy',
+    accent: 'Akcent',
+    accentOpis: 'Aktywna zakładka i elementy wyróżnione',
+    weekend: 'Weekend',
+    weekendOpis: 'Cyfry sobót i niedziel',
+    star: 'Gwiazdka',
+    starOpis: 'Znaczek ważnego zadania',
+    selectedBg: 'Zaznaczony dzień — tło',
+    selectedBgOpis: 'Kafelek klikniętego dnia',
+    selectedText: 'Zaznaczony dzień — cyfra',
+    selectedTextOpis: 'Tekst na tym kafelku',
+    border: 'Linie i obramowania',
+    borderOpis: 'Delikatne kreski rozdzielające',
+  },
+
+  /**
+   * Nazwy gotowych zestawów kolorów, po identyfikatorze zestawu. Zestawy
+   * nazwane własnoręcznie nie mają identyfikatora i zachowują swoją nazwę.
+   */
+  presety: {
+    piaskowy: 'Piaskowy',
+    szalwiowy: 'Szałwiowy',
+    rozany: 'Różany',
+    atrament: 'Atrament',
+    noc: 'Noc',
+  } as Record<string, string>,
+
+  tekstury: {
+    none: 'Gładkie',
+    paper: 'Papier',
+    canvas: 'Płótno',
+    grid: 'Kratka',
+    dots: 'Kropki',
+  },
+};
+
+/** Kształt słownika. Serbskie wersje muszą mieć dokładnie te same klucze. */
+export type Dict = typeof pl;

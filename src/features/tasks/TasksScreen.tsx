@@ -16,6 +16,7 @@ import {
   toKey,
   weekdayShort,
 } from '../../lib/dates';
+import { useT } from '../../i18n';
 import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
 import { SettingsButton } from '../../ui/SettingsButton';
@@ -25,11 +26,7 @@ import { TaskSheet } from './TaskSheet';
 
 type Mode = 'lista' | 'kategorie' | 'dni';
 
-const MODES: { id: Mode; label: string }[] = [
-  { id: 'lista', label: 'Wszystkie' },
-  { id: 'kategorie', label: 'Kategorie' },
-  { id: 'dni', label: 'Dni' },
-];
+const MODES: Mode[] = ['lista', 'kategorie', 'dni'];
 
 /** Pasek dat: kilka dni wstecz, żeby dało się cofnąć bez szukania. */
 const STRIP_BACK = 3;
@@ -39,6 +36,13 @@ const STRIP_LENGTH = 45;
 type SpecialDay = 'zalegle' | 'bez-terminu' | null;
 
 export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const { t } = useT();
+  const modeLabel: Record<Mode, string> = {
+    lista: t.zadania.trybWszystkie,
+    kategorie: t.zadania.trybKategorie,
+    dni: t.zadania.trybDni,
+  };
+
   const [mode, setMode] = useState<Mode>('lista');
   const [showDone, setShowDone] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
@@ -162,13 +166,13 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
 
   return (
     <Screen
-      title="Zadania"
+      title={t.zakladki.zadania}
       action={
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={openNew}
-            aria-label="Nowe zadanie"
+            aria-label={t.zadania.noweZadanie}
             className="text-muted active:text-ink -m-2 p-2"
           >
             <PlusIcon className="h-6 w-6" />
@@ -180,15 +184,15 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
       <div className="bg-surface rounded-app mb-3 flex gap-1 p-1">
         {MODES.map((item) => (
           <button
-            key={item.id}
+            key={item}
             type="button"
-            onClick={() => setMode(item.id)}
-            aria-pressed={mode === item.id}
+            onClick={() => setMode(item)}
+            aria-pressed={mode === item}
             className={`rounded-app flex-1 py-1.5 text-sm font-medium transition-colors ${
-              mode === item.id ? 'bg-bg text-ink' : 'text-muted'
+              mode === item ? 'bg-bg text-ink' : 'text-muted'
             }`}
           >
-            {item.label}
+            {modeLabel[item]}
           </button>
         ))}
       </div>
@@ -221,7 +225,7 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
           {groups.map((group) => (
             <section key={group.category?.id ?? 'bez-kategorii'}>
               <GroupHeading
-                label={group.category?.name ?? 'Bez kategorii'}
+                label={group.category?.name ?? t.zadania.bezKategorii}
                 color={group.category?.color}
                 count={group.nodes.length}
               />
@@ -236,9 +240,9 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
           <GroupHeading
             label={
               special === 'zalegle'
-                ? 'Zaległe'
+                ? t.zadania.zalegle
                 : special === 'bez-terminu'
-                  ? 'Bez terminu'
+                  ? t.zadania.bezTerminu
                   : dayHeadingLabel(selectedDay)
             }
             count={dayNodes.length}
@@ -246,7 +250,7 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
           {renderNodes(dayNodes, { hideDueDate: special === null })}
           {dayNodes.length === 0 && (
             <p className="text-muted py-6 text-center text-sm">
-              {special === null ? 'Ten dzień jest wolny.' : 'Nic tu nie ma.'}
+              {special === null ? t.zadania.dzienWolny : t.zadania.pusto}
             </p>
           )}
         </section>
@@ -254,7 +258,7 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
 
       {tasks !== undefined && open.length === 0 && mode !== 'dni' && (
         <p className="text-muted py-10 text-center text-sm">
-          Brak zadań. Dodaj pierwsze plusem u góry.
+          {t.zadania.brakZadan}
         </p>
       )}
 
@@ -265,7 +269,7 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
             onClick={() => setShowDone((value) => !value)}
             className="text-muted w-full py-2 text-center text-sm"
           >
-            {showDone ? 'Ukryj zrobione' : `Zrobione (${done.length})`}
+            {showDone ? t.zadania.ukryjZrobione : t.zadania.zrobione(done.length)}
           </button>
           {showDone && renderNodes(done)}
         </div>
@@ -330,6 +334,7 @@ function DayStrip({
   special,
   onSpecial,
 }: StripProps) {
+  const { t } = useT();
   const activeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -381,13 +386,13 @@ function DayStrip({
 
       <div className="flex gap-2">
         <FilterChip
-          label="Zaległe"
+          label={t.zadania.zalegle}
           count={overdueCount}
           active={special === 'zalegle'}
           onClick={() => onSpecial('zalegle')}
         />
         <FilterChip
-          label="Bez terminu"
+          label={t.zadania.bezTerminu}
           count={undatedCount}
           active={special === 'bez-terminu'}
           onClick={() => onSpecial('bez-terminu')}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { addTask, deleteTask, updateTask } from '../../data/tasks';
 import type { Category, Task } from '../../data/types';
+import { useT } from '../../i18n';
 import { Button } from '../../ui/Button';
 import { CategoryPicker } from '../../ui/CategoryChip';
 import { ConfirmDialog } from '../../ui/Confirm';
@@ -27,6 +28,7 @@ export function TaskSheet({
   defaultDueDate,
   onClose,
 }: Props) {
+  const { t } = useT();
   const [title, setTitle] = useState('');
   const [starred, setStarred] = useState(false);
   const [dueDate, setDueDate] = useState('');
@@ -62,17 +64,21 @@ export function TaskSheet({
     onClose();
   };
 
-  const heading = task ? 'Edytuj zadanie' : parentId ? 'Nowe podzadanie' : 'Nowe zadanie';
+  const heading = task
+    ? t.zadania.edytujZadanie
+    : parentId
+      ? t.zadania.nowePodzadanie
+      : t.zadania.noweZadanie;
 
   return (
     <Sheet open={open} title={heading} onClose={onClose}>
       <div className="flex flex-col gap-5">
         <label className="flex flex-col gap-2">
-          <span className="text-muted text-xs font-medium">Co jest do zrobienia</span>
+          <span className="text-muted text-xs font-medium">{t.zadania.coDoZrobienia}</span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="np. Kupić prezent"
+            placeholder={t.zadania.nazwaPrzyklad}
             className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
           />
         </label>
@@ -83,7 +89,7 @@ export function TaskSheet({
           aria-pressed={starred}
           className="bg-surface rounded-app flex items-center justify-between px-3 py-2.5 text-left"
         >
-          <span className="text-ink text-sm font-medium">Ważne</span>
+          <span className="text-ink text-sm font-medium">{t.zadania.wazne}</span>
           <StarIcon
             className={`h-6 w-6 ${starred ? 'text-star' : 'text-faint'}`}
             filled={starred}
@@ -91,7 +97,7 @@ export function TaskSheet({
         </button>
 
         <label className="flex flex-col gap-2">
-          <span className="text-muted text-xs font-medium">Termin</span>
+          <span className="text-muted text-xs font-medium">{t.zadania.termin}</span>
           <input
             type="date"
             value={dueDate}
@@ -104,7 +110,7 @@ export function TaskSheet({
               onClick={() => setDueDate('')}
               className="text-muted self-start text-xs underline"
             >
-              Usuń termin
+              {t.zadania.usunTermin}
             </button>
           )}
         </label>
@@ -113,10 +119,10 @@ export function TaskSheet({
 
         <div className="flex gap-2">
           <Button variant="primary" className="flex-1" disabled={!trimmed} onClick={save}>
-            Zapisz
+            {t.wspolne.zapisz}
           </Button>
           {task && (
-            <Button variant="danger" aria-label="Usuń zadanie" onClick={() => setConfirmOpen(true)} className="px-4">
+            <Button variant="danger" aria-label={t.zadania.usunZadanie} onClick={() => setConfirmOpen(true)} className="px-4">
               <TrashIcon className="h-5 w-5" />
             </Button>
           )}
@@ -124,17 +130,17 @@ export function TaskSheet({
 
         {task && task.parentId === undefined && (
           <p className="text-muted -mt-2 text-xs">
-            Usunięcie zadania kasuje też jego podzadania.
+            {t.zadania.uwagaPodzadania}
           </p>
         )}
 
         <ConfirmDialog
           open={confirmOpen}
-          title={`Usunąć zadanie „${task?.title ?? ''}”?`}
+          title={t.zadania.pytanieZadanie(task?.title ?? '')}
           message={
             task?.parentId === undefined
-              ? 'Zniknie razem ze swoimi podzadaniami. Tego nie da się cofnąć.'
-              : 'Tego nie da się cofnąć.'
+              ? t.zadania.opisZPodzadaniami
+              : t.wspolne.nieodwracalne
           }
           onConfirm={remove}
           onCancel={() => setConfirmOpen(false)}

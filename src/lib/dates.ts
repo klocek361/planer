@@ -11,6 +11,20 @@ import {
   startOfWeek,
 } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import type { Locale } from 'date-fns';
+import type { Dict } from '../i18n/pl';
+import { slavicForm } from '../i18n/plural';
+
+/**
+ * Język nazw miesięcy i dni tygodnia. Trzymany w module, a nie przekazywany
+ * do każdej funkcji — dzięki temu setki wywołań `format` w komponentach
+ * zostają bez zmian, a przełączenie języka jest jednym przypisaniem.
+ */
+let activeLocale: Locale = pl;
+
+export function setDateLocale(locale: Locale): void {
+  activeLocale = locale;
+}
 
 /** Tydzień zaczyna się w poniedziałek. */
 const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
@@ -31,31 +45,26 @@ export function fromKey(key: string): Date {
 
 /** Skrót miesiąca wielkimi literami, np. 'SIE'. */
 export function monthLabel(date: Date): string {
-  return format(date, 'LLL', { locale: pl }).toUpperCase().replace('.', '');
+  return format(date, 'LLL', { locale: activeLocale }).toUpperCase().replace('.', '');
 }
 
 /** Pełna data pod siatką, np. 'niedz., 6 wrz 2026'. */
 export function fullDateLabel(date: Date): string {
-  return format(date, 'EEE, d MMM yyyy', { locale: pl });
+  return format(date, 'EEE, d MMM yyyy', { locale: activeLocale });
 }
 
 export function monthYearLabel(date: Date): string {
-  return format(date, 'LLLL yyyy', { locale: pl });
+  return format(date, 'LLLL yyyy', { locale: activeLocale });
 }
 
 /** Krótki termin przy zadaniu, np. '12 sie'. */
 export function shortDateLabel(key: string): string {
-  return format(fromKey(key), 'd MMM', { locale: pl });
+  return format(fromKey(key), 'd MMM', { locale: activeLocale });
 }
 
 /** Data w skrócie z kropką, np. '21.08' — używana przy terminach zadań. */
 export function dotDateLabel(key: string): string {
   return format(fromKey(key), 'dd.MM');
-}
-
-/** Odmiana słowa "dzień" po liczbie: 1 dzień, 2 dni, 5 dni. */
-function dayWord(count: number): string {
-  return count === 1 ? 'dzień' : 'dni';
 }
 
 export type DueTone = 'zwykly' | 'blisko' | 'zalegly';
@@ -71,19 +80,26 @@ export interface DueInfo {
  * Podpis terminu zadania: sama data mówi mało, więc dokładamy odległość
  * w dniach. Bliskie terminy mają własne słowa, bo "za 0 dni" nikt tak nie mówi.
  */
-export function dueInfo(dueKey: string, today = toKey(new Date())): DueInfo {
+export function dueInfo(dueKey: string, t: Dict, today = toKey(new Date())): DueInfo {
   const days = differenceInCalendarDays(fromKey(dueKey), fromKey(today));
   const date = dotDateLabel(dueKey);
+  // Odmiana idzie przez regułę słowiańską także dla angielskiego i portugalskiego:
+  // tam formy „few” i „many” są identyczne, więc wynik wychodzi ten sam.
+  const dni = (n: number) => `${n} ${t.daty.dzien[slavicForm(n)]}`;
 
   if (days < 0) {
     const late = Math.abs(days);
-    return { text: `${date} · ${late} ${dayWord(late)} po terminie`, tone: 'zalegly', days };
+    return { text: t.daty.poTerminie(date, dni(late)), tone: 'zalegly', days };
   }
-  if (days === 0) return { text: 'dziś', tone: 'blisko', days };
-  if (days === 1) return { text: 'jutro', tone: 'blisko', days };
+  if (days === 0) return { text: t.wspolne.dzis.toLowerCase(), tone: 'blisko', days };
+  if (days === 1) return { text: t.daty.jutro, tone: 'blisko', days };
   // Przy odległych terminach odliczanie w dniach przestaje cokolwiek wnosić.
-  if (days > 30) return { text: `do ${date}`, tone: 'zwykly', days };
-  return { text: `do ${date} · za ${days} ${dayWord(days)}`, tone: days <= 3 ? 'blisko' : 'zwykly', days };
+  if (days > 30) return { text: t.daty.doDnia(date), tone: 'zwykly', days };
+  return {
+    text: t.daty.doDniaZa(date, dni(days)),
+    tone: days <= 3 ? 'blisko' : 'zwykly',
+    days,
+  };
 }
 
 /** Czy podany dzień już minął — do wyróżniania zaległych terminów. */
@@ -133,7 +149,7 @@ export function monthDays(month: Date): string[] {
 
 /** Sama nazwa miesiąca z rokiem, np. 'sierpień 2026' — nagłówek paska nawyku. */
 export function monthNameLabel(month: Date): string {
-  return format(month, 'LLLL yyyy', { locale: pl });
+  return format(month, 'LLLL yyyy', { locale: activeLocale });
 }
 
 /**
@@ -173,13 +189,13 @@ export function weekRangeLabel(keys: string[]): string {
   const from = fromKey(first);
   const to = fromKey(last);
   const sameMonth = from.getMonth() === to.getMonth();
-  const left = sameMonth ? format(from, 'd') : format(from, 'd MMM', { locale: pl });
-  return `${left}–${format(to, 'd MMM', { locale: pl })}`;
+  const left = sameMonth ? format(from, 'd') : format(from, 'd MMM', { locale: activeLocale });
+  return `${left}–${format(to, 'd MMM', { locale: activeLocale })}`;
 }
 
 /** Skrót dnia tygodnia bez kropki, np. 'pon'. */
 export function weekdayShort(key: string): string {
-  return format(fromKey(key), 'EEE', { locale: pl }).replace('.', '');
+  return format(fromKey(key), 'EEE', { locale: activeLocale }).replace('.', '');
 }
 
 /** Dzień miesiąca jako liczba, do kafelków z datami. */
@@ -189,7 +205,7 @@ export function dayOfMonth(key: string): number {
 
 /** Podpis dnia w nagłówku sekcji, np. 'wtorek, 18 sie'. */
 export function dayHeadingLabel(key: string): string {
-  return format(fromKey(key), 'EEEE, d MMM', { locale: pl });
+  return format(fromKey(key), 'EEEE, d MMM', { locale: activeLocale });
 }
 
 /** Dzień poprzedzający podany klucz. */

@@ -16,6 +16,7 @@ import {
 import type { Theme } from '../theme/types';
 import { db } from './db';
 import type { Category, EventItem, Habit, HabitEntry, Note, Task } from './types';
+import { currentDict } from '../i18n';
 
 /**
  * Kopia zapasowa całej aplikacji. Przy PWA to jedyne zabezpieczenie przed
@@ -115,20 +116,20 @@ export function parseBackup(json: string): ParsedBackup {
   try {
     parsed = JSON.parse(json);
   } catch {
-    return fail('To nie jest plik kopii zapasowej — nie udało się go odczytać.');
+    return fail(currentDict().kopia.bladNieplik);
   }
 
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return fail('Plik ma nieznaną zawartość.');
+    return fail(currentDict().kopia.bladZawartosc);
   }
 
   const candidate = parsed as Record<string, unknown>;
 
   if (candidate.aplikacja !== FORMAT) {
-    return fail('Ten plik nie pochodzi z Planera Kaśkowego.');
+    return fail(currentDict().kopia.bladObcy);
   }
   if (typeof candidate.wersja !== 'number' || candidate.wersja > FORMAT_VERSION) {
-    return fail('Kopia pochodzi z nowszej wersji aplikacji. Zaktualizuj aplikację i spróbuj ponownie.');
+    return fail(currentDict().kopia.bladNowsza);
   }
 
   const dane =

@@ -1,6 +1,7 @@
 import type { CalendarTasks } from '../../app/tabs';
 import type { EventItem, Task } from '../../data/types';
 import { WEEKDAY_LABELS, compareEvents, type GridDay } from '../../lib/dates';
+import { useT } from '../../i18n';
 import { EventChip, eventColor } from './EventChip';
 
 /** Ile wpisów mieści się w komórce, zanim pojawi się licznik reszty. */
@@ -174,12 +175,14 @@ function TaskChip({
 
 /** Sama liczba zadań na dany dzień — dla trybu, w którym siatka ma zostać lekka. */
 function TaskCount({ count, selected }: { count: number; selected: boolean }) {
+  const { t, plural } = useT();
+
   return (
     <span
       className={`flex items-center gap-1 pl-1 text-[0.625rem] leading-tight font-medium tabular-nums ${
         selected ? 'text-selected-ink' : 'text-ink'
       }`}
-      title={`${count} ${count === 1 ? 'zadanie' : 'zadania/zadań'} tego dnia`}
+      title={t.kalendarzEkran.zadanTegoDnia(plural(count, t.daty.zadanie))}
     >
       <span
         className={`h-1.5 w-1.5 shrink-0 rounded-full ${selected ? 'bg-current' : 'bg-accent'}`}

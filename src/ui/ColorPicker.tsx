@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
+import { useT } from '../i18n';
 
 interface Props {
   value: string;
@@ -25,6 +26,7 @@ function normalizeHex(input: string): string | null {
  * znaki — do rodzica trafia dopiero poprawny, kompletny kolor.
  */
 export function ColorPicker({ value, onChange, presets = [] }: Props) {
+  const { t } = useT();
   const [text, setText] = useState(value);
 
   // Nadążanie za zmianami z zewnątrz (koło barw, próbki).
@@ -89,7 +91,7 @@ export function ColorPicker({ value, onChange, presets = [] }: Props) {
       </div>
       {!isValid && (
         <p className="text-muted -mt-2 text-xs">
-          Wpisz kod w formacie #RRGGBB, na przykład #9C6F4A.
+          {t.wyglad.kodKoloru}
         </p>
       )}
     </div>

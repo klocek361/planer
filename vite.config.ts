@@ -83,9 +83,14 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Czcionki: do pracy offline wystarczą podzbiory latin i latin-ext
-        // (polskie znaki diakrytyczne). Reszta subsetów zostaje pominięta.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico}', '**/*latin*.woff2'],
+        // Czcionki: offline potrzebne są podzbiory latin i latin-ext (polskie
+        // i serbskie znaki diakrytyczne) oraz cyrylica dla serbskiego zapisu
+        // cyrylickiego. Grecki i wietnamski zostają pominięte.
+        globPatterns: [
+          '**/*.{js,css,html,svg,png,ico}',
+          '**/*latin*.woff2',
+          '**/*cyrillic*.woff2',
+        ],
         cleanupOutdatedCaches: true,
         navigateFallback: 'index.html',
       },

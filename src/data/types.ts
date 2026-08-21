@@ -18,12 +18,8 @@ export interface Category {
 /** Co ile powtarza się wydarzenie z serii. */
 export type RepeatFreq = 'dzien' | 'tydzien' | 'dwa-tygodnie' | 'miesiac';
 
-export const REPEAT_LABELS: Record<RepeatFreq, string> = {
-  dzien: 'Codziennie',
-  tydzien: 'Co tydzień',
-  'dwa-tygodnie': 'Co dwa tygodnie',
-  miesiac: 'Co miesiąc',
-};
+/** Dopuszczalne reguły powtarzania — do sprawdzania wczytywanych kopii. */
+export const REPEAT_FREQS: RepeatFreq[] = ['dzien', 'tydzien', 'dwa-tygodnie', 'miesiac'];
 
 export interface Repeat {
   freq: RepeatFreq;
@@ -81,16 +77,6 @@ export type HabitKind = 'tak-nie' | 'licznik';
  *   licznik startuje od zera.
  */
 export type HabitPeriod = 'ciagly' | 'miesiac';
-
-export const HABIT_PERIOD_LABELS: Record<HabitPeriod, string> = {
-  ciagly: 'Ciągle',
-  miesiac: 'Miesiącami',
-};
-
-export const HABIT_PERIOD_HINTS: Record<HabitPeriod, string> = {
-  ciagly: 'Liczy dni od założenia',
-  miesiac: 'Liczy od 1. dnia miesiąca',
-};
 
 export interface Habit {
   id?: number;
