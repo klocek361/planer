@@ -24,6 +24,35 @@ class PlanerDB extends Dexie {
       notes: '++id, updatedAt',
     });
 
+    // Wersja 2: trzy poziomy ważności zadania zastąpiła gwiazdka, a wydarzenia
+    // dostały znacznik serii. Migracja przenosi stare dane bez pytania —
+    // "Ważne" i "Pilne" stają się gwiazdką, "Zwykłe" zostaje bez niej.
+    this.version(2)
+      .stores({
+        events: '++id, date, categoryId, seriesId',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('tasks')
+          .toCollection()
+          .modify((task: Record<string, unknown>) => {
+            const priority = typeof task.priority === 'number' ? task.priority : 0;
+            task.starred = priority > 0;
+            delete task.priority;
+          });
+      });
+
+    // Wersja 3: nawyk dostał tryb liczenia. Wszystko, co powstało wcześniej,
+    // liczyło się od dnia założenia — czyli dokładnie tryb 'ciagly'.
+    this.version(3).upgrade(async (tx) => {
+      await tx
+        .table('habits')
+        .toCollection()
+        .modify((habit: Record<string, unknown>) => {
+          if (habit.period !== 'miesiac') habit.period = 'ciagly';
+        });
+    });
+
     // Uruchamiane raz, przy pierwszym otwarciu aplikacji na danym telefonie.
     this.on('populate', () => {
       void this.categories.bulkAdd(STARTER_CATEGORIES);

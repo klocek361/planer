@@ -1,3 +1,5 @@
+import { normalizeLayout, type Layout } from '../app/tabs';
+import { useLayoutStore } from '../app/layoutStore';
 import { toKey } from '../lib/dates';
 import { useThemeStore } from '../theme/store';
 import {
@@ -21,7 +23,7 @@ import type { Category, EventItem, Habit, HabitEntry, Note, Task } from './types
  */
 
 const FORMAT = 'planer-kaskowy';
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2;
 
 export interface BackupFile {
   aplikacja: string;
@@ -39,6 +41,7 @@ export interface BackupFile {
     aktualny: Theme;
     zapisane: Theme[];
   };
+  uklad: Layout;
 }
 
 export async function buildBackup(): Promise<BackupFile> {
@@ -52,6 +55,7 @@ export async function buildBackup(): Promise<BackupFile> {
   ]);
 
   const { theme, saved } = useThemeStore.getState();
+  const { order, hidden } = useLayoutStore.getState();
 
   return {
     aplikacja: FORMAT,
@@ -59,6 +63,7 @@ export async function buildBackup(): Promise<BackupFile> {
     zapisano: new Date().toISOString(),
     dane: { categories, events, tasks, habits, habitEntries, notes },
     motyw: { aktualny: theme, zapisane: saved },
+    uklad: { order, hidden },
   };
 }
 
@@ -178,6 +183,8 @@ export function parseBackup(json: string): ParsedBackup {
         aktualny: sanitizeTheme(motyw.aktualny),
         zapisane: sanitizeThemeList(motyw.zapisane),
       },
+      // Kopie w formacie 1 nie znały układu zakładek — wtedy wchodzi domyślny.
+      uklad: normalizeLayout(candidate.uklad),
     },
     skipped,
   };
@@ -218,4 +225,5 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
   if (backup.motyw?.aktualny) {
     useThemeStore.getState().replaceAll(backup.motyw.aktualny, backup.motyw.zapisane ?? []);
   }
+  useLayoutStore.getState().replaceAll(normalizeLayout(backup.uklad));
 }

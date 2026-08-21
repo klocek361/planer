@@ -1,1 +1,64 @@
-export type TabId = 'kalendarz' | 'zadania' | 'nawyki';
+export type TabId = 'przeglad' | 'kalendarz' | 'zadania' | 'nawyki';
+
+/** Kolejność, w jakiej zakładki pojawiają się w świeżo zainstalowanej aplikacji. */
+export const DEFAULT_TAB_ORDER: TabId[] = ['przeglad', 'kalendarz', 'zadania', 'nawyki'];
+
+export const TAB_LABELS: Record<TabId, string> = {
+  przeglad: 'Przegląd',
+  kalendarz: 'Kalendarz',
+  zadania: 'Zadania',
+  nawyki: 'Nawyki',
+};
+
+export const TAB_HINTS: Record<TabId, string> = {
+  przeglad: 'Dzień i tydzień w skrócie',
+  kalendarz: 'Siatka miesiąca i wydarzenia',
+  zadania: 'Lista zadań i podzadań',
+  nawyki: 'Codzienne odhaczanie',
+};
+
+export interface Layout {
+  /** Kolejność zakładek na dolnym pasku. */
+  order: TabId[];
+  /** Zakładki wyłączone — zostają w ustawieniach, znikają z paska. */
+  hidden: TabId[];
+}
+
+export const DEFAULT_LAYOUT: Layout = { order: DEFAULT_TAB_ORDER, hidden: [] };
+
+const isTabId = (value: unknown): value is TabId =>
+  typeof value === 'string' && (DEFAULT_TAB_ORDER as string[]).includes(value);
+
+/**
+ * Doprowadza układ do stanu używalnego: zna tylko istniejące zakładki, każdą
+ * dokładnie raz, dokłada te dodane w nowszej wersji aplikacji i nie pozwala
+ * schować wszystkiego — pasek bez ani jednej zakładki byłby ślepym zaułkiem.
+ */
+export function normalizeLayout(input: unknown): Layout {
+  const record =
+    typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {};
+
+  const rawOrder = Array.isArray(record.order) ? record.order : [];
+  const order: TabId[] = [];
+  for (const item of rawOrder) {
+    if (isTabId(item) && !order.includes(item)) order.push(item);
+  }
+  for (const tab of DEFAULT_TAB_ORDER) {
+    if (!order.includes(tab)) order.push(tab);
+  }
+
+  const rawHidden = Array.isArray(record.hidden) ? record.hidden : [];
+  const hidden: TabId[] = [];
+  for (const item of rawHidden) {
+    if (isTabId(item) && !hidden.includes(item)) hidden.push(item);
+  }
+  // Ostatnia widoczna zakładka zostaje na pasku, choćby plik mówił inaczej.
+  while (hidden.length >= order.length) hidden.pop();
+
+  return { order, hidden };
+}
+
+/** Zakładki widoczne na pasku, w ustawionej kolejności. */
+export function visibleTabs(layout: Layout): TabId[] {
+  return layout.order.filter((tab) => !layout.hidden.includes(tab));
+}

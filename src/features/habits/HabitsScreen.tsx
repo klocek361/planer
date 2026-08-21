@@ -3,33 +3,46 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../data/db';
 import { entriesBetween, indexEntries, setHabitValue } from '../../data/habits';
 import type { Habit } from '../../data/types';
-import { lastDays, toKey } from '../../lib/dates';
+import {
+  addMonths,
+  lastDays,
+  monthDays,
+  monthNameLabel,
+  startOfMonth,
+  toKey,
+} from '../../lib/dates';
 import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
 import { SettingsButton } from '../../ui/SettingsButton';
-import { PlusIcon } from '../../ui/icons';
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '../../ui/icons';
 import { HabitCard } from './HabitCard';
 import { HabitSheet } from './HabitSheet';
 
 /**
- * Szerokość paska historii pod nawykiem. Pasek zaczyna się w dniu założenia
- * nawyku i zapełnia w prawo; po czterech tygodniach okno zaczyna się przesuwać.
+ * Szerokość paska historii nawyku liczonego ciągle. Pasek zaczyna się w dniu
+ * założenia i zapełnia w prawo; po czterech tygodniach okno zaczyna się
+ * przesuwać. Nawyki liczone miesiącami mają pasek długi na cały miesiąc.
  */
 const STRIP_DAYS = 28;
 
 export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [editing, setEditing] = useState<Habit | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [month, setMonth] = useState(() => startOfMonth(new Date()));
 
   const todayKey = useMemo(() => toKey(new Date()), []);
   const strip = useMemo(() => lastDays(STRIP_DAYS), []);
+  const monthKeys = useMemo(() => monthDays(month), [month]);
+
+  // Jedno zapytanie na oba tryby — zakres obejmuje i przesuwane okno, i cały
+  // oglądany miesiąc, żeby przełączanie miesięcy nie mnożyło zapytań.
+  const range = useMemo(() => {
+    const all = [...strip, ...monthKeys].sort();
+    return { from: all[0]!, to: all[all.length - 1]! };
+  }, [strip, monthKeys]);
 
   const habits = useLiveQuery(() => db.habits.orderBy('order').toArray());
-  const entries = useLiveQuery(
-    () => entriesBetween(strip[0]!, strip[strip.length - 1]!),
-    [strip],
-  );
-
+  const entries = useLiveQuery(() => entriesBetween(range.from, range.to), [range]);
   const categories = useLiveQuery(() => db.categories.orderBy('order').toArray());
 
   const categoryColors = useMemo(() => {
@@ -41,6 +54,10 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
   const byHabit = useMemo(() => indexEntries(entries ?? []), [entries]);
 
   const active = (habits ?? []).filter((habit) => !habit.archived);
+  // Strzałki miesiąca pojawiają się tylko wtedy, gdy jest co nimi przewijać.
+  const anyMonthly = active.some((habit) => habit.period === 'miesiac');
+  const thisMonth = useMemo(() => startOfMonth(new Date()), []);
+  const isCurrentMonth = toKey(month) === toKey(thisMonth);
 
   return (
     <Screen
@@ -62,6 +79,37 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
         </div>
       }
     >
+      {anyMonthly && (
+        <div className="mb-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setMonth(addMonths(month, -1))}
+            aria-label="Poprzedni miesiąc"
+            className="text-muted active:text-ink -m-1.5 p-1.5"
+          >
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMonth(thisMonth)}
+            disabled={isCurrentMonth}
+            className={`text-sm font-medium ${isCurrentMonth ? 'text-muted' : 'text-accent'}`}
+          >
+            {monthNameLabel(month)}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMonth(addMonths(month, 1))}
+            aria-label="Następny miesiąc"
+            className="text-muted active:text-ink -m-1.5 p-1.5"
+          >
+            <ChevronRightIcon className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
       <ul className="flex flex-col gap-2">
         {active.map((habit) => (
           <li key={habit.id}>
@@ -73,6 +121,7 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
               }
               days={byHabit.get(habit.id!)}
               stripDays={STRIP_DAYS}
+              month={month}
               todayKey={todayKey}
               onSetValue={(value) => {
                 tap();

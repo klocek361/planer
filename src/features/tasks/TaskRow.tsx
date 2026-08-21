@@ -1,7 +1,6 @@
 import type { Task } from '../../data/types';
-import { PRIORITY_LABELS } from '../../data/types';
-import { isPastDay, shortDateLabel } from '../../lib/dates';
-import { CheckIcon, PlusIcon } from '../../ui/icons';
+import { dueInfo, type DueTone } from '../../lib/dates';
+import { CheckIcon, PlusIcon, StarIcon } from '../../ui/icons';
 
 interface Props {
   task: Task;
@@ -9,35 +8,41 @@ interface Props {
   categoryColor?: string;
   /** Podzadania rysujemy z wcięciem i drobniejszym tekstem. */
   nested?: boolean;
+  /** W widoku pogrupowanym po kategorii jej nazwa przy zadaniu tylko powtarza nagłówek. */
+  hideCategory?: boolean;
+  /** Tak samo z terminem w widoku dnia — data stoi już w nagłówku. */
+  hideDueDate?: boolean;
   onToggle: () => void;
+  onToggleStar: () => void;
   onEdit: () => void;
   onAddSubtask?: () => void;
 }
+
+const DUE_CLASS: Record<DueTone, string> = {
+  zwykly: 'text-muted',
+  blisko: 'text-ink font-medium',
+  zalegly: 'text-weekend font-medium',
+};
 
 export function TaskRow({
   task,
   categoryName,
   categoryColor,
   nested = false,
+  hideCategory = false,
+  hideDueDate = false,
   onToggle,
+  onToggleStar,
   onEdit,
   onAddSubtask,
 }: Props) {
-  const overdue = task.dueDate !== undefined && !task.done && isPastDay(task.dueDate);
-
   const meta: { text: string; className: string; dot?: string }[] = [];
-  if (categoryName) meta.push({ text: categoryName, className: 'text-muted', dot: categoryColor });
-  if (task.dueDate) {
-    meta.push({
-      text: shortDateLabel(task.dueDate),
-      className: overdue ? 'text-weekend font-medium' : 'text-muted',
-    });
+  if (categoryName && !hideCategory) {
+    meta.push({ text: categoryName, className: 'text-muted', dot: categoryColor });
   }
-  if (task.priority > 0) {
-    meta.push({
-      text: PRIORITY_LABELS[task.priority],
-      className: task.priority === 2 ? 'text-weekend' : 'text-muted',
-    });
+  if (task.dueDate && !hideDueDate) {
+    const due = dueInfo(task.dueDate);
+    meta.push({ text: due.text, className: DUE_CLASS[due.tone] });
   }
 
   return (
@@ -80,6 +85,22 @@ export function TaskRow({
           </span>
         )}
       </button>
+
+      {/*
+        Gwiazdka jest zawsze pod palcem, a nie schowana w formularzu — oznaczenie
+        czegoś jako ważne ma być jednym dotknięciem, tak jak odhaczenie.
+      */}
+      {!task.done && (
+        <button
+          type="button"
+          onClick={onToggleStar}
+          aria-pressed={task.starred}
+          aria-label={task.starred ? `Zdejmij gwiazdkę z ${task.title}` : `Oznacz ${task.title} gwiazdką`}
+          className={`mt-1.5 shrink-0 p-1 ${task.starred ? 'text-star' : 'text-faint'}`}
+        >
+          <StarIcon className={nested ? 'h-4 w-4' : 'h-[1.125rem] w-[1.125rem]'} filled={task.starred} />
+        </button>
+      )}
 
       {onAddSubtask && !task.done && (
         <button

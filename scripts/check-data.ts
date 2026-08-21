@@ -27,18 +27,26 @@ import {
   completedCount,
   currentStreak,
   deleteHabit,
+  habitWindow,
   isDayComplete,
   setHabitValue,
 } from '../src/data/habits';
 import {
   buildMonthGrid,
   compareEvents,
+  dueInfo,
   fullDateLabel,
   habitStrip,
   lastDays,
+  monthDays,
   monthGridRange,
   monthLabel,
+  monthScale,
 } from '../src/lib/dates';
+import { seriesDates } from '../src/data/events';
+import { groupByCategory, groupByDay } from '../src/data/tasks';
+import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
+import type { Habit } from '../src/data/types';
 
 const problems: string[] = [];
 function check(label: string, condition: boolean) {
@@ -110,7 +118,7 @@ const eventId = await db.events.add({
 const taskId = await db.tasks.add({
   title: 'Kupić prezent',
   done: false,
-  priority: 1,
+  starred: true,
   categoryId: victim.id,
   order: 0,
   createdAt: Date.now(),
@@ -120,6 +128,7 @@ const habitId = await db.habits.add({
   kind: 'licznik',
   target: 8,
   unit: 'szklanek',
+  period: 'ciagly',
   categoryId: victim.id,
   order: 0,
   archived: false,
@@ -209,10 +218,10 @@ check(
 
 // 10. Zadania: kolejność, drzewo, kaskady
 await db.tasks.clear();
-await addTask({ title: '  Bez terminu  ', priority: 2 });
-await addTask({ title: 'Za tydzień', priority: 0, dueDate: '2026-08-20' });
-await addTask({ title: 'Jutro zwykłe', priority: 0, dueDate: '2026-08-14' });
-await addTask({ title: 'Jutro pilne', priority: 2, dueDate: '2026-08-14' });
+await addTask({ title: '  Bez terminu  ', starred: true });
+await addTask({ title: 'Za tydzień', starred: false, dueDate: '2026-08-20' });
+await addTask({ title: 'Jutro zwykłe', starred: false, dueDate: '2026-08-14' });
+await addTask({ title: 'Jutro ważne', starred: true, dueDate: '2026-08-14' });
 
 const wszystkie = await db.tasks.toArray();
 check('nazwa zadania jest przycinana', wszystkie.some((t) => t.title === 'Bez terminu'));
@@ -220,14 +229,14 @@ check('nowe zadania są niezrobione', wszystkie.every((t) => t.done === false));
 
 const kolejnosc = buildTaskTree(wszystkie).map((n) => n.task.title);
 check(
-  'termin decyduje przed ważnością, brak terminu na końcu',
-  kolejnosc.join() === 'Jutro pilne,Jutro zwykłe,Za tydzień,Bez terminu',
+  'termin decyduje przed gwiazdką, brak terminu na końcu',
+  kolejnosc.join() === 'Jutro ważne,Jutro zwykłe,Za tydzień,Bez terminu',
 );
 
 // Podzadania trzymają się rodzica niezależnie od własnego terminu
 const rodzic = wszystkie.find((t) => t.title === 'Za tydzień')!;
-await addTask({ title: 'Podzadanie B', priority: 0, parentId: rodzic.id, dueDate: '2026-08-19' });
-await addTask({ title: 'Podzadanie A', priority: 0, parentId: rodzic.id, dueDate: '2026-08-18' });
+await addTask({ title: 'Podzadanie B', starred: false, parentId: rodzic.id, dueDate: '2026-08-19' });
+await addTask({ title: 'Podzadanie A', starred: false, parentId: rodzic.id, dueDate: '2026-08-18' });
 
 const drzewo = buildTaskTree(await db.tasks.toArray());
 check('podzadania nie trafiają na główną listę', drzewo.length === 4);
@@ -263,8 +272,8 @@ check('pozostałe zadania nietknięte', (await db.tasks.count()) === 3);
 await db.habits.clear();
 await db.habitEntries.clear();
 
-await addHabit({ name: '  Medytacja  ', kind: 'tak-nie', target: 99 });
-await addHabit({ name: 'Woda', kind: 'licznik', target: 8, unit: 'szklanek' });
+await addHabit({ name: '  Medytacja  ', kind: 'tak-nie', target: 99, period: 'ciagly' });
+await addHabit({ name: 'Woda', kind: 'licznik', target: 8, unit: 'szklanek', period: 'miesiac' });
 
 const nawyki = await db.habits.toArray();
 const medytacja = nawyki.find((h) => h.name === 'Medytacja')!;
@@ -374,8 +383,8 @@ await db.events.add({
   categoryId: kategoria.id,
   createdAt: 1,
 });
-await addTask({ title: 'Kupić winietki', priority: 1, dueDate: '2026-08-11' });
-await addHabit({ name: 'Woda', kind: 'licznik', target: 8 });
+await addTask({ title: 'Kupić winietki', starred: true, dueDate: '2026-08-11' });
+await addHabit({ name: 'Woda', kind: 'licznik', target: 8, period: 'ciagly' });
 const nawykDoKopii = (await db.habits.toArray())[0]!;
 await setHabitValue(nawykDoKopii.id!, '2026-08-13', 6);
 
@@ -462,8 +471,9 @@ const zepsuty = JSON.stringify({
       { id: 5, title: 'Nieistniejący dzień', date: '2026-02-30', allDay: true, createdAt: 5 },
     ],
     tasks: [
-      { id: 1, title: 'Dobre', done: false, priority: 1, order: 0, createdAt: 1 },
-      { id: 2, title: 'Zły priorytet', done: false, priority: 7, order: 1, createdAt: 2 },
+      { id: 1, title: 'Stare ważne', done: false, priority: 2, order: 0, createdAt: 1 },
+      { id: 2, title: 'Stare zwykłe', done: false, priority: 0, order: 1, createdAt: 2 },
+      { id: 3, title: 'Bez tytułu i reszty', done: 'nie', order: 2, createdAt: 3 },
     ],
     habits: [
       { id: 1, name: 'Dobry', kind: 'licznik', target: 8, order: 0, archived: false, createdAt: 1 },
@@ -499,7 +509,15 @@ check('uszkodzony plik nie wysadza wczytywania', wynik.backup.aplikacja === 'pla
 check(`odrzucono uszkodzone wpisy (${wynik.skipped})`, wynik.skipped === 13);
 check('zostały tylko poprawne kategorie', wynik.backup.dane.categories.length === 1);
 check('zostały tylko poprawne wydarzenia', wynik.backup.dane.events.length === 1);
-check('zostały tylko poprawne zadania', wynik.backup.dane.tasks.length === 1);
+check('zostały tylko poprawne zadania', wynik.backup.dane.tasks.length === 2);
+check(
+  'stara ważność zamieniona na gwiazdkę',
+  wynik.backup.dane.tasks.find((t) => t.title === 'Stare ważne')?.starred === true,
+);
+check(
+  'stare zadanie zwykłe zostaje bez gwiazdki',
+  wynik.backup.dane.tasks.find((t) => t.title === 'Stare zwykłe')?.starred === false,
+);
 check('zostały tylko poprawne nawyki', wynik.backup.dane.habits.length === 1);
 check('zostały tylko poprawne odhaczenia', wynik.backup.dane.habitEntries.length === 1);
 
@@ -566,6 +584,131 @@ check(
 
 const zPrzyszlosci = habitStrip(new Date(2026, 8, 1).getTime(), 28, dzisiajData);
 check('data założenia z przyszłości nie psuje paska', zPrzyszlosci[0] === dzisiajKlucz);
+
+// 17. Nawyki liczone miesiącami
+const sierpienNawyku = new Date(2026, 7, 1);
+const dniSierpnia = monthDays(sierpienNawyku);
+check('sierpień ma 31 pól', dniSierpnia.length === 31);
+check('miesiąc zaczyna się pierwszego', dniSierpnia[0] === '2026-08-01');
+check('miesiąc kończy się ostatniego', dniSierpnia[30] === '2026-08-31');
+check('luty 2028 ma 29 dni (rok przestępny)', monthDays(new Date(2028, 1, 1)).length === 29);
+check('luty 2026 ma 28 dni', monthDays(new Date(2026, 1, 1)).length === 28);
+
+const podzialka = monthScale(dniSierpnia);
+check('podziałka zaczyna się od pierwszego', podzialka[0] === 1);
+check('podziałka kończy się ostatnim dniem', podzialka[podzialka.length - 1] === 31);
+check('podziałka nie zlepia dwóch ostatnich liczb', podzialka.every((d, i) =>
+  i === 0 || d - podzialka[i - 1]! >= 3));
+check('podziałka lutego kończy się na 28', monthScale(monthDays(new Date(2026, 1, 1))).at(-1) === 28);
+
+const nawykMiesieczny: Habit = {
+  id: 901,
+  name: 'Bieganie',
+  kind: 'tak-nie',
+  target: 1,
+  period: 'miesiac',
+  order: 0,
+  archived: false,
+  createdAt: new Date(2026, 7, 10).getTime(),
+};
+const wpisy = new Map<string, number>([['2026-08-10', 1], ['2026-08-12', 1]]);
+const oknoMiesiaca = habitWindow(nawykMiesieczny, {
+  stripDays: 28,
+  month: sierpienNawyku,
+  todayKey: '2026-08-13',
+  days: wpisy,
+});
+check('pasek miesięczny ma długość miesiąca', oknoMiesiaca.keys.length === 31);
+check('dni sprzed założenia są oznaczone', oknoMiesiaca.states[0] === 'przed');
+check('dzień założenia z celem jest zrobiony', oknoMiesiaca.states[9] === 'zrobiony');
+check('dzień bez wpisu jest pusty', oknoMiesiaca.states[10] === 'pusty');
+check('dni po dzisiaj są przyszłe', oknoMiesiaca.states[30] === 'przyszly');
+check(
+  'liczone są tylko dni od założenia do dzisiaj',
+  oknoMiesiaca.tracked.length === 4 && oknoMiesiaca.tracked[0] === '2026-08-10',
+);
+
+const nawykCiagly: Habit = { ...nawykMiesieczny, id: 902, period: 'ciagly' };
+const oknoCiagle = habitWindow(nawykCiagly, {
+  stripDays: 28,
+  month: sierpienNawyku,
+  todayKey: '2026-08-13',
+  days: wpisy,
+});
+check('pasek ciągły zaczyna się w dniu założenia', oknoCiagle.keys[0] === '2026-08-10');
+check('pasek ciągły nie zna dni sprzed założenia', !oknoCiagle.states.includes('przed'));
+
+// 18. Serie wydarzeń
+const coTydzien = seriesDates('2026-08-03', { freq: 'tydzien', count: 4 });
+check('seria tygodniowa ma cztery terminy', coTydzien.length === 4);
+check('seria tygodniowa trzyma się poniedziałków', coTydzien[3] === '2026-08-24');
+check(
+  'seria dwutygodniowa przeskakuje o 14 dni',
+  seriesDates('2026-08-03', { freq: 'dwa-tygodnie', count: 2 })[1] === '2026-08-17',
+);
+check(
+  'seria miesięczna z 31 stycznia nie ucieka poza luty',
+  seriesDates('2027-01-31', { freq: 'miesiac', count: 2 })[1] === '2027-02-28',
+);
+
+// 19. Odliczanie do terminu zadania
+check('dzisiejszy termin to "dziś"', dueInfo('2026-08-13', '2026-08-13').text === 'dziś');
+check('jutrzejszy termin to "jutro"', dueInfo('2026-08-14', '2026-08-13').text === 'jutro');
+check(
+  'termin za trzy dni odlicza dni',
+  dueInfo('2026-08-16', '2026-08-13').text === 'do 16.08 · za 3 dni',
+);
+check('bliski termin jest wyróżniony', dueInfo('2026-08-16', '2026-08-13').tone === 'blisko');
+check('odległy termin jest zwykły', dueInfo('2026-08-30', '2026-08-13').tone === 'zwykly');
+check(
+  'przekroczony termin mówi o zaległości',
+  dueInfo('2026-08-11', '2026-08-13').text === '11.08 · 2 dni po terminie',
+);
+check('przekroczony termin ma ton zaległy', dueInfo('2026-08-11', '2026-08-13').tone === 'zalegly');
+check(
+  'bardzo odległy termin nie odlicza dni',
+  dueInfo('2026-12-24', '2026-08-13').text === 'do 24.12',
+);
+
+// 20. Układ zakładek
+check('domyślny układ pokazuje wszystkie zakładki', visibleTabs(normalizeLayout({})).length === 4);
+check(
+  'nieznane zakładki wypadają z układu',
+  normalizeLayout({ order: ['kosmos', 'zadania'], hidden: [] }).order[0] === 'zadania',
+);
+check(
+  'brakujące zakładki są dopisywane',
+  normalizeLayout({ order: ['zadania'], hidden: [] }).order.length === DEFAULT_TAB_ORDER.length,
+);
+check(
+  'powtórzona zakładka występuje tylko raz',
+  normalizeLayout({ order: ['zadania', 'zadania'], hidden: [] }).order.filter(
+    (t) => t === 'zadania',
+  ).length === 1,
+);
+const wszystkoSchowane = normalizeLayout({ order: DEFAULT_TAB_ORDER, hidden: DEFAULT_TAB_ORDER });
+check('nie da się schować wszystkich zakładek', visibleTabs(wszystkoSchowane).length >= 1);
+
+// 21. Grupowanie zadań
+await db.tasks.clear();
+await addTask({ title: 'Bez kategorii', starred: false });
+await addTask({ title: 'Z terminem', starred: false, dueDate: '2026-08-20' });
+await addTask({ title: 'Z tym samym terminem', starred: true, dueDate: '2026-08-20' });
+const doGrupowania = buildTaskTree(await db.tasks.toArray());
+const wgKategorii = groupByCategory(doGrupowania, await db.categories.toArray());
+check('puste kategorie nie tworzą nagłówków', wgKategorii.every((g) => g.nodes.length > 0));
+check(
+  'zadania bez kategorii mają własną grupę',
+  wgKategorii.some((g) => g.category === undefined && g.nodes.length === 3),
+);
+const wgDni = groupByDay(doGrupowania);
+check('zadania z tym samym terminem trafiają do jednej grupy', wgDni.length === 1);
+check('zadanie bez terminu nie trafia do widoku dni', wgDni[0]?.nodes.length === 2);
+check(
+  'gwiazdka wypycha zadanie na górę grupy',
+  wgDni.find((g) => g.key === '2026-08-20')?.nodes[0]?.task.starred === true,
+);
+
 
 console.log(
   problems.length === 0

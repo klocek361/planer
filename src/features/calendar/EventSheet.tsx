@@ -1,7 +1,20 @@
-import { useEffect, useState } from 'react';
-import { addEvent, deleteEvent, updateEvent } from '../../data/events';
-import type { Category, EventItem } from '../../data/types';
-import { fromKey, fullDateLabel } from '../../lib/dates';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  addEvent,
+  deleteEvent,
+  deleteSeries,
+  seriesDates,
+  updateEvent,
+  updateSeries,
+} from '../../data/events';
+import {
+  MAX_REPEAT_COUNT,
+  REPEAT_LABELS,
+  type Category,
+  type EventItem,
+  type RepeatFreq,
+} from '../../data/types';
+import { dotDateLabel, fromKey, fullDateLabel } from '../../lib/dates';
 import { Button } from '../../ui/Button';
 import { CategoryPicker } from '../../ui/CategoryChip';
 import { Sheet } from '../../ui/Sheet';
@@ -18,6 +31,21 @@ interface Props {
 
 const DEFAULT_START = '09:00';
 const DEFAULT_END = '10:00';
+const DEFAULT_COUNT = 4;
+
+/** 'brak' to wydarzenie pojedyncze — reszta to reguły powtarzania. */
+type RepeatChoice = 'brak' | RepeatFreq;
+
+const REPEAT_CHOICES: { id: RepeatChoice; label: string }[] = [
+  { id: 'brak', label: 'Raz' },
+  { id: 'dzien', label: REPEAT_LABELS.dzien },
+  { id: 'tydzien', label: REPEAT_LABELS.tydzien },
+  { id: 'dwa-tygodnie', label: REPEAT_LABELS['dwa-tygodnie'] },
+  { id: 'miesiac', label: REPEAT_LABELS.miesiac },
+];
+
+/** Czy zmiana dotyczy jednego terminu, czy całej serii. */
+type Scope = 'ten' | 'seria';
 
 export function EventSheet({ open, dateKey, event, categories, onClose }: Props) {
   const [title, setTitle] = useState('');
@@ -26,6 +54,9 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
   const [endTime, setEndTime] = useState(DEFAULT_END);
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
   const [note, setNote] = useState('');
+  const [repeat, setRepeat] = useState<RepeatChoice>('brak');
+  const [count, setCount] = useState(DEFAULT_COUNT);
+  const [scope, setScope] = useState<Scope>('ten');
 
   // Wypełnia formularz przy każdym otwarciu — inaczej zostałyby dane poprzedniego wpisu.
   useEffect(() => {
@@ -36,11 +67,25 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
     setEndTime(event?.endTime ?? DEFAULT_END);
     setCategoryId(event?.categoryId);
     setNote(event?.note ?? '');
+    setRepeat('brak');
+    setCount(DEFAULT_COUNT);
+    setScope('ten');
   }, [open, event]);
 
   const trimmed = title.trim();
   const timesValid = allDay || !endTime || endTime >= startTime;
   const canSave = trimmed.length > 0 && timesValid;
+
+  const inSeries = event?.seriesId !== undefined;
+  const wholeSeries = inSeries && scope === 'seria';
+
+  // Podgląd ostatniego terminu — bez tego "co tydzień, 6 razy" nic nie mówi
+  // o tym, dokąd seria sięga.
+  const lastDate = useMemo(() => {
+    if (repeat === 'brak' || count < 2) return null;
+    const keys = seriesDates(dateKey, { freq: repeat, count });
+    return keys[keys.length - 1] ?? null;
+  }, [repeat, count, dateKey]);
 
   const save = async () => {
     if (!canSave) return;
@@ -53,13 +98,29 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
       categoryId,
       note: note.trim() || undefined,
     };
-    if (event?.id) await updateEvent(event.id, draft);
-    else await addEvent(draft);
+
+    if (event?.id !== undefined) {
+      if (wholeSeries) {
+        // Data zostaje nietknięta — inaczej wszystkie terminy serii wskoczyłyby
+        // na ten sam dzień.
+        const { date: _pominietaData, ...bezDaty } = draft;
+        await updateSeries(event.seriesId!, bezDaty);
+      } else {
+        await updateEvent(event.id, draft);
+      }
+    } else {
+      await addEvent(
+        draft,
+        repeat === 'brak' ? undefined : { freq: repeat, count: Math.max(2, count) },
+      );
+    }
     onClose();
   };
 
   const remove = async () => {
-    if (event?.id) await deleteEvent(event.id);
+    if (event?.id === undefined) return;
+    if (wholeSeries) await deleteSeries(event.seriesId!);
+    else await deleteEvent(event.id);
     onClose();
   };
 
@@ -123,6 +184,84 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
           </p>
         )}
 
+        {/* Powtarzanie ustawiamy tylko przy zakładaniu serii — zmiana reguły
+            istniejącej serii to w praktyce nowa seria. */}
+        {!event && (
+          <div className="flex flex-col gap-2">
+            <span className="text-muted text-xs font-medium">Powtarzanie</span>
+            <div className="flex flex-wrap gap-1.5">
+              {REPEAT_CHOICES.map((choice) => (
+                <button
+                  key={choice.id}
+                  type="button"
+                  onClick={() => setRepeat(choice.id)}
+                  aria-pressed={repeat === choice.id}
+                  className={`rounded-app px-3 py-1.5 text-sm ${
+                    repeat === choice.id ? 'bg-selected text-selected-ink' : 'bg-surface text-ink'
+                  }`}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </div>
+
+            {repeat !== 'brak' && (
+              <div className="flex items-center gap-3 pt-1">
+                <label className="flex items-center gap-2">
+                  <span className="text-muted text-xs font-medium">Ile razy</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={2}
+                    max={MAX_REPEAT_COUNT}
+                    value={count}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setCount(
+                        Number.isFinite(value)
+                          ? Math.min(MAX_REPEAT_COUNT, Math.max(2, Math.round(value)))
+                          : DEFAULT_COUNT,
+                      );
+                    }}
+                    className="bg-surface rounded-app text-ink w-20 px-3 py-2 text-base tabular-nums"
+                  />
+                </label>
+                {lastDate && (
+                  <span className="text-muted text-xs">ostatni raz {dotDateLabel(lastDate)}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {inSeries && (
+          <div className="flex flex-col gap-2">
+            <span className="text-muted text-xs font-medium">
+              To wydarzenie należy do serii. Zmiana dotyczy:
+            </span>
+            <div className="flex gap-2">
+              {(
+                [
+                  { id: 'ten' as const, label: 'Tego terminu' },
+                  { id: 'seria' as const, label: 'Całej serii' },
+                ]
+              ).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setScope(option.id)}
+                  aria-pressed={scope === option.id}
+                  className={`rounded-app flex-1 px-3 py-2 text-sm ${
+                    scope === option.id ? 'bg-selected text-selected-ink' : 'bg-surface text-ink'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <label className="flex flex-col gap-2">
           <span className="text-muted text-xs font-medium">Notatka</span>
           <textarea
@@ -144,6 +283,13 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
             </Button>
           )}
         </div>
+
+        {wholeSeries && (
+          <p className="text-muted -mt-2 text-xs">
+            Zapis zmieni wszystkie terminy serii, a kosz skasuje je wszystkie. Same daty zostają
+            bez zmian.
+          </p>
+        )}
       </div>
     </Sheet>
   );

@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { addHabit, deleteHabit, updateHabit } from '../../data/habits';
-import type { Category, Habit, HabitKind } from '../../data/types';
+import {
+  HABIT_PERIOD_HINTS,
+  HABIT_PERIOD_LABELS,
+  type Category,
+  type Habit,
+  type HabitKind,
+  type HabitPeriod,
+} from '../../data/types';
 import { Button } from '../../ui/Button';
 import { CategoryPicker } from '../../ui/CategoryChip';
 import { Sheet } from '../../ui/Sheet';
@@ -18,11 +25,14 @@ const KINDS: { id: HabitKind; label: string; hint: string }[] = [
   { id: 'licznik', label: 'Licznik', hint: 'Zliczasz powtórzenia do celu' },
 ];
 
+const PERIODS: HabitPeriod[] = ['ciagly', 'miesiac'];
+
 export function HabitSheet({ open, habit, categories, onClose }: Props) {
   const [name, setName] = useState('');
   const [kind, setKind] = useState<HabitKind>('tak-nie');
   const [target, setTarget] = useState('8');
   const [unit, setUnit] = useState('');
+  const [period, setPeriod] = useState<HabitPeriod>('ciagly');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
@@ -31,6 +41,7 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
     setKind(habit?.kind ?? 'tak-nie');
     setTarget(String(habit?.target ?? 8));
     setUnit(habit?.unit ?? '');
+    setPeriod(habit?.period ?? 'ciagly');
     setCategoryId(habit?.categoryId);
   }, [open, habit]);
 
@@ -46,6 +57,7 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
       kind,
       target: kind === 'tak-nie' ? 1 : parsedTarget,
       unit: kind === 'licznik' && unit.trim() ? unit.trim() : undefined,
+      period,
       categoryId,
     };
     if (habit?.id) await updateHabit(habit.id, draft);
@@ -86,6 +98,26 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
               >
                 <span className="block font-medium">{item.label}</span>
                 <span className="block text-xs opacity-70">{item.hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <span className="text-muted text-xs font-medium">Odliczanie</span>
+          <div className="flex gap-2">
+            {PERIODS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setPeriod(item)}
+                aria-pressed={period === item}
+                className={`rounded-app flex-1 px-3 py-2.5 text-left text-sm ${
+                  period === item ? 'bg-selected text-selected-ink' : 'bg-surface text-ink'
+                }`}
+              >
+                <span className="block font-medium">{HABIT_PERIOD_LABELS[item]}</span>
+                <span className="block text-xs opacity-70">{HABIT_PERIOD_HINTS[item]}</span>
               </button>
             ))}
           </div>

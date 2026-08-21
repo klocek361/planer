@@ -1,9 +1,9 @@
 import { db } from './db';
-import type { Priority, Task } from './types';
+import type { Category, Task } from './types';
 
 export interface TaskDraft {
   title: string;
-  priority: Priority;
+  starred: boolean;
   dueDate?: string;
   categoryId?: number;
   parentId?: number;
@@ -63,7 +63,7 @@ export function compareTasks(a: Task, b: Task): number {
   const bDue = b.dueDate ?? NO_DUE_DATE;
   if (aDue !== bDue) return aDue < bDue ? -1 : 1;
 
-  if (a.priority !== b.priority) return b.priority - a.priority;
+  if (a.starred !== b.starred) return a.starred ? -1 : 1;
   return a.order - b.order;
 }
 
@@ -93,4 +93,67 @@ export function buildTaskTree(tasks: Task[]): TaskNode[] {
       task,
       subtasks: (children.get(task.id!) ?? []).slice().sort(compareTasks),
     }));
+}
+
+export interface CategoryGroup {
+  /** Brak kategorii oznaczamy pustym wpisem na końcu listy. */
+  category?: Category;
+  nodes: TaskNode[];
+}
+
+/**
+ * Układa zadania w bloki kategorii, w kolejności ustawionej w ustawieniach.
+ * Puste kategorie odpadają, a zadania bez przypisania lądują na końcu, żeby
+ * nie rozbijały rytmu nazwanych bloków.
+ */
+export function groupByCategory(nodes: TaskNode[], categories: Category[]): CategoryGroup[] {
+  const groups: CategoryGroup[] = [];
+  const byId = new Map<number, TaskNode[]>();
+  const loose: TaskNode[] = [];
+
+  for (const node of nodes) {
+    const id = node.task.categoryId;
+    if (id === undefined) {
+      loose.push(node);
+      continue;
+    }
+    const list = byId.get(id);
+    if (list) list.push(node);
+    else byId.set(id, [node]);
+  }
+
+  for (const category of categories.slice().sort((a, b) => a.order - b.order)) {
+    const list = category.id !== undefined ? byId.get(category.id) : undefined;
+    if (list?.length) {
+      groups.push({ category, nodes: list });
+      byId.delete(category.id!);
+    }
+  }
+
+  // Zadania wskazujące na skasowaną kategorię też muszą się gdzieś zmieścić.
+  for (const list of byId.values()) loose.push(...list);
+
+  if (loose.length) groups.push({ nodes: loose.sort((a, b) => compareTasks(a.task, b.task)) });
+  return groups;
+}
+
+export interface DayGroup {
+  /** 'RRRR-MM-DD' */
+  key: string;
+  nodes: TaskNode[];
+}
+
+/** Zadania z terminem, pogrupowane po dniach i ułożone od najwcześniejszego. */
+export function groupByDay(nodes: TaskNode[]): DayGroup[] {
+  const byDay = new Map<string, TaskNode[]>();
+  for (const node of nodes) {
+    const key = node.task.dueDate;
+    if (!key) continue;
+    const list = byDay.get(key);
+    if (list) list.push(node);
+    else byDay.set(key, [node]);
+  }
+  return [...byDay.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([key, list]) => ({ key, nodes: list }));
 }
