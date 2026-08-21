@@ -17,14 +17,33 @@ export const TAB_HINTS: Record<TabId, string> = {
   nawyki: 'Codzienne odhaczanie',
 };
 
+/** Jak zadania z terminem pokazują się w siatce kalendarza. */
+export type CalendarTasks = 'nazwy' | 'licznik';
+
+export const CALENDAR_TASKS_LABELS: Record<CalendarTasks, string> = {
+  nazwy: 'Nazwy zadań',
+  licznik: 'Kropka z liczbą',
+};
+
+export const CALENDAR_TASKS_HINTS: Record<CalendarTasks, string> = {
+  nazwy: 'Widać, co jest do zrobienia — ale w komórce robi się ciasno',
+  licznik: 'Sama liczba zadań na dany dzień; siatka zostaje lekka',
+};
+
 export interface Layout {
   /** Kolejność zakładek na dolnym pasku. */
   order: TabId[];
   /** Zakładki wyłączone — zostają w ustawieniach, znikają z paska. */
   hidden: TabId[];
+  /** Sposób pokazywania zadań w siatce miesiąca. */
+  calendarTasks: CalendarTasks;
 }
 
-export const DEFAULT_LAYOUT: Layout = { order: DEFAULT_TAB_ORDER, hidden: [] };
+export const DEFAULT_LAYOUT: Layout = {
+  order: DEFAULT_TAB_ORDER,
+  hidden: [],
+  calendarTasks: 'nazwy',
+};
 
 const isTabId = (value: unknown): value is TabId =>
   typeof value === 'string' && (DEFAULT_TAB_ORDER as string[]).includes(value);
@@ -55,10 +74,16 @@ export function normalizeLayout(input: unknown): Layout {
   // Ostatnia widoczna zakładka zostaje na pasku, choćby plik mówił inaczej.
   while (hidden.length >= order.length) hidden.pop();
 
-  return { order, hidden };
+  const calendarTasks: CalendarTasks = record.calendarTasks === 'licznik' ? 'licznik' : 'nazwy';
+
+  return { order, hidden, calendarTasks };
 }
 
-/** Zakładki widoczne na pasku, w ustawionej kolejności. */
-export function visibleTabs(layout: Layout): TabId[] {
+/**
+ * Zakładki widoczne na pasku, w ustawionej kolejności. Bierze tylko te dwa
+ * pola układu, których faktycznie potrzebuje — dzięki temu wywołania nie muszą
+ * przepisywać reszty ustawień tylko po to, żeby spełnić typ.
+ */
+export function visibleTabs(layout: Pick<Layout, 'order' | 'hidden'>): TabId[] {
   return layout.order.filter((tab) => !layout.hidden.includes(tab));
 }

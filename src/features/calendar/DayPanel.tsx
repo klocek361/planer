@@ -1,18 +1,40 @@
-import type { EventItem } from '../../data/types';
+import type { EventItem, Task } from '../../data/types';
 import { compareEvents, fromKey, fullDateLabel } from '../../lib/dates';
 import { PlusIcon } from '../../ui/icons';
+import { TaskRow } from '../tasks/TaskRow';
 import { EventRow, eventColor } from './EventChip';
 
 interface Props {
   dateKey: string;
   events: EventItem[];
+  /** Zadania z terminem na ten dzień, odhaczone również. */
+  tasks: Task[];
   categoryColors: Map<number, string>;
+  categoryNames: Map<number, string>;
   onAdd: () => void;
   onEdit: (event: EventItem) => void;
+  onToggleTask: (task: Task) => void;
+  onStarTask: (task: Task) => void;
+  onEditTask: (task: Task) => void;
 }
 
-/** Panel pod siatką: pełna data wybranego dnia, jego wydarzenia i dodawanie. */
-export function DayPanel({ dateKey, events, categoryColors, onAdd, onEdit }: Props) {
+/**
+ * Panel pod siatką: pełna data wybranego dnia, jego wydarzenia i zadania.
+ * Tu nazwy nie są przycinane — jeśli w komórce coś się nie zmieściło, to jest
+ * miejsce, w którym da się to przeczytać w całości.
+ */
+export function DayPanel({
+  dateKey,
+  events,
+  tasks,
+  categoryColors,
+  categoryNames,
+  onAdd,
+  onEdit,
+  onToggleTask,
+  onStarTask,
+  onEditTask,
+}: Props) {
   const sorted = events.slice().sort(compareEvents);
 
   return (
@@ -23,15 +45,30 @@ export function DayPanel({ dateKey, events, categoryColors, onAdd, onEdit }: Pro
 
       {/*
         Lista ma naturalną wysokość, żeby przycisk dodawania trzymał się tuż pod
-        datą. Dopiero gdy wydarzeń jest dużo, lista kurczy się i zaczyna przewijać.
+        datą. Dopiero gdy wpisów jest dużo, lista kurczy się i zaczyna przewijać.
       */}
       <ul className="flex min-h-0 shrink flex-col gap-1 overflow-y-auto">
         {sorted.map((event) => (
-          <li key={event.id}>
+          <li key={`w-${event.id}`}>
             <EventRow
               event={event}
               color={eventColor(event, categoryColors)}
               onClick={() => onEdit(event)}
+            />
+          </li>
+        ))}
+
+        {tasks.map((task) => (
+          <li key={`z-${task.id}`}>
+            <TaskRow
+              task={task}
+              categoryName={task.categoryId ? categoryNames.get(task.categoryId) : undefined}
+              categoryColor={task.categoryId ? categoryColors.get(task.categoryId) : undefined}
+              // Termin stoi już w nagłówku panelu, więc przy zadaniu tylko dubluje.
+              hideDueDate
+              onToggle={() => onToggleTask(task)}
+              onToggleStar={() => onStarTask(task)}
+              onEdit={() => onEditTask(task)}
             />
           </li>
         ))}

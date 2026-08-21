@@ -55,7 +55,7 @@ export async function buildBackup(): Promise<BackupFile> {
   ]);
 
   const { theme, saved } = useThemeStore.getState();
-  const { order, hidden } = useLayoutStore.getState();
+  const { order, hidden, calendarTasks } = useLayoutStore.getState();
 
   return {
     aplikacja: FORMAT,
@@ -63,7 +63,7 @@ export async function buildBackup(): Promise<BackupFile> {
     zapisano: new Date().toISOString(),
     dane: { categories, events, tasks, habits, habitEntries, notes },
     motyw: { aktualny: theme, zapisane: saved },
-    uklad: { order, hidden },
+    uklad: { order, hidden, calendarTasks },
   };
 }
 

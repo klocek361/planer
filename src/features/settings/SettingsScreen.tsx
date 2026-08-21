@@ -4,15 +4,17 @@ import { useBackDismiss } from '../../platform/back';
 import { ChevronRightIcon } from '../../ui/icons';
 import { AppearanceScreen } from './AppearanceScreen';
 import { BackupScreen } from './BackupScreen';
+import { CalendarPrefsScreen } from './CalendarPrefsScreen';
 import { CategoriesScreen } from './CategoriesScreen';
 import { TabsScreen } from './TabsScreen';
 
-type View = 'menu' | 'kategorie' | 'wyglad' | 'zakladki' | 'kopia';
+type View = 'menu' | 'kategorie' | 'wyglad' | 'zakladki' | 'kalendarz' | 'kopia';
 
 const ROWS: { id: Exclude<View, 'menu'>; label: string; hint: string }[] = [
   { id: 'wyglad', label: 'Wygląd', hint: 'Kolory, krój i rozmiar pisma, tło' },
   { id: 'kategorie', label: 'Kategorie', hint: 'Nazwy i kolory wspólne dla całej aplikacji' },
   { id: 'zakladki', label: 'Zakładki', hint: 'Kolejność i włączanie dolnego paska' },
+  { id: 'kalendarz', label: 'Kalendarz', hint: 'Jak zadania wyglądają w siatce miesiąca' },
   { id: 'kopia', label: 'Kopia zapasowa', hint: 'Zapis i odczyt wszystkich danych' },
 ];
 
@@ -28,6 +30,8 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
   if (view === 'wyglad') return <AppearanceScreen onBack={back} />;
 
   if (view === 'zakladki') return <TabsScreen onBack={back} />;
+
+  if (view === 'kalendarz') return <CalendarPrefsScreen onBack={back} />;
 
   if (view === 'kopia') return <BackupScreen onBack={back} />;
 

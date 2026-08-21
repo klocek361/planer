@@ -91,3 +91,41 @@
   padding-left: max(env(safe-area-inset-left), --spacing(4));
   padding-right: max(env(safe-area-inset-right), --spacing(4));
 }
+
+/*
+ * Nazwa dłuższa niż komórka kalendarza przepływa w bok i wraca.
+ *
+ * Animujemy wyłącznie zaznaczony dzień. Gdyby jechały wszystkie naraz, siatka
+ * miesiąca zamieniłaby się w migający szum — a przy szerokości komórki rzędu
+ * pięćdziesięciu pikseli przewijać musiałaby się prawie każda nazwa.
+ *
+ * `100cqw` to szerokość okienka (rodzic ma `container-type: inline-size`),
+ * a `100%` to szerokość samego tekstu. Różnica jest dokładnie tym, co wystaje;
+ * `min(0px, …)` pilnuje, żeby tekst, który się mieści, w ogóle nie drgnął.
+ */
+@utility okienko-plyniecia {
+  container-type: inline-size;
+  overflow: hidden;
+}
+
+@keyframes plyniecie {
+  0%,
+  14% {
+    transform: translateX(0);
+  }
+  86%,
+  100% {
+    transform: translateX(min(0px, calc(100cqw - 100%)));
+  }
+}
+
+@utility plynie {
+  display: inline-block;
+  white-space: nowrap;
+  animation: plyniecie 7s ease-in-out infinite alternate;
+
+  /* Wyłączone animacje to ustawienie dostępności — uszanuj je. */
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
