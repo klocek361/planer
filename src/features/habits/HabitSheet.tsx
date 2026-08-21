@@ -131,8 +131,13 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
         </div>
 
         {kind === 'licznik' && (
-          <div className="flex gap-3">
-            <label className="flex flex-1 flex-col gap-2">
+          /*
+            Jedno pod drugim, nie obok siebie: pole tekstowe nie zejdzie poniżej
+            swojej szerokości własnej, więc para pól wystawała poza panel
+            i dawała się przewijać w bok.
+          */
+          <div className="flex flex-col gap-3">
+            <label className="flex flex-col gap-2">
               <span className="text-muted text-xs font-medium">{t.nawyki.celDzienny}</span>
               <input
                 type="number"
@@ -143,7 +148,7 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
                 className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
               />
             </label>
-            <label className="flex flex-1 flex-col gap-2">
+            <label className="flex flex-col gap-2">
               <span className="text-muted text-xs font-medium">{t.nawyki.jednostka}</span>
               <input
                 value={unit}
