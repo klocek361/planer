@@ -87,3 +87,24 @@ export function httpTransport(baseUrl: string = SYNC_URL): SyncTransport {
     },
   };
 }
+
+/** Wysyła sugestię na serwer. Bez tokenu — serwer ogranicza liczbę wiadomości. */
+export async function sendSuggestion(suggestion: {
+  name: string;
+  text: string;
+  version: string;
+  screen: string;
+}): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${SYNC_URL.replace(/\/+$/, '')}/sugestie`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(suggestion),
+      cache: 'no-store',
+    });
+  } catch {
+    throw new SyncError('siec');
+  }
+  if (!response.ok) throw new SyncError(codeFor(response.status));
+}

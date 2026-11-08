@@ -337,6 +337,20 @@ export const pt: Dict = {
     domyslnePrzychody: ['Salário', 'Outros'],
   },
 
+  sugestie: {
+    przycisk: 'Enviar sugestão',
+    tytul: 'Sugestão',
+    opis: 'O que mudar ou melhorar? Todas as ideias ajudam.',
+    imie: 'O seu nome',
+    imiePrzyklad: 'ex.: Ana',
+    tresc: 'O que mudar',
+    trescPrzyklad: 'ex.: Gostava que…',
+    wyslij: 'Enviar',
+    wyslano: 'Obrigado! Sugestão enviada.',
+    blad: 'Não foi possível enviar. Verifique a ligação e tente de novo.',
+    limit: 'Demasiadas mensagens de uma vez. Tente daqui a uma hora.',
+  },
+
   zakladkiEkran: {
     wylaczona: 'Desativado',
     wyzej: (nazwa) => `Mover ${nazwa} para cima`,

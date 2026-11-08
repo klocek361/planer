@@ -7,7 +7,9 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "schema:local": "wrangler d1 execute planer-sync --local --file=schema.sql",
-    "schema:remote": "wrangler d1 execute planer-sync --remote --file=schema.sql"
+    "schema:remote": "wrangler d1 execute planer-sync --remote --file=schema.sql",
+    "sugestie": "wrangler d1 execute planer-sync --remote --command \"SELECT id, datetime(created / 1000, 'unixepoch', 'localtime') AS kiedy, name AS kto, text AS sugestia, version AS wersja, screen AS ekran FROM suggestions ORDER BY id DESC\"",
+    "sugestie:plik": "wrangler d1 execute planer-sync --remote --json --command \"SELECT id, datetime(created / 1000, 'unixepoch', 'localtime') AS kiedy, name AS kto, text AS sugestia, version AS wersja, screen AS ekran FROM suggestions ORDER BY id DESC\" > sugestie.json"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251001.0",

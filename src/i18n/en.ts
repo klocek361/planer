@@ -336,6 +336,20 @@ export const en: Dict = {
     domyslnePrzychody: ['Salary', 'Other'],
   },
 
+  sugestie: {
+    przycisk: 'Send a suggestion',
+    tytul: 'Suggestion',
+    opis: 'What should change or improve? Every idea helps.',
+    imie: 'Your name',
+    imiePrzyklad: 'e.g. Kate',
+    tresc: 'What to change',
+    trescPrzyklad: 'e.g. I would like…',
+    wyslij: 'Send',
+    wyslano: 'Thank you! Suggestion sent.',
+    blad: 'Could not send. Check your connection and try again.',
+    limit: 'Too many messages at once. Try again in an hour.',
+  },
+
   zakladkiEkran: {
     wylaczona: 'Off',
     wyzej: (nazwa) => `Move ${nazwa} up`,

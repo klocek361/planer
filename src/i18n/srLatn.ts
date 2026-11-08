@@ -333,6 +333,20 @@ export const srLatn: Dict = {
     domyslnePrzychody: ['Plata', 'Ostalo'],
   },
 
+  sugestie: {
+    przycisk: 'Pošalji predlog',
+    tytul: 'Predlog',
+    opis: 'Šta promeniti ili poboljšati? Svaka ideja pomaže.',
+    imie: 'Tvoje ime',
+    imiePrzyklad: 'npr. Ana',
+    tresc: 'Šta promeniti',
+    trescPrzyklad: 'npr. Volela bih da…',
+    wyslij: 'Pošalji',
+    wyslano: 'Hvala! Predlog je poslat.',
+    blad: 'Slanje nije uspelo. Proveri internet i pokušaj ponovo.',
+    limit: 'Previše poruka odjednom. Pokušaj za sat vremena.',
+  },
+
   zakladkiEkran: {
     wylaczona: 'Isključena',
     wyzej: (nazwa) => `Pomeri ${nazwa} naviše`,

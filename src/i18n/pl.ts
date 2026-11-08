@@ -338,6 +338,20 @@ export const pl = {
     domyslnePrzychody: ['Pensja', 'Inne'],
   },
 
+  sugestie: {
+    przycisk: 'Zgłoś sugestię',
+    tytul: 'Sugestia',
+    opis: 'Co zmienić albo poprawić? Każdy pomysł się przyda.',
+    imie: 'Twoje imię',
+    imiePrzyklad: 'np. Kasia',
+    tresc: 'Co zmienić',
+    trescPrzyklad: 'np. Chciałabym, żeby…',
+    wyslij: 'Wyślij',
+    wyslano: 'Dziękuję! Sugestia wysłana.',
+    blad: 'Nie udało się wysłać. Sprawdź internet i spróbuj ponownie.',
+    limit: 'Za dużo wiadomości naraz. Spróbuj za godzinę.',
+  },
+
   zakladkiEkran: {
     wylaczona: 'Wyłączona',
     wyzej: (nazwa: string) => `Przesuń ${nazwa} wyżej`,

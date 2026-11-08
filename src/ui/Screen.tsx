@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ChevronLeftIcon } from './icons';
+import { FeedbackButton } from './Feedback';
 import { useT } from '../i18n';
 
 interface Props {
@@ -21,16 +22,19 @@ export function Screen({ title, action, onBack, children }: Props) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="pt-safe px-safe shrink-0">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="text-muted active:text-ink -ml-2 flex items-center gap-0.5 py-1 pr-2 pl-1 text-sm font-medium"
-          >
-            <ChevronLeftIcon className="h-5 w-5" />
-            {t.wspolne.wstecz}
-          </button>
-        )}
+        <div className="flex items-center gap-2 pt-1">
+          <FeedbackButton />
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-muted active:text-ink -ml-2 flex items-center gap-0.5 py-1 pr-2 pl-1 text-sm font-medium"
+            >
+              <ChevronLeftIcon className="h-5 w-5" />
+              {t.wspolne.wstecz}
+            </button>
+          )}
+        </div>
         <div className="flex items-end justify-between gap-3 pb-2">
           <h1 className="text-ink text-4xl leading-none font-bold tracking-tight">{title}</h1>
           {action ? <div className="flex items-center gap-1 pb-1">{action}</div> : null}

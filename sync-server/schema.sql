@@ -39,3 +39,14 @@ CREATE TABLE IF NOT EXISTS invite_attempts (
   n INTEGER NOT NULL,
   PRIMARY KEY (ip, hour)
 );
+
+-- Sugestie z aplikacji: imię i treść wpisane przez użytkownika. Jedyne dane
+-- na serwerze, które nie są szyfrowane — pobiera je właściciel serwera.
+CREATE TABLE IF NOT EXISTS suggestions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  text TEXT NOT NULL,
+  version TEXT,
+  screen TEXT
+);
