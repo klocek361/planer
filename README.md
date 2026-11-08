@@ -40,9 +40,10 @@ niczego nie psuje.
 ## Wspólne kalendarze
 
 Ustawienia → Wspólny kalendarz → „Nowy wspólny kalendarz” → nazwa i własne
-imię. Powstaje wspólna kategoria — wydarzenia dodane do niej widzą wszyscy
-członkowie. Kolejne osoby zapraszasz **8-cyfrowym kodem** (jednorazowym,
-ważnym 24 h); wpisują go w swojej aplikacji w „Dołącz kodem”.
+imię. Powstaje wspólna kategoria — wszystko, co do niej dodasz (wydarzenia,
+zadania, nawyki, listy), widzą wszyscy członkowie. Inne kategorie są prywatne.
+Kolejne osoby zapraszasz **8-cyfrowym kodem** (jednorazowym, ważnym 24 h);
+wpisują go w swojej aplikacji w „Dołącz kodem”.
 
 - Bez kont i haseł. Klucz kalendarza zostaje na telefonach członków, serwer
   widzi tylko zaszyfrowane bloki. Kod jednorazowo przekazuje ten klucz.

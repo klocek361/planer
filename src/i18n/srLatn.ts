@@ -226,7 +226,7 @@ export const srLatn: Dict = {
 
   wspolny: {
     niedostepny: 'Ova verzija aplikacije nema podešen server zajedničkog kalendara.',
-    wstep: 'Zajednički kalendar je posebna kategorija koju svi vidite i menjate. Druge pozivaš kodom od 8 cifara. Događaji idu preko servera šifrovani — niko van kalendara ne može da ih pročita.',
+    wstep: 'Zajednički kalendar je posebna kategorija koju svi vidite i menjate — sve što joj pripada: događaji, zadaci, navike i liste. Druge pozivaš kodom od 8 cifara. Podaci idu preko servera šifrovani, a ostale kategorije ostaju privatne.',
     lista: 'Tvoji zajednički kalendari',
     brak: 'Još nisi ni u jednom zajedničkom kalendaru.',
     nowy: 'Novi zajednički kalendar',
@@ -262,7 +262,7 @@ export const srLatn: Dict = {
     kodWazny: (czas: string) => 'Jednokratan, važi do ' + czas,
     zaprosil: (kto: string) => 'pozvao/la ' + kto,
     ostatnio: (czas: string) => 'Poslednja sinhronizacija: ' + czas,
-    dodawajDo: (nazwa: string) => 'Događaje dodate u kategoriju „' + nazwa + '” vide svi članovi.',
+    dodawajDo: (nazwa: string) => 'Sve u kategoriji „' + nazwa + '” — događaje, zadatke, navike i liste — vide svi članovi. Ostale kategorije ostaju privatne.',
     tekstZaproszenia: (nazwa: string, kod: string) =>
       'Kod za zajednički kalendar „' + nazwa + '” u Planeru: ' + kod + '. Unesi ga u Podešavanja → Zajednički kalendar → Pridruži se kodom. Radi jednom, 24 sata.',
     bledy: {

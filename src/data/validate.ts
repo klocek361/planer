@@ -142,6 +142,7 @@ export function validTask(input: unknown): Task | null {
     seriesId: r.seriesId as number | undefined,
     repeat: validRepeat(r.repeat),
     order: r.order,
+    ...(isUid(r.uid) ? { uid: r.uid } : {}),
     createdAt: r.createdAt,
   };
 }
@@ -166,6 +167,7 @@ export function validHabit(input: unknown): Habit | null {
     categoryId: r.categoryId as number | undefined,
     order: r.order,
     archived: r.archived,
+    ...(isUid(r.uid) ? { uid: r.uid } : {}),
     createdAt: r.createdAt,
   };
 }
@@ -195,6 +197,7 @@ export function validChecklist(input: unknown): Checklist | null {
     note: r.note as string | undefined,
     categoryId: r.categoryId as number | undefined,
     order: r.order,
+    ...(isUid(r.uid) ? { uid: r.uid } : {}),
     createdAt: r.createdAt,
   };
 }
@@ -211,6 +214,7 @@ export function validChecklistItem(input: unknown): ChecklistItem | null {
     text: r.text,
     done: r.done,
     order: r.order,
+    ...(isUid(r.uid) ? { uid: r.uid } : {}),
     createdAt: r.createdAt,
   };
 }

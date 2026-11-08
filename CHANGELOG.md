@@ -5,6 +5,15 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.4.0] — 2026-11-08
+
+### Zmiany we wspólnym kalendarzu
+- **Współdzielone jest wszystko ze wspólnej kategorii:** oprócz wydarzeń
+  także zadania (z podzadaniami), nawyki (z odhaczeniami — wspólny postęp)
+  i listy (z pozycjami). Pozostałe kategorie zostają prywatne.
+- Gdy dwie osoby odhaczą ten sam nawyk tego samego dnia, powstaje jedno
+  odhaczenie, nie dwa.
+
 ## [1.3.1] — 2026-11-08
 
 ### Poprawki

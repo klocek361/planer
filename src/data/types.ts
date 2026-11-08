@@ -97,6 +97,8 @@ export interface Task {
   repeat?: Repeat;
   order: number;
   createdAt: number;
+  /** Globalny identyfikator rekordu ze wspólnej kategorii (patrz `Category.uid`). */
+  uid?: string;
 }
 
 export type HabitKind = 'tak-nie' | 'licznik';
@@ -123,6 +125,8 @@ export interface Habit {
   order: number;
   archived: boolean;
   createdAt: number;
+  /** Globalny identyfikator rekordu ze wspólnej kategorii (patrz `Category.uid`). */
+  uid?: string;
 }
 
 export interface HabitEntry {
@@ -145,6 +149,8 @@ export interface Checklist {
   categoryId?: number;
   order: number;
   createdAt: number;
+  /** Globalny identyfikator rekordu ze wspólnej kategorii (patrz `Category.uid`). */
+  uid?: string;
 }
 
 export interface ChecklistItem {
@@ -154,6 +160,8 @@ export interface ChecklistItem {
   done: boolean;
   order: number;
   createdAt: number;
+  /** Globalny identyfikator rekordu ze wspólnej kategorii (patrz `Category.uid`). */
+  uid?: string;
 }
 
 export interface Note {
@@ -207,7 +215,15 @@ export interface Member {
 export interface SyncShadow {
   uid: string;
   space: string;
-  kind: 'kategoria' | 'wydarzenie' | 'czlonek';
+  kind:
+    | 'kategoria'
+    | 'wydarzenie'
+    | 'czlonek'
+    | 'zadanie'
+    | 'nawyk'
+    | 'odhaczenie'
+    | 'lista'
+    | 'pozycja';
   /** Treść rekordu w postaci wysyłanej na serwer (przed szyfrowaniem). */
   json: string;
 }

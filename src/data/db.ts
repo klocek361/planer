@@ -14,7 +14,7 @@ import type {
   Task,
 } from './types';
 
-class PlanerDB extends Dexie {
+export class PlanerDB extends Dexie {
   categories!: Table<Category, number>;
   events!: Table<EventItem, number>;
   tasks!: Table<Task, number>;
@@ -27,8 +27,9 @@ class PlanerDB extends Dexie {
   syncShadow!: Table<SyncShadow, string>;
   members!: Table<Member, string>;
 
-  constructor() {
-    super('planer-kaskowy');
+  /** Nazwa bazy do podmiany tylko w testach przejścia między wersjami. */
+  constructor(name = 'planer-kaskowy') {
+    super(name);
 
     // Po przecinkach wypisane są indeksy — pola, po których wyszukujemy.
     // '++id' oznacza klucz nadawany automatycznie.
@@ -131,6 +132,16 @@ class PlanerDB extends Dexie {
             if (old) shadow.space = old.spaceId;
           });
       });
+
+    // Wersja 8: wspólna kategoria obejmuje wszystko — zadania, nawyki
+    // z odhaczeniami i listy z pozycjami dostają globalny `uid`. Listy dostają
+    // też indeks kategorii, żeby dało się szybko znaleźć te wspólne.
+    this.version(8).stores({
+      tasks: '++id, done, dueDate, categoryId, parentId, order, seriesId, uid',
+      habits: '++id, order, archived, categoryId, uid',
+      lists: '++id, order, categoryId, uid',
+      listItems: '++id, listId, [listId+done], order, uid',
+    });
 
     // Uruchamiane raz, przy pierwszym otwarciu aplikacji na danym telefonie.
     this.on('populate', () => {

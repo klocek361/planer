@@ -6,7 +6,8 @@
 import 'fake-indexeddb/auto';
 import { readFileSync } from 'node:fs';
 import { APP_VERSION } from '../src/app/version';
-import { db } from '../src/data/db';
+import Dexie from 'dexie';
+import { db, PlanerDB } from '../src/data/db';
 import {
   backupFilename,
   buildBackup,
@@ -69,7 +70,7 @@ import {
   updateTaskSeries,
 } from '../src/data/tasks';
 import { rangeInfo } from '../src/lib/dates';
-import { validChecklist, validChecklistItem, validTask } from '../src/data/validate';
+import { isUid, validChecklist, validChecklistItem, validTask } from '../src/data/validate';
 import {
   addChecklist,
   addItem,
@@ -1319,7 +1320,18 @@ check(
 
   // Kilka telefonów na jednej bazie testowej: przełączenie zapisuje tabele
   // jednego „telefonu” i wgrywa drugiego.
-  const tabele = [db.categories, db.events, db.tasks, db.habits, db.members, db.syncState, db.syncShadow] as const;
+  const tabele = [
+    db.categories,
+    db.events,
+    db.tasks,
+    db.habits,
+    db.habitEntries,
+    db.lists,
+    db.listItems,
+    db.members,
+    db.syncState,
+    db.syncShadow,
+  ] as const;
   const telefony: Record<string, unknown[][]> = {};
   let aktywny = 'A';
   const przelacz = async (na: string) => {
@@ -1349,10 +1361,24 @@ check(
     { title: 'Basen', date: '2026-09-03', allDay: false, startTime: '18:00', categoryId: rodzinaA.id },
     { freq: 'tydzien', count: 3 },
   );
+  // Wspólna kategoria obejmuje też zadania, nawyki i listy; inne zostają prywatne.
+  await addTask({ title: 'Zakupy na święta', starred: false, categoryId: rodzinaA.id });
+  const zakupyA = (await db.tasks.filter((z) => z.title === 'Zakupy na święta').first())!;
+  await addTask({ title: 'Karp', starred: false, parentId: zakupyA.id });
+  await addTask({ title: 'Prywatne zadanie', starred: false, categoryId: pracaA.id });
+  await addHabit({ name: 'Odkurzanie', kind: 'tak-nie', target: 1, period: 'ciagly', categoryId: rodzinaA.id });
+  await addHabit({ name: 'Prywatny nawyk', kind: 'tak-nie', target: 1, period: 'ciagly', categoryId: pracaA.id });
+  const odkurzanieA = (await db.habits.filter((h) => h.name === 'Odkurzanie').first())!;
+  await setHabitValue(odkurzanieA.id!, '2026-11-07', 1);
+  const zakupyListaA = await addChecklist({ name: 'Zakupy', categoryId: rodzinaA.id });
+  await addItem(zakupyListaA, 'Mleko');
+  await addItem(zakupyListaA, 'Chleb');
+  await addChecklist({ name: 'Moja lista', categoryId: pracaA.id });
   await syncSpace(transport, dom);
   const bloki = [...serwer.get(dom)!.rekordy.values()].map((r) => r.blob).join('');
-  check('na serwer idzie kategoria, członek i 4 wspólne wydarzenia', serwer.get(dom)!.rekordy.size === 6);
-  check('serwer nie widzi treści ani imion', !/babci|Micha|Rodzina/.test(bloki));
+  // kategoria, członek, 4 wydarzenia, zadanie z podzadaniem, nawyk z odhaczeniem, lista z 2 pozycjami
+  check('na serwer idzie wszystko ze wspólnej kategorii i nic więcej', serwer.get(dom)!.rekordy.size === 13);
+  check('serwer nie widzi treści ani imion', !/babci|Micha|Rodzina|Mleko|Karp|Odkurz/.test(bloki));
 
   // Kod zaproszenia
   const kod = await createInvite(transport, dom);
@@ -1371,6 +1397,43 @@ check(
   const kasia = czlonkowieB.find((m) => m.name === 'Kasia');
   check('B widzi obu członków', czlonkowieB.length === 2);
   check('przy B zapisano, kto ją zaprosił', kasia?.by === ja.memberId);
+  const zadaniaB = await db.tasks.toArray();
+  const zakupyB = zadaniaB.find((z) => z.title === 'Zakupy na święta');
+  check('B dostaje wspólne zadanie z podzadaniem', zadaniaB.length === 2 && zadaniaB.find((z) => z.title === 'Karp')?.parentId === zakupyB?.id);
+  check('B nie dostaje prywatnych zadań, nawyków ani list', !zadaniaB.some((z) => z.title === 'Prywatne zadanie') && (await db.habits.count()) === 1 && (await db.lists.count()) === 1);
+  const odkurzanieB = (await db.habits.toArray())[0]!;
+  check('B dostaje wspólny nawyk z odhaczeniem', odkurzanieB.name === 'Odkurzanie' && (await db.habitEntries.where('[habitId+date]').equals([odkurzanieB.id!, '2026-11-07']).first())?.value === 1);
+  const listaB = (await db.lists.toArray())[0]!;
+  check('B dostaje wspólną listę z pozycjami', listaB.name === 'Zakupy' && (await db.listItems.where('listId').equals(listaB.id!).count()) === 2);
+
+  // B odhacza nawyk, pozycję listy i podzadanie — A to widzi
+  await setHabitValue(odkurzanieB.id!, '2026-11-08', 1);
+  await toggleItem((await db.listItems.filter((i) => i.text === 'Mleko').first())!.id!, true);
+  await toggleTask((await db.tasks.filter((z) => z.title === 'Karp').first())!.id!, true);
+  await syncSpace(transport, dom);
+  await przelacz('A');
+  await syncSpace(transport, dom);
+  check('A widzi odhaczenie nawyku od B', (await db.habitEntries.where('[habitId+date]').equals([odkurzanieA.id!, '2026-11-08']).first())?.value === 1);
+  check('A widzi odhaczoną pozycję listy od B', (await db.listItems.filter((i) => i.text === 'Mleko').first())?.done === true);
+  check('A widzi zrobione podzadanie od B', (await db.tasks.filter((z) => z.title === 'Karp').first())?.done === true);
+
+  // Obie osoby odhaczają ten sam dzień — powstaje jedno odhaczenie, nie dwa
+  await setHabitValue(odkurzanieA.id!, '2026-11-09', 1);
+  await przelacz('B');
+  await setHabitValue(odkurzanieB.id!, '2026-11-09', 1);
+  await syncSpace(transport, dom);
+  await przelacz('A');
+  await syncSpace(transport, dom);
+  check('wspólne odhaczenie tego samego dnia jest jedno', (await db.habitEntries.where('[habitId+date]').equals([odkurzanieA.id!, '2026-11-09']).count()) === 1);
+
+  // A usuwa listę — znika u B razem z pozycjami
+  await deleteChecklist(zakupyListaA);
+  await syncSpace(transport, dom);
+  await przelacz('B');
+  await syncSpace(transport, dom);
+  check('usunięta wspólna lista znika u innych', (await db.lists.count()) === 0 && (await db.listItems.count()) === 0);
+  await przelacz('A');
+  await przelacz('B');
 
   // Kod działa tylko raz
   await przelacz('C');
@@ -1461,8 +1524,81 @@ check(
   await przelacz('D');
   await syncSpace(transport, nowyDom);
   check('usunięty kalendarz znika u innych', (await db.categories.count()) === 0 && (await db.events.count()) === 0);
+  check('razem z kalendarzem znikają wspólne zadania i nawyki', (await db.tasks.count()) === 0 && (await db.habits.count()) === 0);
 
   for (const t of tabele) await t.clear();
+}
+
+// ── Przejście starych danych na nowy format bazy ─────────────────────────
+{
+  // Baza z wersji 1.1.0 (format 5): zwykłe dane, bez wspólnego kalendarza.
+  const v5 = new Dexie('migracja-1-1-0');
+  v5.version(5).stores({
+    categories: '++id, order',
+    events: '++id, date, categoryId, seriesId',
+    tasks: '++id, done, dueDate, categoryId, parentId, order, seriesId',
+    habits: '++id, order, archived, categoryId',
+    habitEntries: '++id, habitId, date, [habitId+date]',
+    notes: '++id, updatedAt',
+    lists: '++id, order',
+    listItems: '++id, listId, [listId+done], order',
+  });
+  await v5.table('categories').add({ name: 'Dom', color: '#7E8E62', order: 0 });
+  await v5.table('events').bulkAdd([
+    { title: 'Basen', date: '2026-09-03', allDay: true, categoryId: 1, seriesId: 77, repeat: { freq: 'tydzien', count: 2 }, createdAt: 1 },
+    { title: 'Basen', date: '2026-09-10', allDay: true, categoryId: 1, seriesId: 77, repeat: { freq: 'tydzien', count: 2 }, createdAt: 1 },
+  ]);
+  await v5.table('tasks').add({ title: 'Pranie', done: false, starred: true, order: 0, createdAt: 1, seriesId: 5 });
+  await v5.table('habits').add({ name: 'Woda', kind: 'licznik', target: 8, period: 'ciagly', order: 0, archived: false, createdAt: 1 });
+  await v5.table('habitEntries').add({ habitId: 1, date: '2026-11-07', value: 5 });
+  await v5.table('lists').add({ name: 'Zakupy', order: 0, createdAt: 1 });
+  await v5.table('listItems').add({ listId: 1, text: 'Mleko', done: false, order: 0, createdAt: 1 });
+  v5.close();
+
+  const po5 = new PlanerDB('migracja-1-1-0');
+  await po5.open();
+  check('1.1.0 → nowa baza: serie wydarzeń zostają', (await po5.events.where('seriesId').equals(77).count()) === 2);
+  check('1.1.0 → nowa baza: zadania zostają', (await po5.tasks.toArray())[0]?.title === 'Pranie');
+  check('1.1.0 → nowa baza: nawyki i odhaczenia zostają', (await po5.habitEntries.toArray())[0]?.value === 5 && (await po5.habits.count()) === 1);
+  check('1.1.0 → nowa baza: listy zostają', (await po5.listItems.toArray())[0]?.text === 'Mleko');
+  check('1.1.0 → nowa baza: nic nie staje się wspólne', (await po5.categories.toArray()).every((c) => !c.space) && (await po5.syncState.count()) === 0);
+  po5.close();
+
+  // Baza z wersji 1.2.0 (format 6): jeden wspólny kalendarz z flagą `shared`.
+  const v6 = new Dexie('migracja-1-2-0');
+  v6.version(6).stores({
+    categories: '++id, order, uid',
+    events: '++id, date, categoryId, seriesId, uid',
+    tasks: '++id, done, dueDate, categoryId, parentId, order, seriesId',
+    habits: '++id, order, archived, categoryId',
+    habitEntries: '++id, habitId, date, [habitId+date]',
+    notes: '++id, updatedAt',
+    lists: '++id, order',
+    listItems: '++id, listId, [listId+done], order',
+    syncState: '&id',
+    syncShadow: '&uid',
+  });
+  const przestrzen = 'AAAAAAAAAAAAAAAAAAAAAA';
+  await v6.table('categories').bulkAdd([
+    { name: 'Nasz dom', color: '#7E8E62', order: 0, uid: 'kategoria1', shared: true },
+    { name: 'Praca', color: '#6E8399', order: 1 },
+  ]);
+  await v6.table('events').add({ title: 'Obiad', date: '2026-11-15', allDay: true, categoryId: 1, uid: 'wydarzenie1', createdAt: 1 });
+  await v6.table('syncState').add({ id: 'stan', spaceId: przestrzen, key: 'k'.repeat(43), lastSeq: 9, lastSyncAt: 5 });
+  await v6.table('syncShadow').add({ uid: 'wydarzenie1', kind: 'wydarzenie', json: '{}' });
+  v6.close();
+
+  const po6 = new PlanerDB('migracja-1-2-0');
+  await po6.open();
+  const stan = await po6.syncState.get(przestrzen);
+  const kategorie6 = await po6.categories.orderBy('order').toArray();
+  check('1.2.0 → nowa baza: kalendarz przechodzi pod swoim id', stan?.key === 'k'.repeat(43) && stan.lastSeq === 9 && !(await po6.syncState.get('stan')));
+  check('1.2.0 → nowa baza: telefon dostaje identyfikator członka', isUid(stan?.memberId));
+  check('1.2.0 → nowa baza: wspólna kategoria wskazuje kalendarz', kategorie6[0]?.space === przestrzen && !('shared' in kategorie6[0]!));
+  check('1.2.0 → nowa baza: prywatna kategoria zostaje prywatna', kategorie6[1]?.space === undefined);
+  check('1.2.0 → nowa baza: cienie znają swój kalendarz', (await po6.syncShadow.get('wydarzenie1'))?.space === przestrzen);
+  check('1.2.0 → nowa baza: wydarzenia zostają', (await po6.events.toArray())[0]?.title === 'Obiad');
+  po6.close();
 }
 
 console.log(

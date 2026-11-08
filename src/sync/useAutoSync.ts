@@ -45,7 +45,7 @@ export function useAutoSync(): void {
 
     const onMutated = (parts: Record<string, unknown>) => {
       if (Date.now() < busyUntil) return;
-      const touched = Object.keys(parts).some((key) => /\/(events|categories|members)\//.test(key));
+      const touched = Object.keys(parts).some((key) => /\/(events|categories|members|tasks|habits|habitEntries|lists|listItems)\//.test(key));
       if (!touched) return;
       clearTimeout(debounce);
       debounce = setTimeout(() => void run(), DEBOUNCE_MS);

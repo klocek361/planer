@@ -229,7 +229,7 @@ export const en: Dict = {
 
   wspolny: {
     niedostepny: 'This version of the app has no shared calendar server configured.',
-    wstep: 'A shared calendar is a separate category you all see and edit. Invite others with an 8-digit code. Events travel through the server encrypted — nobody outside the calendar can read them.',
+    wstep: 'A shared calendar is a separate category you all see and edit — everything in it: events, tasks, habits and lists. Invite others with an 8-digit code. Data travels through the server encrypted; your other categories stay private.',
     lista: 'Your shared calendars',
     brak: 'You are not in any shared calendar yet.',
     nowy: 'New shared calendar',
@@ -265,7 +265,7 @@ export const en: Dict = {
     kodWazny: (czas: string) => 'Single use, valid until ' + czas,
     zaprosil: (kto: string) => 'invited by ' + kto,
     ostatnio: (czas: string) => 'Last sync: ' + czas,
-    dodawajDo: (nazwa: string) => 'Events added to the “' + nazwa + '” category are seen by all members.',
+    dodawajDo: (nazwa: string) => 'Everything in the “' + nazwa + '” category — events, tasks, habits and lists — is seen by all members. Other categories stay private.',
     tekstZaproszenia: (nazwa: string, kod: string) =>
       'Code for the shared calendar “' + nazwa + '” in Planer: ' + kod + '. Enter it in Settings → Shared calendar → Join with a code. Works once, for 24 hours.',
     bledy: {

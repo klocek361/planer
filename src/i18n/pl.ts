@@ -231,7 +231,7 @@ export const pl = {
 
   wspolny: {
     niedostepny: 'Ta wersja aplikacji nie ma skonfigurowanego serwera wspólnego kalendarza.',
-    wstep: 'Wspólny kalendarz to osobna kategoria, którą widzicie i edytujecie razem. Innych zapraszasz 8-cyfrowym kodem. Wydarzenia idą przez serwer zaszyfrowane — nikt spoza kalendarza ich nie odczyta.',
+    wstep: 'Wspólny kalendarz to osobna kategoria, którą widzicie i edytujecie razem — wszystko, co do niej należy: wydarzenia, zadania, nawyki i listy. Innych zapraszasz 8-cyfrowym kodem. Dane idą przez serwer zaszyfrowane, a pozostałe kategorie zostają prywatne.',
     lista: 'Twoje wspólne kalendarze',
     brak: 'Nie należysz jeszcze do żadnego wspólnego kalendarza.',
     nowy: 'Nowy wspólny kalendarz',
@@ -267,7 +267,7 @@ export const pl = {
     kodWazny: (czas: string) => 'Jednorazowy, ważny do ' + czas,
     zaprosil: (kto: string) => 'zaproszenie od ' + kto,
     ostatnio: (czas: string) => 'Ostatnia synchronizacja: ' + czas,
-    dodawajDo: (nazwa: string) => 'Wydarzenia dodane do kategorii „' + nazwa + '” zobaczą wszyscy członkowie.',
+    dodawajDo: (nazwa: string) => 'Wszystko w kategorii „' + nazwa + '” — wydarzenia, zadania, nawyki i listy — widzą wszyscy członkowie. Inne kategorie zostają prywatne.',
     tekstZaproszenia: (nazwa: string, kod: string) =>
       'Kod do wspólnego kalendarza „' + nazwa + '” w Planerze: ' + kod + '. Wpisz go w Ustawienia → Wspólny kalendarz → Dołącz kodem. Działa raz, przez 24 godziny.',
     bledy: {
