@@ -183,6 +183,10 @@ export const pt: Dict = {
   },
 
   przeglad: {
+    wkrotce: 'Em breve',
+    poDniach: 'por dia',
+    poObszarach: 'por área',
+    nicWkrotce: 'Nada nas próximas duas semanas.',
     naDzis: 'Para hoje',
     wydarzenia: 'Eventos',
     zalegle: 'Em atraso',
@@ -201,8 +205,8 @@ export const pt: Dict = {
     opis:
       'A ordem nesta lista é a ordem no ecrã. Uma secção desativada desaparece da vista, mas nada se perde — basta voltar a ativá-la.',
     liczniki: 'Contadores para hoje',
-    dzis: 'Secção «Hoje»',
-    tydzien: 'Secção «Esta semana»',
+    dzis: 'Separador «Hoje»',
+    tydzien: 'Separador «Em breve»',
   },
 
   ustawienia: {

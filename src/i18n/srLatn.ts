@@ -179,6 +179,10 @@ export const srLatn: Dict = {
   },
 
   przeglad: {
+    wkrotce: 'Uskoro',
+    poDniach: 'po danima',
+    poObszarach: 'po oblastima',
+    nicWkrotce: 'Ništa u naredne dve nedelje.',
     naDzis: 'Za danas',
     wydarzenia: 'Događaji',
     zalegle: 'Isteklo',
@@ -197,8 +201,8 @@ export const srLatn: Dict = {
     opis:
       'Redosled na listi je redosled na ekranu. Isključena sekcija nestaje iz prikaza, ali ništa iz nje se ne gubi — dovoljno je uključiti je nazad.',
     liczniki: 'Brojači za danas',
-    dzis: 'Sekcija „Danas”',
-    tydzien: 'Sekcija „Ova nedelja”',
+    dzis: 'Kartica „Danas”',
+    tydzien: 'Kartica „Uskoro”',
   },
 
   ustawienia: {
