@@ -14,6 +14,10 @@ Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 - Gdy dwie osoby odhaczą ten sam nawyk tego samego dnia, powstaje jedno
   odhaczenie, nie dwa.
 
+### Nowe
+- Do losowanych sentencji doszło dziesięć po podlasku — obok wszystkich
+  czterdziestu polskich oryginałów.
+
 ## [1.3.1] — 2026-11-08
 
 ### Poprawki
