@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Habit } from '../../data/types';
-import { habitWindow, isDayComplete } from '../../data/habits';
+import { currentStreak, habitWindow, isDayComplete } from '../../data/habits';
 import { fromKey, previousDay, toKey } from '../../lib/dates';
 import { useT } from '../../i18n';
 import { CheckIcon } from '../../ui/icons';
@@ -22,6 +22,8 @@ interface Props {
 }
 
 const WEEK = 7;
+/** Okres, z którego liczymy wynik „18/28 dni” u nawyków liczonych ciągle. */
+const PERIOD = 28;
 
 /** Ostatnie 7 dni, od najstarszego do dziś. */
 function lastWeek(todayKey: string): string[] {
@@ -47,7 +49,7 @@ function initial(name: string): string {
  * nazwa i kropki ostatnich dni. Nazwa otwiera edycję.
  */
 export function HabitRow({ habit, color, days, todayKey, size, month, onSetValue, onEdit }: Props) {
-  const { t } = useT();
+  const { t, plural, pluralWord } = useT();
   const big = size === 'duzy';
   const counter = habit.kind === 'licznik';
   const value = days?.get(todayKey) ?? 0;
@@ -73,6 +75,18 @@ export function HabitRow({ habit, color, days, todayKey, size, month, onSetValue
     });
   }, [big, habit, month, todayKey, days]);
 
+  // Seria i wynik okresu — tylko w dużym wierszu, w Przeglądzie byłyby szumem.
+  const stats = useMemo(() => {
+    if (!big) return null;
+    const window = habitWindow(habit, { stripDays: PERIOD, month: month ?? new Date(), todayKey, days });
+    const doneDays = window.states.filter((state) => state === 'zrobiony').length;
+    return {
+      streak: currentStreak(habit, days, todayKey),
+      period: `${doneDays}/${window.tracked.length} ${pluralWord(window.tracked.length, t.daty.dzien)}`,
+    };
+  }, [big, habit, month, todayKey, days, pluralWord, t.daty.dzien]);
+
+  const unit = habit.unit?.trim().toLowerCase();
   const ring = big ? 52 : 30;
   const stroke = big ? 3 : 2;
   const radius = (ring - stroke) / 2;
@@ -138,7 +152,6 @@ export function HabitRow({ habit, color, days, todayKey, size, month, onSetValue
         </span>
         <span
           className={`flex shrink-0 items-center ${big ? 'gap-1.5 pt-1.5' : 'gap-1'}`}
-          aria-hidden="true"
         >
           {dots.map(({ key, dot }) => (
             <span
@@ -150,14 +163,32 @@ export function HabitRow({ habit, color, days, todayKey, size, month, onSetValue
                 outlineOffset: '1px',
               }}
               title={fromKey(key).toLocaleDateString()}
+              aria-hidden="true"
             />
           ))}
+          {big && counter && (
+            <span className="text-muted pl-1.5 text-xs tabular-nums">
+              {value}/{habit.target}
+              {unit ? ` ${unit}` : ''}
+            </span>
+          )}
         </span>
       </button>
 
-      {counter && (
+      {!big && counter && (
         <span className="text-muted shrink-0 text-xs tabular-nums">
           {value}/{habit.target}
+        </span>
+      )}
+
+      {stats && (
+        <span className="flex shrink-0 flex-col items-end gap-0.5 text-right">
+          {stats.streak > 0 && (
+            <span className="text-accent text-sm font-semibold tabular-nums">
+              🔥 {plural(stats.streak, t.daty.dzien)}
+            </span>
+          )}
+          <span className="text-muted text-[0.6875rem] tabular-nums">{stats.period}</span>
         </span>
       )}
       {big && counter && value > 0 && (
