@@ -10,7 +10,7 @@
  * zmienia sposób korzystania z aplikacji, druga przy nowych możliwościach,
  * trzecia przy samych poprawkach.
  */
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.6.1';
 
 /** Imię autora. Nazwa własna, więc nie przechodzi przez słowniki. */
 export const AUTHOR_NAME = 'Michał';

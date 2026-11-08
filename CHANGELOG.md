@@ -5,6 +5,11 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.6.1] — 2026-11-08
+
+### Poprawki
+- Przycisk sugestii (!) pojawia się też w zakładce Kalendarz.
+
 ## [1.6.0] — 2026-11-08
 
 ### Nowe

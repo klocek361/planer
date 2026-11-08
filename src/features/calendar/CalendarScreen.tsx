@@ -20,6 +20,7 @@ import { useT } from '../../i18n';
 import { tap } from '../../platform/haptics';
 import { SettingsButton } from '../../ui/SettingsButton';
 import { TaskSheet } from '../../features/tasks/TaskSheet';
+import { FeedbackButton } from '../../ui/Feedback';
 import { DayPanel } from './DayPanel';
 import { EventSheet } from './EventSheet';
 import { MonthGrid } from './MonthGrid';
@@ -144,6 +145,10 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="pt-safe px-safe shrink-0">
+        {/* Przycisk sugestii w tym samym miejscu, co na pozostałych ekranach. */}
+        <div className="flex items-center pt-1">
+          <FeedbackButton />
+        </div>
         <div className="flex items-center justify-between gap-3 pb-1">
           <h1
             className="text-ink text-4xl leading-none font-bold tracking-tight"
