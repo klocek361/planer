@@ -52,6 +52,12 @@ const LETTERS = new Set<string>(Object.keys(KIND_BY_LETTER));
 /** Treść rekordu po rozszyfrowaniu. Pola sprawdzają walidatory przy nakładaniu. */
 type Payload = { k: Letter; uid: string; del?: true } & Record<string, unknown>;
 
+/**
+ * Wersja formatu rekordów. Podbijamy ją przy każdym nowym rodzaju rekordu:
+ * 1 — wydarzenia, kategoria, członkowie; 2 — także zadania, nawyki, listy.
+ */
+export const SYNC_FORMAT = 2;
+
 /** Najdłuższe imię członka. */
 export const MAX_MEMBER_NAME = 40;
 
@@ -605,8 +611,10 @@ async function runSync(transport: SyncTransport, space: string): Promise<void> {
 
   await ensureUids(space);
 
-  // 1. Pobranie zmian innych osób.
-  let since = state.lastSeq;
+  // 1. Pobranie zmian innych osób. Po zmianie formatu — od początku, bo
+  // starsza wersja mogła pominąć rekordy, których nie rozumiała. Cienie
+  // zostają, więc to, co już się zgadza, nie zmieni się ani nie wróci.
+  let since = state.format === SYNC_FORMAT ? state.lastSeq : 0;
   const incoming: Payload[] = [];
   for (;;) {
     const page = await transport.pull(space, token, since);
@@ -644,7 +652,7 @@ async function runSync(transport: SyncTransport, space: string): Promise<void> {
   );
   // Kalendarz mógł zostać w międzyczasie opuszczony — wtedy nic nie zapisujemy.
   if (!(await db.syncState.get(space))) return;
-  await db.syncState.update(space, { lastSeq: since });
+  await db.syncState.update(space, { lastSeq: since, format: SYNC_FORMAT });
 
   // 2. Wysłanie lokalnych zmian.
   const current = await localSet(space);
