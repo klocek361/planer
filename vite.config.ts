@@ -4,10 +4,17 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 /**
+ * Adres serwera wspólnego kalendarza (Cloudflare Worker). Podawany przy
+ * budowaniu; bez niego aplikacja działa w pełni lokalnie, jak dotąd.
+ */
+const SYNC_ORIGIN = process.env.VITE_SYNC_URL ? new URL(process.env.VITE_SYNC_URL).origin : '';
+
+/**
  * Polityka bezpieczeństwa treści — zabezpieczenie warstwowe.
- * Aplikacja i tak nie wykonuje żadnych żądań na zewnątrz; ta polityka sprawia,
- * że nawet gdyby kiedyś doszło do wstrzyknięcia kodu, nie miałby dokąd wysłać
- * danych ani skąd dociągnąć obcego skryptu.
+ * Aplikacja łączy się wyłącznie z serwerem wspólnego kalendarza (i to tylko
+ * z zaszyfrowanymi danymi); ta polityka sprawia, że nawet gdyby kiedyś doszło
+ * do wstrzyknięcia kodu, nie miałby dokąd indziej wysłać danych ani skąd
+ * dociągnąć obcego skryptu.
  *
  * `style-src` musi dopuszczać style osadzone, bo kolory motywu są nakładane
  * jako style bezpośrednio na elementach.
@@ -18,7 +25,8 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  "connect-src 'self'",
+  // Jedyny wyjątek: serwer wspólnego kalendarza, jeśli jest skonfigurowany.
+  `connect-src 'self'${SYNC_ORIGIN ? ` ${SYNC_ORIGIN}` : ''}`,
   "worker-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",

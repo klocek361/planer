@@ -40,6 +40,10 @@ jobs:
           # GitHub Pages serwuje stronę spod /nazwa-repozytorium/, więc adres
           # bazowy bierzemy wprost z nazwy repozytorium — nic nie trzeba wpisywać.
           APP_BASE: /${{ github.event.repository.name }}/
+          # Adres serwera wspólnego kalendarza — zmienna repozytorium
+          # (Settings → Secrets and variables → Actions → Variables).
+          # Pusta = aplikacja działa w pełni lokalnie.
+          VITE_SYNC_URL: ${{ vars.VITE_SYNC_URL }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

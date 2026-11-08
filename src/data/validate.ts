@@ -25,6 +25,10 @@ import type {
 
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 const isOptionalText = (v: unknown): v is string | undefined => v === undefined || isText(v);
+/** Globalny identyfikator rekordu ze wspólnego kalendarza: znaki base64url. */
+export const isUid = (v: unknown): v is string =>
+  typeof v === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(v);
+const isOptionalUid = (v: unknown): boolean => v === undefined || isUid(v);
 const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isOptionalId = (v: unknown): v is number | undefined => v === undefined || isNumber(v);
 const isFlag = (v: unknown): v is boolean => typeof v === 'boolean';
@@ -56,7 +60,15 @@ export function validCategory(input: unknown): Category | null {
   const r = record(input);
   if (!r) return null;
   if (!isText(r.name) || !isHex(r.color) || !isNumber(r.order) || !isOptionalId(r.id)) return null;
-  return { id: r.id as number | undefined, name: r.name, color: r.color, order: r.order };
+  if (!isOptionalUid(r.uid) || (r.shared !== undefined && !isFlag(r.shared))) return null;
+  return {
+    id: r.id as number | undefined,
+    name: r.name,
+    color: r.color,
+    order: r.order,
+    ...(r.uid !== undefined ? { uid: r.uid as string } : {}),
+    ...(r.shared === true ? { shared: true } : {}),
+  };
 }
 
 const DOZWOLONE_REGULY = new Set<string>(REPEAT_FREQS);
@@ -77,6 +89,7 @@ export function validEvent(input: unknown): EventItem | null {
   if (!isOptionalTime(r.startTime) || !isOptionalTime(r.endTime)) return null;
   if (!isOptionalId(r.categoryId) || !isOptionalId(r.id) || !isNumber(r.createdAt)) return null;
   if (!isOptionalText(r.note) || !isOptionalId(r.seriesId)) return null;
+  if (!isOptionalUid(r.uid)) return null;
 
   return {
     id: r.id as number | undefined,
@@ -89,6 +102,7 @@ export function validEvent(input: unknown): EventItem | null {
     note: r.note as string | undefined,
     seriesId: r.seriesId as number | undefined,
     repeat: validRepeat(r.repeat),
+    ...(r.uid !== undefined ? { uid: r.uid as string } : {}),
     createdAt: r.createdAt,
   };
 }

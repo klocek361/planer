@@ -22,8 +22,12 @@ import {
   moveCategory,
   updateCategory,
 } from '../src/data/categories';
-import { eventsBetween, groupByDate } from '../src/data/events';
+import { addEvent, deleteEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
 import { addTask, buildTaskTree, deleteTask, toggleTask } from '../src/data/tasks';
+import { syncNow } from '../src/sync/engine';
+import { createSpace, joinSpace, leaveSpace, rotateLink, setCategoryShared } from '../src/sync/state';
+import { parseJoinLink } from '../src/sync/crypto';
+import { SyncError, type SyncTransport } from '../src/sync/transport';
 import {
   addHabit,
   completedCount,
@@ -1243,6 +1247,158 @@ check(
   'błędne oznaczenie 5 minut odrzuca rekord',
   validTask({ title: 'Woda', done: false, order: 1, createdAt: 1, quick: 'tak' }) === null,
 );
+
+// ── Wspólny kalendarz: dwa telefony, serwer w pamięci ─────────────────────
+{
+  const serwer = new Map<string, { token: string; seq: number; rekordy: Map<string, { seq: number; blob: string }> }>();
+  const przestrzen = (id: string, token: string) => {
+    const s = serwer.get(id);
+    if (!s) throw new SyncError('brak-przestrzeni');
+    if (s.token !== token) throw new SyncError('odmowa');
+    return s;
+  };
+  const transport: SyncTransport = {
+    async create(id, token) {
+      serwer.set(id, { token, seq: 0, rekordy: new Map() });
+    },
+    async push(id, token, records) {
+      const s = przestrzen(id, token);
+      for (const r of records) s.rekordy.set(r.uid, { seq: ++s.seq, blob: r.blob });
+    },
+    async pull(id, token, since) {
+      const s = przestrzen(id, token);
+      // Małe strony, żeby przetestować dopytywanie o kolejne.
+      const nowe = [...s.rekordy.entries()]
+        .filter(([, r]) => r.seq > since)
+        .sort((a, b) => a[1].seq - b[1].seq);
+      const strona = nowe.slice(0, 3);
+      return {
+        records: strona.map(([uid, r]) => ({ uid, seq: r.seq, blob: r.blob })),
+        seq: strona.at(-1)?.[1].seq ?? since,
+        more: nowe.length > strona.length,
+      };
+    },
+    async close(id, token) {
+      przestrzen(id, token);
+      serwer.delete(id);
+    },
+  };
+
+  // Dwa telefony na jednej bazie testowej: przełączenie zapisuje tabele
+  // jednego „telefonu” i wgrywa drugiego.
+  const tabele = [db.categories, db.events, db.tasks, db.habits, db.syncState, db.syncShadow] as const;
+  const telefony: Record<string, unknown[][]> = { A: tabele.map(() => []), B: tabele.map(() => []) };
+  let aktywny = 'A';
+  const przelacz = async (na: 'A' | 'B') => {
+    telefony[aktywny] = await Promise.all(tabele.map((t) => t.toArray()));
+    for (const [i, t] of tabele.entries()) {
+      await t.clear();
+      await (t as typeof db.events).bulkAdd(telefony[na]![i] as never[]);
+    }
+    aktywny = na;
+  };
+
+  for (const t of tabele) await t.clear();
+  await addCategory('Rodzina', '#6E8399');
+  await addCategory('Praca', '#7E8E62');
+  const [rodzinaA, pracaA] = await db.categories.orderBy('order').toArray();
+  await addEvent({ title: 'Urodziny babci', date: '2026-09-01', allDay: true, categoryId: rodzinaA!.id });
+  await addEvent({ title: 'Tajne spotkanie', date: '2026-09-02', allDay: true, categoryId: pracaA!.id });
+  await addEvent(
+    { title: 'Basen', date: '2026-09-03', allDay: false, startTime: '18:00', categoryId: rodzinaA!.id },
+    { freq: 'tydzien', count: 3 },
+  );
+
+  const link = await createSpace(transport, [rodzinaA!.id!], 'https://x.github.io/planer/');
+  check('link do wspólnego kalendarza ma sekret po #', /#dolacz=[\w-]{22}\.[\w-]{43}$/.test(link));
+  check('link da się wyciągnąć z dłuższej wiadomości', parseJoinLink(`Hej, dołącz: ${link} :)`) !== null);
+  const [tylkoPrzestrzen] = [...serwer.values()];
+  const wszystkieBloki = [...tylkoPrzestrzen!.rekordy.values()].map((r) => r.blob).join('');
+  check('na serwer idzie kategoria i 4 wspólne wydarzenia', tylkoPrzestrzen!.rekordy.size === 5);
+  check('serwer nie widzi treści wydarzeń', !wszystkieBloki.includes('babci') && !atob(wszystkieBloki.slice(0, 40).replace(/-/g, '+').replace(/_/g, '/')).includes('Urodziny'));
+
+  // Telefon B dołącza
+  await przelacz('B');
+  await joinSpace(transport, `Kalendarz: ${link}`);
+  const kategorieB = await db.categories.toArray();
+  check('B dostaje wspólną kategorię', kategorieB.length === 1 && kategorieB[0]!.name === 'Rodzina' && kategorieB[0]!.shared === true);
+  check('B dostaje wspólne wydarzenia, bez prywatnych', (await db.events.count()) === 4 && !(await db.events.toArray()).some((e) => e.title === 'Tajne spotkanie'));
+  const basenyB = await db.events.filter((e) => e.title === 'Basen').toArray();
+  check('seria zostaje serią po drugiej stronie', basenyB.length === 3 && new Set(basenyB.map((e) => e.seriesId)).size === 1);
+
+  // B zmienia i dodaje, A to widzi
+  const urodzinyB = (await db.events.filter((e) => e.title === 'Urodziny babci').first())!;
+  await updateEvent(urodzinyB.id!, { title: 'Urodziny babci 🎂' });
+  await addEvent({ title: 'Wywiadówka', date: '2026-09-10', allDay: true, categoryId: kategorieB[0]!.id });
+  await syncNow(transport);
+  await przelacz('A');
+  await syncNow(transport);
+  check('A widzi zmianę od B', (await db.events.filter((e) => e.title === 'Urodziny babci 🎂').count()) === 1);
+  check('A widzi nowe wydarzenie od B', (await db.events.filter((e) => e.title === 'Wywiadówka').count()) === 1);
+  check('prywatne wydarzenie A zostaje na miejscu', (await db.events.filter((e) => e.title === 'Tajne spotkanie').count()) === 1);
+
+  // A usuwa, B traci
+  const wywiadowkaA = (await db.events.filter((e) => e.title === 'Wywiadówka').first())!;
+  await deleteEvent(wywiadowkaA.id!);
+  await syncNow(transport);
+  await przelacz('B');
+  await syncNow(transport);
+  check('usunięcie u A znika u B', (await db.events.filter((e) => e.title === 'Wywiadówka').count()) === 0);
+
+  // Konflikt: obie strony zmieniają to samo; kto wyśle później, ten wygrywa
+  const basenB = (await db.events.filter((e) => e.title === 'Basen').first())!;
+  await updateEvent(basenB.id!, { startTime: '19:00' });
+  await przelacz('A');
+  const basenA = (await db.events.where('uid').equals(basenB.uid!).first())!;
+  await updateEvent(basenA.id!, { startTime: '17:00' });
+  await syncNow(transport);
+  await przelacz('B');
+  await syncNow(transport);
+  check('przy konflikcie lokalna zmiana nie ginie', (await db.events.where('uid').equals(basenB.uid!).first())!.startTime === '19:00');
+  await przelacz('A');
+  await syncNow(transport);
+  check('po konflikcie obie strony mają to samo', (await db.events.where('uid').equals(basenB.uid!).first())!.startTime === '19:00');
+
+  // Ponowna synchronizacja bez zmian nic nie wysyła
+  const seqPrzed = [...serwer.values()][0]!.seq;
+  await syncNow(transport);
+  check('synchronizacja bez zmian nic nie wysyła', [...serwer.values()][0]!.seq === seqPrzed);
+
+  // Nowy link: stary przestaje działać
+  const nowyLink = await rotateLink(transport, 'https://x.github.io/planer/');
+  check('nowy link różni się od starego', nowyLink !== link && serwer.size === 1);
+  await przelacz('B');
+  let bladStaregoLinku = '';
+  try {
+    await syncNow(transport);
+  } catch (err) {
+    bladStaregoLinku = err instanceof SyncError ? err.code : 'inny';
+  }
+  check('stary link po wymianie przestaje działać', bladStaregoLinku === 'brak-przestrzeni');
+  await leaveSpace();
+  await joinSpace(transport, nowyLink);
+  check('B wraca nowym linkiem bez dublowania', (await db.events.count()) === 4 && (await db.categories.count()) === 1);
+
+  // Wyłączenie współdzielenia kategorii usuwa ją u drugiej osoby
+  await przelacz('A');
+  const rodzinaPoZmianie = (await db.categories.filter((c) => c.name === 'Rodzina').first())!;
+  await setCategoryShared(rodzinaPoZmianie.id!, false);
+  await syncNow(transport);
+  check('A zachowuje swoje dane po wyłączeniu współdzielenia', (await db.events.where('categoryId').equals(rodzinaPoZmianie.id!).count()) === 4);
+  await przelacz('B');
+  await syncNow(transport);
+  check('B traci kategorię, której A już nie współdzieli', (await db.categories.count()) === 0 && (await db.events.count()) === 0);
+
+  let zlyLink = '';
+  try {
+    await joinSpace(transport, 'to nie jest link');
+  } catch (err) {
+    zlyLink = err instanceof SyncError ? err.code : 'inny';
+  }
+  check('zły link jest odrzucany bez śladu', zlyLink === 'odmowa');
+
+  for (const t of tabele) await t.clear();
+}
 
 console.log(
   problems.length === 0

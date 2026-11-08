@@ -31,6 +31,7 @@ import type {
   Task,
 } from './types';
 import { currentDict } from '../i18n';
+import { resetSyncProgress } from '../sync/state';
 
 /**
  * Kopia zapasowa całej aplikacji. Przy PWA to jedyne zabezpieczenie przed
@@ -286,4 +287,7 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
   }
   useLayoutStore.getState().replaceAll(normalizeLayout(backup.uklad));
   useSectionsStore.getState().replaceAll(backup.sekcje);
+
+  // Wspólny kalendarz: wgrana kopia może być starsza niż dane na serwerze.
+  await resetSyncProgress();
 }

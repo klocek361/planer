@@ -3,7 +3,10 @@
 Kalendarz, zadania i nawyki w jednym — z wyglądem do przestawienia pod siebie.
 
 Aplikacja działa jako PWA: instaluje się z przeglądarki, bez App Store i bez kont.
-**Wszystkie dane zostają na telefonie** — nic nie trafia na żaden serwer.
+**Dane zostają na telefonie.** Jedyny wyjątek to kategorie, które sama
+udostępnisz we **Wspólnym kalendarzu** — ich wydarzenia trafiają na serwer
+wyłącznie zaszyfrowane, a klucz do nich ma tylko link, który wysyłasz
+zaufanym osobom.
 
 ## Instalacja na iPhonie
 
@@ -35,6 +38,20 @@ Adres aplikacji: `https://klocek361.github.io/planer/`.
 Adres bazowy bierze się z nazwy repozytorium automatycznie, więc zmiana nazwy
 niczego nie psuje.
 
+## Wspólny kalendarz
+
+Ustawienia → Wspólny kalendarz → wybór kategorii → link dla drugiej osoby.
+Druga osoba wkleja link w **swojej** aplikacji (Ustawienia → Wspólny kalendarz
+→ Dołącz). Zmiany synchronizują się same, co ok. 45 s przy otwartej aplikacji.
+
+- Bez kont i haseł: dostęp daje link. Klucz szyfrujący siedzi w części po `#`,
+  której przeglądarka nie wysyła nigdzie — serwer widzi tylko zaszyfrowane bloki.
+- „Zmień link” zakłada nową przestrzeń i zamyka starą, gdy link trafił
+  w niepowołane ręce.
+- Serwer to Cloudflare Worker z bazą D1 (darmowy plan), kod w `sync-server/`,
+  instrukcja wdrożenia w `sync-server/README.md`. Bez skonfigurowanego serwera
+  aplikacja działa jak dotąd, w pełni lokalnie.
+
 ## Praca lokalna
 
 Projekt używa własnego Node w `.toolchain/` (systemowy był za stary):
@@ -59,6 +76,8 @@ npm run icons      # przegenerowanie ikon aplikacji
 | `src/ui/` | Wspólne elementy: przyciski, panele, próbnik koloru |
 | `src/platform/` | Rzeczy zależne od systemu — **jedyne miejsce do podmiany** przy przejściu na Capacitora (App Store, Android) |
 | `src/lib/` | Rachunki na datach |
+| `src/sync/` | Wspólny kalendarz: szyfrowanie, silnik synchronizacji, link |
+| `sync-server/` | Serwer wspólnego kalendarza (Cloudflare Worker + D1) |
 
 Cały wygląd żyje jako zmienne CSS ustawiane z jednego obiektu motywu, więc
 dołożenie nowej opcji personalizacji nie wymaga ruszania komponentów.
