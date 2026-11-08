@@ -2,7 +2,7 @@
  * Sentencje do nagłówka Przeglądu i karteczki w Nawykach. Po polsku we
  * wszystkich językach — to gra słów, której nie da się przetłumaczyć.
  */
-export const SENTENCJE: readonly string[] = [
+const POLSKIE: readonly string[] = [
   'Mniej znaczy wolniej, wolniej znaczy głębiej.',
   'Grunt to ziemia.',
   'Brat bratu bratem.',
@@ -44,6 +44,25 @@ export const SENTENCJE: readonly string[] = [
   'Siostra siostrze siostrą, a szwagier to obcy człowiek.',
   'Nie przeciągaj struny cierpliwości na gitarze spokoju.',
 ];
+
+/**
+ * Dodatkowo dziesięć z nich po podlasku (pisownia Jana Maksymiuka, bez
+ * znaków akcentu). Losują się na równi z polskimi oryginałami.
+ */
+const PODLASKIE: readonly string[] = [
+  'Brat bratovi bratom.',
+  'Chto rano vstaje, toj ne vyspavsie.',
+  'Chto pud kim jamu kopaje, toj maje łopatu.',
+  'Dviê hołovy – to štyry vucha.',
+  'Kot – to sobaka, tôlko po kotovomu.',
+  'Nema dymu bez hrylia.',
+  'Chto šukaje, toj ne znaje, de połožyv.',
+  'Ne odrazu Krakov zbudovali, ale odrazu zadoroho.',
+  'Lepi pôzno, čym nikoli, ale lepi nikoli, čym u ponediłok.',
+  'Hołovoju muru ne probješ, ale łobom zavždy možeš sprobovati.',
+];
+
+export const SENTENCJE: readonly string[] = [...POLSKIE, ...PODLASKIE];
 
 /**
  * Losowa sentencja. `inna` pozwala wylosować inną niż podana — żeby dwa
