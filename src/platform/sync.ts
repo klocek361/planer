@@ -25,13 +25,19 @@ function codeFor(status: number): SyncErrorCode {
 export function httpTransport(baseUrl: string = SYNC_URL): SyncTransport {
   const base = baseUrl.replace(/\/+$/, '');
 
-  async function call(method: string, path: string, token: string, body?: unknown): Promise<unknown> {
+  async function call(
+    method: string,
+    path: string,
+    token: string | null,
+    body?: unknown,
+    notFound: SyncErrorCode = 'brak-przestrzeni',
+  ): Promise<unknown> {
     let response: Response;
     try {
       response = await fetch(`${base}${path}`, {
         method,
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
@@ -40,7 +46,9 @@ export function httpTransport(baseUrl: string = SYNC_URL): SyncTransport {
     } catch {
       throw new SyncError('siec');
     }
-    if (!response.ok) throw new SyncError(codeFor(response.status));
+    if (!response.ok) {
+      throw new SyncError(response.status === 404 ? notFound : codeFor(response.status));
+    }
     const text = await response.text();
     return text ? (JSON.parse(text) as unknown) : null;
   }
@@ -59,6 +67,23 @@ export function httpTransport(baseUrl: string = SYNC_URL): SyncTransport {
     },
     async close(spaceId, token) {
       await call('DELETE', `/s/${spaceId}`, token);
+    },
+    async putInvite(spaceId, token, lookup, blob) {
+      const data = (await call('PUT', `/s/${spaceId}/zaproszenie`, token, { lookup, blob })) as {
+        expires?: number;
+      } | null;
+      if (typeof data?.expires !== 'number') throw new SyncError('serwer');
+      return data.expires;
+    },
+    async deleteInvite(spaceId, token) {
+      await call('DELETE', `/s/${spaceId}/zaproszenie`, token);
+    },
+    async takeInvite(lookup) {
+      const data = (await call('POST', `/z/${lookup}`, null, undefined, 'zly-kod')) as {
+        blob?: string;
+      } | null;
+      if (typeof data?.blob !== 'string') throw new SyncError('zly-kod');
+      return data.blob;
     },
   };
 }

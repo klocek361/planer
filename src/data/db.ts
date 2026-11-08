@@ -7,6 +7,7 @@ import type {
   EventItem,
   Habit,
   HabitEntry,
+  Member,
   Note,
   SyncShadow,
   SyncState,
@@ -24,6 +25,7 @@ class PlanerDB extends Dexie {
   listItems!: Table<ChecklistItem, number>;
   syncState!: Table<SyncState, string>;
   syncShadow!: Table<SyncShadow, string>;
+  members!: Table<Member, string>;
 
   constructor() {
     super('planer-kaskowy');
@@ -91,11 +93,58 @@ class PlanerDB extends Dexie {
       syncShadow: '&uid',
     });
 
+    // Wersja 7: kilka wspólnych kalendarzy i lista członków. Kategoria
+    // wskazuje swój kalendarz polem `space` zamiast flagi `shared`, stan
+    // synchronizacji ma wiersz na każdy kalendarz, a cienie znają swój kalendarz.
+    this.version(7)
+      .stores({
+        categories: '++id, order, uid, space',
+        syncShadow: '&uid, space',
+        members: '&uid, space',
+      })
+      .upgrade(async (tx) => {
+        const states = tx.table('syncState');
+        const old = (await states.get('stan')) as
+          | { spaceId: string; key: string; lastSeq: number; lastSyncAt?: number }
+          | undefined;
+        if (old) {
+          await states.delete('stan');
+          await states.put({
+            id: old.spaceId,
+            key: old.key,
+            lastSeq: old.lastSeq,
+            lastSyncAt: old.lastSyncAt,
+            memberId: randomMemberId(),
+          });
+        }
+        await tx
+          .table('categories')
+          .toCollection()
+          .modify((category: Record<string, unknown>) => {
+            if (category.shared && old) category.space = old.spaceId;
+            delete category.shared;
+          });
+        await tx
+          .table('syncShadow')
+          .toCollection()
+          .modify((shadow: Record<string, unknown>) => {
+            if (old) shadow.space = old.spaceId;
+          });
+      });
+
     // Uruchamiane raz, przy pierwszym otwarciu aplikacji na danym telefonie.
     this.on('populate', () => {
       void this.categories.bulkAdd(STARTER_CATEGORIES);
     });
   }
+}
+
+/** Losowy identyfikator członka — ten sam zapis co `randomId` z `sync/crypto`. */
+function randomMemberId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 const STARTER_NAMES = ['Praca', 'Zdrowie', 'Dom', 'Rodzina', 'Nauka', 'Inne'];

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../data/db';
 import { useT } from '../../i18n';
 import { APP_VERSION, AUTHOR_NAME } from '../../app/version';
 import { FONT_STACKS } from '../../theme/catalog';
@@ -37,6 +39,13 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
   const { t } = useT();
   const [view, setView] = useState<View>('menu');
   const back = () => setView('menu');
+  // Nazwy wspólnych kalendarzy zastępują ogólny opis wiersza, gdy już są.
+  const sharedName = useLiveQuery(async () =>
+    (await db.categories.toArray())
+      .filter((c) => c.space)
+      .map((c) => c.name)
+      .join(', '),
+  );
 
   // Cofnięcie z podekranu wraca do menu ustawień, a nie zamyka ustawień.
   useBackDismiss(view !== 'menu', back);
@@ -79,7 +88,9 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
               <span className="flex-1">
                 <span className="text-ink block text-sm font-medium">{t.ustawienia[row]}</span>
                 <span className="text-muted block text-xs">
-                  {t.ustawienia[`${row}Opis` as const]}
+                  {row === 'wspolny' && sharedName
+                    ? sharedName
+                    : t.ustawienia[`${row}Opis` as const]}
                 </span>
               </span>
               <ChevronRightIcon className="text-faint h-5 w-5 shrink-0" />

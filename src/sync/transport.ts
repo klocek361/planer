@@ -25,11 +25,26 @@ export interface SyncTransport {
   create(spaceId: string, token: string): Promise<void>;
   push(spaceId: string, token: string, records: { uid: string; blob: string }[]): Promise<void>;
   pull(spaceId: string, token: string, since: number): Promise<PullResult>;
-  /** Zamyka przestrzeń: kasuje dane na serwerze, stary link przestaje działać. */
+  /** Zamyka przestrzeń: kasuje dane na serwerze, stary klucz przestaje działać. */
   close(spaceId: string, token: string): Promise<void>;
+  /**
+   * Wystawia zaproszenie (jednorazowe, 24 h). Poprzednie zaproszenie tej
+   * przestrzeni przestaje działać. Zwraca, do kiedy nowe jest ważne (ms).
+   */
+  putInvite(spaceId: string, token: string, lookup: string, blob: string): Promise<number>;
+  /** Unieważnia aktywne zaproszenie przestrzeni. */
+  deleteInvite(spaceId: string, token: string): Promise<void>;
+  /** Odbiera zaproszenie — serwer oddaje je raz i od razu kasuje. */
+  takeInvite(lookup: string): Promise<string>;
 }
 
-export type SyncErrorCode = 'brak-przestrzeni' | 'odmowa' | 'limit' | 'siec' | 'serwer';
+export type SyncErrorCode =
+  | 'brak-przestrzeni'
+  | 'odmowa'
+  | 'zly-kod'
+  | 'limit'
+  | 'siec'
+  | 'serwer';
 
 export class SyncError extends Error {
   constructor(public readonly code: SyncErrorCode) {

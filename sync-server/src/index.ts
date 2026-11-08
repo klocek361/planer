@@ -11,7 +11,10 @@
  *   PUT    /s/:id/r         — zapisz rekordy { records: [{ uid, blob }] }
  *   GET    /s/:id/zmiany?od=N — zmiany o numerze większym niż N
  *   DELETE /s/:id           — zamknij przestrzeń i skasuj jej dane
- * Każde zapytanie: nagłówek `Authorization: Bearer <token>`.
+ *   PUT    /s/:id/zaproszenie — wystaw zaproszenie { lookup, blob } (24 h, zastępuje poprzednie)
+ *   DELETE /s/:id/zaproszenie — unieważnij zaproszenie
+ *   POST   /z/:lookup       — odbierz zaproszenie (raz; bez tokenu, z limitem prób)
+ * Zapytania o przestrzeń: nagłówek `Authorization: Bearer <token>`.
  */
 
 interface Env {
@@ -23,6 +26,11 @@ interface Env {
 const ID = /^[A-Za-z0-9_-]{22}$/;
 const UID = /^[A-Za-z0-9_-]{8,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
+
+const LOOKUP = /^[A-Za-z0-9_-]{43}$/;
+const INVITE_TTL = 24 * 60 * 60 * 1000;
+/** Ile prób odebrania zaproszenia na godzinę z jednego adresu. */
+const MAX_ATTEMPTS_PER_HOUR = 30;
 
 const MAX_BLOB = 16_000;
 const MAX_BATCH = 100;
@@ -89,6 +97,36 @@ export default {
 
     const url = new URL(request.url);
     const parts = url.pathname.split('/').filter(Boolean);
+
+    // Odbiór zaproszenia — jedyne zapytanie bez tokenu. Zaproszenie jest
+    // oddawane raz i od razu kasowane; nieudane próby są liczone.
+    if (request.method === 'POST' && parts[0] === 'z' && parts.length === 2) {
+      const lookup = parts[1]!;
+      if (!LOOKUP.test(lookup)) return reply(request, env, 404);
+
+      const ip = request.headers.get('CF-Connecting-IP') ?? 'nieznany';
+      const hour = Math.floor(Date.now() / 3_600_000);
+      const attempts = await env.DB.prepare(
+        `INSERT INTO invite_attempts (ip, hour, n) VALUES (?, ?, 1)
+         ON CONFLICT (ip, hour) DO UPDATE SET n = n + 1 RETURNING n`,
+      )
+        .bind(ip, hour)
+        .first<{ n: number }>();
+      if ((attempts?.n ?? 0) > MAX_ATTEMPTS_PER_HOUR) return reply(request, env, 429);
+
+      const invite = await env.DB.prepare(
+        'DELETE FROM invites WHERE lookup = ? AND expires > ? RETURNING blob',
+      )
+        .bind(lookup, Date.now())
+        .first<{ blob: string }>();
+      // Przy okazji sprzątamy wygasłe zaproszenia i stare liczniki.
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM invites WHERE expires <= ?').bind(Date.now()),
+        env.DB.prepare('DELETE FROM invite_attempts WHERE hour < ?').bind(hour - 24),
+      ]);
+      return invite ? reply(request, env, 200, { blob: invite.blob }) : reply(request, env, 404);
+    }
+
     if (parts[0] !== 's' || !parts[1] || !ID.test(parts[1])) return reply(request, env, 404);
     const id = parts[1];
     const action = parts[2];
@@ -164,8 +202,34 @@ export default {
       });
     }
 
+    if (action === 'zaproszenie' && request.method === 'PUT') {
+      const body = (await request.json().catch(() => null)) as {
+        lookup?: unknown;
+        blob?: unknown;
+      } | null;
+      if (typeof body?.lookup !== 'string' || !LOOKUP.test(body.lookup)) return reply(request, env, 400);
+      if (typeof body.blob !== 'string' || body.blob.length === 0 || body.blob.length > MAX_BLOB) {
+        return reply(request, env, 400);
+      }
+      const expires = Date.now() + INVITE_TTL;
+      // Jedno aktywne zaproszenie na przestrzeń — nowe unieważnia poprzednie.
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM invites WHERE space = ?').bind(id),
+        env.DB.prepare(
+          'INSERT OR REPLACE INTO invites (lookup, space, blob, expires) VALUES (?, ?, ?, ?)',
+        ).bind(body.lookup, id, body.blob, expires),
+      ]);
+      return reply(request, env, 200, { expires });
+    }
+
+    if (action === 'zaproszenie' && request.method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM invites WHERE space = ?').bind(id).run();
+      return reply(request, env, 200, { ok: true });
+    }
+
     if (request.method === 'DELETE' && !action) {
       await env.DB.batch([
+        env.DB.prepare('DELETE FROM invites WHERE space = ?').bind(id),
         env.DB.prepare('DELETE FROM records WHERE space = ?').bind(id),
         env.DB.prepare('DELETE FROM spaces WHERE id = ?').bind(id),
       ]);

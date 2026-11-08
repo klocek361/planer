@@ -60,14 +60,14 @@ export function validCategory(input: unknown): Category | null {
   const r = record(input);
   if (!r) return null;
   if (!isText(r.name) || !isHex(r.color) || !isNumber(r.order) || !isOptionalId(r.id)) return null;
-  if (!isOptionalUid(r.uid) || (r.shared !== undefined && !isFlag(r.shared))) return null;
+  if (!isOptionalUid(r.uid) || !isOptionalUid(r.space)) return null;
   return {
     id: r.id as number | undefined,
     name: r.name,
     color: r.color,
     order: r.order,
     ...(r.uid !== undefined ? { uid: r.uid as string } : {}),
-    ...(r.shared === true ? { shared: true } : {}),
+    ...(r.space !== undefined ? { space: r.space as string } : {}),
   };
 }
 

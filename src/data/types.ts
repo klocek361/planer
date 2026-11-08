@@ -18,8 +18,11 @@ export interface Category {
    * Lokalne `id` różni się między telefonami, `uid` jest wspólne.
    */
   uid?: string;
-  /** Kategoria należy do wspólnego kalendarza i synchronizuje się z drugą osobą. */
-  shared?: boolean;
+  /**
+   * Identyfikator wspólnego kalendarza, do którego należy kategoria. Pusty —
+   * kategoria prywatna. Każdy wspólny kalendarz to dokładnie jedna kategoria.
+   */
+  space?: string;
 }
 
 /** Co ile powtarza się wydarzenie z serii. */
@@ -162,14 +165,14 @@ export interface Note {
 }
 
 /**
- * Przynależność telefonu do wspólnego kalendarza. Jeden wiersz o id 'stan'.
+ * Przynależność telefonu do jednego wspólnego kalendarza. Telefon może
+ * należeć do kilku — każdy ma osobny wiersz, kluczem jest `id` przestrzeni.
  * Klucz szyfrujący zostaje wyłącznie na tym telefonie.
  */
 export interface SyncState {
-  id: 'stan';
-  /** Identyfikator przestrzeni na serwerze — pierwsza część linku. */
-  spaceId: string;
-  /** Klucz szyfrujący, base64url — druga część linku. Nigdy nie idzie na serwer. */
+  /** Identyfikator przestrzeni na serwerze. */
+  id: string;
+  /** Klucz szyfrujący, base64url. Nigdy nie idzie na serwer. */
   key: string;
   /** Numer ostatniej pobranej zmiany; następne pobranie zaczyna się za nim. */
   lastSeq: number;
@@ -177,6 +180,24 @@ export interface SyncState {
   lastSyncAt?: number;
   /** Ostatni błąd, do pokazania w ustawieniach. Pusty, gdy wszystko działa. */
   lastError?: string;
+  /** Identyfikator tego telefonu na liście członków tego kalendarza. */
+  memberId: string;
+  /** Aktywny kod zaproszenia wystawiony z tego telefonu (jednorazowy, 24 h). */
+  inviteCode?: string;
+  /** Do kiedy kod działa (ms). */
+  inviteExpires?: number;
+}
+
+/** Członek wspólnego kalendarza — każdy, kto dołączył kodem, i jego założyciel. */
+export interface Member {
+  uid: string;
+  /** Kalendarz, do którego należy wpis. */
+  space: string;
+  /** Imię wpisane przez samego członka, osobne w każdym kalendarzu. */
+  name: string;
+  joinedAt: number;
+  /** Kto wystawił kod, którym członek wszedł. Pusty u założyciela. */
+  by?: string;
 }
 
 /**
@@ -185,7 +206,8 @@ export interface SyncState {
  */
 export interface SyncShadow {
   uid: string;
-  kind: 'kategoria' | 'wydarzenie';
+  space: string;
+  kind: 'kategoria' | 'wydarzenie' | 'czlonek';
   /** Treść rekordu w postaci wysyłanej na serwer (przed szyfrowaniem). */
   json: string;
 }

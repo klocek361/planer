@@ -1,19 +1,21 @@
 import { db } from '../data/db';
-import type { Category, EventItem, SyncShadow } from '../data/types';
+import type { Category, EventItem, Member, SyncShadow } from '../data/types';
 import { isUid, validCategory, validEvent } from '../data/validate';
 import { decryptText, deriveCipherKey, deriveToken, encryptText, randomId } from './crypto';
 import { PUSH_BATCH, type SyncTransport } from './transport';
 
 /**
- * Silnik wspólnego kalendarza.
+ * Silnik wspólnych kalendarzy. Każdy kalendarz synchronizuje się osobno.
  *
  * Nie śledzi pojedynczych zapisów. Przy każdej synchronizacji porównuje
- * wspólne rekordy z „cieniem” — treścią ostatnio uzgodnioną z serwerem:
- * 1. pobiera zmiany drugiej osoby i nakłada je tam, gdzie lokalnie nic się
+ * rekordy kalendarza z „cieniem” — treścią ostatnio uzgodnioną z serwerem:
+ * 1. pobiera zmiany innych osób i nakłada je tam, gdzie lokalnie nic się
  *    nie zmieniło (lokalna zmiana wygrywa i za chwilę zostanie wysłana),
  * 2. wysyła rekordy, których treść różni się od cienia, a dla rekordów, które
- *    lokalnie zniknęły ze wspólnych kategorii — „nagrobek”.
+ *    lokalnie zniknęły — „nagrobek”.
  * Dzięki temu żadna istniejąca funkcja zapisu nie musi wiedzieć o synchronizacji.
+ *
+ * Kalendarz składa się z: jednej kategorii, jej wydarzeń i listy członków.
  */
 
 type CategoryPayload = { k: 'c'; uid: string; name: string; color: string };
@@ -31,8 +33,16 @@ type EventPayload = {
   repeat?: EventItem['repeat'];
   createdAt: number;
 };
-type Tombstone = { k: 'c' | 'e'; uid: string; del: true };
-type Payload = CategoryPayload | EventPayload | Tombstone;
+type MemberPayload = { k: 'm'; uid: string; name: string; joinedAt: number; by?: string };
+type Tombstone = { k: 'c' | 'e' | 'm'; uid: string; del: true };
+type Payload = CategoryPayload | EventPayload | MemberPayload | Tombstone;
+type Letter = Payload['k'];
+
+const KIND_BY_LETTER = { c: 'kategoria', e: 'wydarzenie', m: 'czlonek' } as const;
+const LETTER_BY_KIND = { kategoria: 'c', wydarzenie: 'e', czlonek: 'm' } as const;
+
+/** Najdłuższe imię członka. */
+export const MAX_MEMBER_NAME = 40;
 
 /** Stała kolejność pól i brak pustych — ta sama treść daje zawsze ten sam tekst. */
 function canonical(payload: Payload): string {
@@ -62,34 +72,50 @@ function eventPayload(event: EventItem, catUid: string): string {
   });
 }
 
-/** Wspólne rekordy w obecnym stanie, z gotową treścią do porównania. */
-async function localSharedSet(): Promise<Map<string, SyncShadow>> {
+function memberPayload(member: Member): string {
+  return canonical({
+    k: 'm',
+    uid: member.uid,
+    name: member.name,
+    joinedAt: member.joinedAt,
+    by: member.by,
+  });
+}
+
+/** Rekordy kalendarza w obecnym stanie, z gotową treścią do porównania. */
+async function localSet(space: string): Promise<Map<string, SyncShadow>> {
   const out = new Map<string, SyncShadow>();
-  const categories = (await db.categories.toArray()).filter((c) => c.shared && c.uid);
+  const put = (uid: string, kind: SyncShadow['kind'], json: string) =>
+    out.set(uid, { uid, space, kind, json });
+
+  const categories = (await db.categories.where('space').equals(space).toArray()).filter(
+    (c) => c.uid,
+  );
   const uidById = new Map<number, string>();
   for (const category of categories) {
     uidById.set(category.id!, category.uid!);
-    out.set(category.uid!, { uid: category.uid!, kind: 'kategoria', json: categoryPayload(category) });
+    put(category.uid!, 'kategoria', categoryPayload(category));
   }
-  if (uidById.size === 0) return out;
-
-  const events = await db.events.where('categoryId').anyOf([...uidById.keys()]).toArray();
-  for (const event of events) {
-    if (!event.uid) continue;
-    const json = eventPayload(event, uidById.get(event.categoryId!)!);
-    out.set(event.uid, { uid: event.uid, kind: 'wydarzenie', json });
+  if (uidById.size > 0) {
+    const events = await db.events.where('categoryId').anyOf([...uidById.keys()]).toArray();
+    for (const event of events) {
+      if (event.uid) put(event.uid, 'wydarzenie', eventPayload(event, uidById.get(event.categoryId!)!));
+    }
+  }
+  for (const member of await db.members.where('space').equals(space).toArray()) {
+    put(member.uid, 'czlonek', memberPayload(member));
   }
   return out;
 }
 
-/** Nadaje `uid` wspólnym kategoriom i ich wydarzeniom, które jeszcze go nie mają. */
-async function ensureUids(): Promise<void> {
+/** Nadaje `uid` kategorii kalendarza i jej wydarzeniom, które jeszcze go nie mają. */
+async function ensureUids(space: string): Promise<void> {
   await db.transaction('rw', db.categories, db.events, async () => {
-    const shared = (await db.categories.toArray()).filter((c) => c.shared);
-    for (const category of shared) {
+    const categories = await db.categories.where('space').equals(space).toArray();
+    for (const category of categories) {
       if (!category.uid) await db.categories.update(category.id!, { uid: randomId() });
     }
-    const ids = shared.map((c) => c.id!);
+    const ids = categories.map((c) => c.id!);
     if (ids.length === 0) return;
     const events = await db.events.where('categoryId').anyOf(ids).toArray();
     for (const event of events) {
@@ -101,34 +127,43 @@ async function ensureUids(): Promise<void> {
 function parsePayload(text: string): Payload | null {
   try {
     const value = JSON.parse(text) as Record<string, unknown>;
-    if ((value.k !== 'c' && value.k !== 'e') || !isUid(value.uid)) return null;
+    if (!(value.k === 'c' || value.k === 'e' || value.k === 'm') || !isUid(value.uid)) return null;
     return value as unknown as Payload;
   } catch {
     return null;
   }
 }
 
-/** Kolejność nakładania: najpierw kategorie, potem wydarzenia, usunięcia kategorii na końcu. */
+/** Kolejność nakładania: kategorie i członkowie, potem wydarzenia, usunięcia kategorii na końcu. */
 function applyOrder(p: Payload): number {
   if (p.k === 'c') return 'del' in p ? 2 : 0;
+  if (p.k === 'm') return 0;
   return 1;
 }
 
-async function currentLocalJson(uid: string, kind: 'c' | 'e'): Promise<string | null> {
+async function currentLocalJson(space: string, uid: string, kind: Letter): Promise<string | null> {
+  if (kind === 'm') {
+    const member = await db.members.get(uid);
+    return member?.space === space ? memberPayload(member) : null;
+  }
   if (kind === 'c') {
     const category = await db.categories.where('uid').equals(uid).first();
-    return category?.shared ? categoryPayload(category) : null;
+    return category?.space === space ? categoryPayload(category) : null;
   }
   const event = await db.events.where('uid').equals(uid).first();
   if (!event || event.categoryId === undefined) return null;
   const category = await db.categories.get(event.categoryId);
-  return category?.shared && category.uid ? eventPayload(event, category.uid) : null;
+  return category?.space === space && category.uid ? eventPayload(event, category.uid) : null;
+}
+
+export function cleanMemberName(name: unknown): string {
+  return typeof name === 'string' ? name.trim().slice(0, MAX_MEMBER_NAME) : '';
 }
 
 /** Nakłada jedną zmianę z serwera, chyba że lokalna zmiana ma pierwszeństwo. */
-async function applyRemote(payload: Payload, json: string): Promise<void> {
+async function applyRemote(space: string, payload: Payload, json: string): Promise<void> {
   const shadow = await db.syncShadow.get(payload.uid);
-  const local = await currentLocalJson(payload.uid, payload.k);
+  const local = await currentLocalJson(space, payload.uid, payload.k);
 
   // Lokalnie zmienione albo usunięte od ostatniej synchronizacji — wygrywa
   // lokalna wersja, wyślemy ją za chwilę. Rekord nigdy nieuzgodniony (brak
@@ -137,11 +172,13 @@ async function applyRemote(payload: Payload, json: string): Promise<void> {
   if (dirty) return;
 
   if ('del' in payload) {
-    if (payload.k === 'e') {
+    if (payload.k === 'm') {
+      await db.members.delete(payload.uid);
+    } else if (payload.k === 'e') {
       await db.events.where('uid').equals(payload.uid).delete();
     } else {
       const category = await db.categories.where('uid').equals(payload.uid).first();
-      if (category) {
+      if (category?.space === space) {
         // Wspólne wydarzenia znikają razem z kategorią, prywatne tylko się odpinają.
         await db.events.where('categoryId').equals(category.id!).and((e) => !!e.uid).delete();
         await db.events.where('categoryId').equals(category.id!).modify({ categoryId: undefined });
@@ -154,26 +191,36 @@ async function applyRemote(payload: Payload, json: string): Promise<void> {
     return;
   }
 
-  if (payload.k === 'c') {
+  if (payload.k === 'm') {
+    const name = cleanMemberName(payload.name);
+    if (!name || typeof payload.joinedAt !== 'number') return;
+    await db.members.put({
+      uid: payload.uid,
+      space,
+      name,
+      joinedAt: payload.joinedAt,
+      ...(isUid(payload.by) ? { by: payload.by } : {}),
+    });
+  } else if (payload.k === 'c') {
     const valid = validCategory({ name: payload.name, color: payload.color, order: 0 });
     if (!valid) return;
     const existing = await db.categories.where('uid').equals(payload.uid).first();
     if (existing) {
-      await db.categories.update(existing.id!, { name: valid.name, color: valid.color, shared: true });
+      await db.categories.update(existing.id!, { name: valid.name, color: valid.color, space });
     } else {
       await db.categories.add({
         name: valid.name,
         color: valid.color,
         order: await db.categories.count(),
         uid: payload.uid,
-        shared: true,
+        space,
       });
     }
   } else {
     const category = await db.categories.where('uid').equals(payload.cat).first();
     // Wydarzenie z nieznanej kategorii pomijamy bez cienia — wróci przy
     // następnej pełnej synchronizacji, gdy kategoria już dotrze.
-    if (!category?.shared) return;
+    if (category?.space !== space) return;
     const series = payload.series !== undefined ? Number(payload.series) : undefined;
     const valid = validEvent({
       title: payload.title,
@@ -194,43 +241,53 @@ async function applyRemote(payload: Payload, json: string): Promise<void> {
     else await db.events.add(valid);
   }
 
-  const after = await currentLocalJson(payload.uid, payload.k);
-  await db.syncShadow.put({
-    uid: payload.uid,
-    kind: payload.k === 'c' ? 'kategoria' : 'wydarzenie',
-    json: after ?? json,
-  });
+  const after = await currentLocalJson(space, payload.uid, payload.k);
+  await db.syncShadow.put({ uid: payload.uid, space, kind: KIND_BY_LETTER[payload.k], json: after ?? json });
 }
 
-let running: Promise<void> | null = null;
+const running = new Map<string, Promise<void>>();
 
 /**
- * Jedna pełna synchronizacja. Równoległe wywołania czekają na trwającą,
- * zamiast startować drugą.
+ * Jedna pełna synchronizacja jednego kalendarza. Równoległe wywołania dla tego
+ * samego kalendarza czekają na trwającą, zamiast startować drugą.
  */
-export function syncNow(transport: SyncTransport): Promise<void> {
-  if (!running) {
-    running = runSync(transport).finally(() => {
-      running = null;
-    });
+export function syncSpace(transport: SyncTransport, space: string): Promise<void> {
+  let current = running.get(space);
+  if (!current) {
+    current = runSync(transport, space).finally(() => running.delete(space));
+    running.set(space, current);
   }
-  return running;
+  return current;
 }
 
-async function runSync(transport: SyncTransport): Promise<void> {
-  const state = await db.syncState.get('stan');
+/** Synchronizuje wszystkie kalendarze po kolei. Błąd jednego nie zatrzymuje reszty. */
+export async function syncAll(
+  transport: SyncTransport,
+  onError: (space: string, err: unknown) => Promise<void> | void,
+): Promise<void> {
+  for (const state of await db.syncState.toArray()) {
+    try {
+      await syncSpace(transport, state.id);
+    } catch (err) {
+      await onError(state.id, err);
+    }
+  }
+}
+
+async function runSync(transport: SyncTransport, space: string): Promise<void> {
+  const state = await db.syncState.get(space);
   if (!state) return;
 
   const token = await deriveToken(state.key);
   const cipherKey = await deriveCipherKey(state.key);
 
-  await ensureUids();
+  await ensureUids(space);
 
-  // 1. Pobranie zmian drugiej osoby.
+  // 1. Pobranie zmian innych osób.
   let since = state.lastSeq;
   const incoming: { payload: Payload; json: string }[] = [];
   for (;;) {
-    const page = await transport.pull(state.spaceId, token, since);
+    const page = await transport.pull(space, token, since);
     for (const record of page.records) {
       const text = await decryptText(cipherKey, record.blob);
       const payload = text ? parsePayload(text) : null;
@@ -248,16 +305,18 @@ async function runSync(transport: SyncTransport): Promise<void> {
   incoming.sort((a, b) => applyOrder(a.payload) - applyOrder(b.payload));
   await db.transaction(
     'rw',
-    [db.categories, db.events, db.tasks, db.habits, db.syncShadow],
+    [db.categories, db.events, db.tasks, db.habits, db.members, db.syncShadow],
     async () => {
-      for (const { payload, json } of incoming) await applyRemote(payload, json);
+      for (const { payload, json } of incoming) await applyRemote(space, payload, json);
     },
   );
-  await db.syncState.update('stan', { lastSeq: since });
+  // Kalendarz mógł zostać w międzyczasie opuszczony — wtedy nic nie zapisujemy.
+  if (!(await db.syncState.get(space))) return;
+  await db.syncState.update(space, { lastSeq: since });
 
   // 2. Wysłanie lokalnych zmian.
-  const current = await localSharedSet();
-  const shadows = await db.syncShadow.toArray();
+  const current = await localSet(space);
+  const shadows = await db.syncShadow.where('space').equals(space).toArray();
   const outgoing: { uid: string; text: string; shadow: SyncShadow | null }[] = [];
 
   for (const record of current.values()) {
@@ -266,7 +325,7 @@ async function runSync(transport: SyncTransport): Promise<void> {
   }
   for (const shadow of shadows) {
     if (current.has(shadow.uid)) continue;
-    const k = shadow.kind === 'kategoria' ? 'c' : 'e';
+    const k = LETTER_BY_KIND[shadow.kind];
     outgoing.push({ uid: shadow.uid, text: canonical({ k, uid: shadow.uid, del: true }), shadow: null });
   }
 
@@ -275,7 +334,7 @@ async function runSync(transport: SyncTransport): Promise<void> {
     const records = await Promise.all(
       batch.map(async (item) => ({ uid: item.uid, blob: await encryptText(cipherKey, item.text) })),
     );
-    await transport.push(state.spaceId, token, records);
+    await transport.push(space, token, records);
     await db.transaction('rw', db.syncShadow, async () => {
       for (const item of batch) {
         if (item.shadow) await db.syncShadow.put(item.shadow);
@@ -284,5 +343,5 @@ async function runSync(transport: SyncTransport): Promise<void> {
     });
   }
 
-  await db.syncState.update('stan', { lastSyncAt: Date.now(), lastError: undefined });
+  await db.syncState.update(space, { lastSyncAt: Date.now(), lastError: undefined });
 }
