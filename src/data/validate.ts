@@ -101,6 +101,7 @@ export function validTask(input: unknown): Task | null {
   if (!isOptionalDateKey(r.startDate)) return null;
   if (!isOptionalId(r.parentId) || !isOptionalId(r.id) || !isOptionalId(r.doneAt)) return null;
   if (!isOptionalId(r.seriesId)) return null;
+  if (r.quick !== undefined && !isFlag(r.quick)) return null;
 
   // Kopie sprzed wprowadzenia gwiazdki trzymały trzy poziomy ważności.
   // "Ważne" i "Pilne" wchodzą jako gwiazdka, "Zwykłe" jako zadanie bez niej.
@@ -118,6 +119,8 @@ export function validTask(input: unknown): Task | null {
     done: r.done,
     doneAt: r.doneAt as number | undefined,
     starred,
+    // Pole zapisujemy tylko wtedy, gdy jest włączone — zwykłe zadanie go nie ma.
+    ...(r.quick === true ? { quick: true } : {}),
     startDate,
     dueDate: due,
     categoryId: r.categoryId as number | undefined,

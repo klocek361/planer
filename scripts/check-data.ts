@@ -1224,6 +1224,26 @@ const staraKopia = parseBackup(JSON.stringify(bezWersji));
 check('kopia bez numeru wersji dalej się wczytuje', staraKopia.backup !== null);
 check('brak numeru wersji daje pusty napis', staraKopia.backup?.wersjaAplikacji === '');
 
+// Zadania na 5 minut: zawsze na górze, przechodzą przez kopię zapasową
+await db.tasks.clear();
+await addTask({ title: 'Pilne jutro', starred: true, dueDate: '2026-08-14' });
+await addTask({ title: 'Szybkie bez terminu', starred: false, quick: true });
+await addTask({ title: 'Szybkie zrobione', starred: false, quick: true, dueDate: '2026-08-13' });
+const zrobioneSzybkie = (await db.tasks.toArray()).find((z) => z.title === 'Szybkie zrobione')!;
+await toggleTask(zrobioneSzybkie.id!, true);
+const kolejnoscSzybkich = buildTaskTree(await db.tasks.toArray()).map((n) => n.task.title);
+check('zadanie na 5 minut stoi na samej górze', kolejnoscSzybkich[0] === 'Szybkie bez terminu');
+check('zrobione szybkie zadanie nie wskakuje na górę', kolejnoscSzybkich.at(-1) === 'Szybkie zrobione');
+
+const szybkie = validTask({ title: 'Woda', done: false, order: 1, createdAt: 1, quick: true });
+check('kopia zachowuje oznaczenie 5 minut', szybkie?.quick === true);
+const zwykleZadanie = validTask({ title: 'Woda', done: false, order: 1, createdAt: 1 });
+check('zwykłe zadanie nie dostaje pola quick', zwykleZadanie !== null && !('quick' in zwykleZadanie));
+check(
+  'błędne oznaczenie 5 minut odrzuca rekord',
+  validTask({ title: 'Woda', done: false, order: 1, createdAt: 1, quick: 'tak' }) === null,
+);
+
 console.log(
   problems.length === 0
     ? '\nWszystko przeszło.'

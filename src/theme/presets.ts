@@ -72,6 +72,31 @@ export const PRESETS: Theme[] = [
     texture: 'none',
   },
   {
+    // Ciepły, spokojny: złamana biel jak papier akwarelowy, jaśniejsze karty,
+    // szałwiowa zieleń jako akcent i bursztyn na weekendy. Dużo powietrza
+    // i mocno zaokrąglone rogi.
+    id: 'kaskowy',
+    name: 'Kaśkowy',
+    mode: 'light',
+    colors: {
+      bg: '#F7F4EE',
+      surface: '#FFFDF9',
+      surfaceAlt: '#EFEBE3',
+      text: '#2B2A26',
+      textMuted: '#8E8A82',
+      textFaint: '#CFCAC0',
+      accent: '#7A9A63',
+      weekend: '#C47F3A',
+      star: '#C9A23F',
+      selectedBg: '#3A3A34',
+      selectedText: '#FBF9F5',
+      border: '#ECE7DE',
+    },
+    typography: { fontId: 'inter', scale: 1 },
+    shape: { radius: 22, density: 1.1 },
+    texture: 'paper',
+  },
+  {
     id: 'atrament',
     name: 'Atrament',
     mode: 'dark',

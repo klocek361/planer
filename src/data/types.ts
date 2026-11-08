@@ -65,6 +65,11 @@ export interface Task {
   startDate?: string;
   /** Ważne zadanie — oznaczane gwiazdką. Dwa poziomy: z gwiazdką albo bez. */
   starred: boolean;
+  /**
+   * Szybkie zadanie, na około 5 minut. Pokazywane z piorunkiem i zawsze na
+   * górze listy. Brak pola znaczy zwykłe zadanie — starsze dane go nie mają.
+   */
+  quick?: boolean;
   /** 'RRRR-MM-DD' — termin, czyli ostatni dzień na wykonanie. */
   dueDate?: string;
   categoryId?: number;
