@@ -26,7 +26,7 @@ import {
 import { addEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
 import { addTask, buildTaskTree, deleteTask, toggleTask } from '../src/data/tasks';
 import { SyncError, type SyncTransport } from '../src/sync/transport';
-import { syncAll, syncSpace } from '../src/sync/engine';
+import { SYNC_FORMAT, syncAll, syncSpace } from '../src/sync/engine';
 import {
   createInvite,
   createSpace,
@@ -1425,6 +1425,19 @@ check(
   await przelacz('A');
   await syncSpace(transport, dom);
   check('wspólne odhaczenie tego samego dnia jest jedno', (await db.habitEntries.where('[habitId+date]').equals([odkurzanieA.id!, '2026-11-09']).count()) === 1);
+
+  // Telefon, który miał starą wersję, pominął listę jako niezrozumiałą,
+  // a numer zmian i tak poszedł do przodu. Po aktualizacji ma ją dociągnąć.
+  await przelacz('B');
+  const listaStara = (await db.lists.toArray())[0]!;
+  await db.listItems.where('listId').equals(listaStara.id!).delete();
+  await db.lists.delete(listaStara.id!);
+  await db.syncShadow.filter((s) => s.kind === 'lista' || s.kind === 'pozycja').delete();
+  await db.syncState.update(dom, { format: 1 });
+  await syncSpace(transport, dom);
+  check('po aktualizacji telefon dociąga pominięte listy', (await db.lists.count()) === 1 && (await db.listItems.count()) === 2);
+  check('po dociągnięciu format jest aktualny', (await db.syncState.get(dom))?.format === SYNC_FORMAT);
+  await przelacz('A');
 
   // A usuwa listę — znika u B razem z pozycjami
   await deleteChecklist(zakupyListaA);

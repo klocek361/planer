@@ -5,6 +5,13 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.4.1] — 2026-11-08
+
+### Poprawki
+- Telefon, który dostał wspólne zadania, nawyki lub listy jeszcze w starszej
+  wersji, pomijał je i po aktualizacji już ich nie pobierał. Teraz po zmianie
+  formatu danych pobiera wszystko od nowa, jednorazowo.
+
 ## [1.4.0] — 2026-11-08
 
 ### Zmiany we wspólnym kalendarzu

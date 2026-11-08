@@ -194,6 +194,13 @@ export interface SyncState {
   inviteCode?: string;
   /** Do kiedy kod działa (ms). */
   inviteExpires?: number;
+  /**
+   * Wersja formatu rekordów, z którą ostatnio pobierano zmiany. Gdy aplikacja
+   * zna więcej rodzajów rekordów niż przy poprzednim pobraniu, pobiera
+   * wszystko od nowa — inaczej przegapiłaby rekordy, które starsza wersja
+   * pominęła jako niezrozumiałe.
+   */
+  format?: number;
 }
 
 /** Członek wspólnego kalendarza — każdy, kto dołączył kodem, i jego założyciel. */
