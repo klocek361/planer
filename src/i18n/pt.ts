@@ -230,7 +230,7 @@ export const pt: Dict = {
 
   wspolny: {
     niedostepny: 'Esta versão da aplicação não tem servidor de calendário partilhado configurado.',
-    wstep: 'Um calendário partilhado é uma categoria à parte que todos veem e editam. Convide outras pessoas com um código de 8 dígitos. Os eventos passam pelo servidor encriptados — ninguém fora do calendário os consegue ler.',
+    wstep: 'Um calendário partilhado é uma categoria à parte que todos veem e editam — tudo o que lhe pertence: eventos, tarefas, hábitos e listas. Convide outras pessoas com um código de 8 dígitos. Os dados passam pelo servidor encriptados; as outras categorias ficam privadas.',
     lista: 'Os seus calendários partilhados',
     brak: 'Ainda não pertence a nenhum calendário partilhado.',
     nowy: 'Novo calendário partilhado',
@@ -266,7 +266,7 @@ export const pt: Dict = {
     kodWazny: (czas: string) => 'Uso único, válido até ' + czas,
     zaprosil: (kto: string) => 'convidado por ' + kto,
     ostatnio: (czas: string) => 'Última sincronização: ' + czas,
-    dodawajDo: (nazwa: string) => 'Os eventos adicionados à categoria «' + nazwa + '» são vistos por todos os membros.',
+    dodawajDo: (nazwa: string) => 'Tudo na categoria «' + nazwa + '» — eventos, tarefas, hábitos e listas — é visto por todos os membros. As outras categorias ficam privadas.',
     tekstZaproszenia: (nazwa: string, kod: string) =>
       'Código para o calendário partilhado «' + nazwa + '» no Planer: ' + kod + '. Introduza-o em Definições → Calendário partilhado → Entrar com código. Funciona uma vez, durante 24 horas.',
     bledy: {

@@ -1,248 +1,570 @@
 import { db } from '../data/db';
-import type { Category, EventItem, Member, SyncShadow } from '../data/types';
-import { isUid, validCategory, validEvent } from '../data/validate';
+import type { Category, Checklist, EventItem, Habit, Member, SyncShadow, Task } from '../data/types';
+import {
+  isUid,
+  validCategory,
+  validChecklist,
+  validChecklistItem,
+  validEvent,
+  validHabit,
+  validTask,
+} from '../data/validate';
 import { decryptText, deriveCipherKey, deriveToken, encryptText, randomId } from './crypto';
 import { PUSH_BATCH, type SyncTransport } from './transport';
 
 /**
  * Silnik wspólnych kalendarzy. Każdy kalendarz synchronizuje się osobno.
  *
- * Nie śledzi pojedynczych zapisów. Przy każdej synchronizacji porównuje
- * rekordy kalendarza z „cieniem” — treścią ostatnio uzgodnioną z serwerem:
+ * Wspólny kalendarz to jedna kategoria — i wszystko, co do niej należy:
+ * wydarzenia, zadania (z podzadaniami), nawyki (z odhaczeniami) i listy
+ * (z pozycjami), a do tego lista członków. Pozostałe kategorie są prywatne.
+ *
+ * Silnik nie śledzi pojedynczych zapisów. Przy każdej synchronizacji
+ * porównuje rekordy kalendarza z „cieniem” — treścią ostatnio uzgodnioną
+ * z serwerem:
  * 1. pobiera zmiany innych osób i nakłada je tam, gdzie lokalnie nic się
  *    nie zmieniło (lokalna zmiana wygrywa i za chwilę zostanie wysłana),
  * 2. wysyła rekordy, których treść różni się od cienia, a dla rekordów, które
  *    lokalnie zniknęły — „nagrobek”.
  * Dzięki temu żadna istniejąca funkcja zapisu nie musi wiedzieć o synchronizacji.
- *
- * Kalendarz składa się z: jednej kategorii, jej wydarzeń i listy członków.
  */
 
-type CategoryPayload = { k: 'c'; uid: string; name: string; color: string };
-type EventPayload = {
-  k: 'e';
-  uid: string;
-  cat: string;
-  title: string;
-  date: string;
-  allDay: boolean;
-  startTime?: string;
-  endTime?: string;
-  note?: string;
-  series?: string;
-  repeat?: EventItem['repeat'];
-  createdAt: number;
-};
-type MemberPayload = { k: 'm'; uid: string; name: string; joinedAt: number; by?: string };
-type Tombstone = { k: 'c' | 'e' | 'm'; uid: string; del: true };
-type Payload = CategoryPayload | EventPayload | MemberPayload | Tombstone;
-type Letter = Payload['k'];
+/** Rodzaj rekordu: jedna litera w treści wysyłanej na serwer. */
+type Letter = 'c' | 'e' | 'm' | 't' | 'h' | 'd' | 'l' | 'i';
 
-const KIND_BY_LETTER = { c: 'kategoria', e: 'wydarzenie', m: 'czlonek' } as const;
-const LETTER_BY_KIND = { kategoria: 'c', wydarzenie: 'e', czlonek: 'm' } as const;
+const KIND_BY_LETTER = {
+  c: 'kategoria',
+  e: 'wydarzenie',
+  m: 'czlonek',
+  t: 'zadanie',
+  h: 'nawyk',
+  d: 'odhaczenie',
+  l: 'lista',
+  i: 'pozycja',
+} as const satisfies Record<Letter, SyncShadow['kind']>;
+
+const LETTER_BY_KIND = Object.fromEntries(
+  Object.entries(KIND_BY_LETTER).map(([letter, kind]) => [kind, letter]),
+) as Record<SyncShadow['kind'], Letter>;
+
+const LETTERS = new Set<string>(Object.keys(KIND_BY_LETTER));
+
+/** Treść rekordu po rozszyfrowaniu. Pola sprawdzają walidatory przy nakładaniu. */
+type Payload = { k: Letter; uid: string; del?: true } & Record<string, unknown>;
 
 /** Najdłuższe imię członka. */
 export const MAX_MEMBER_NAME = 40;
 
 /** Stała kolejność pól i brak pustych — ta sama treść daje zawsze ten sam tekst. */
-function canonical(payload: Payload): string {
+function canonical(payload: Record<string, unknown>): string {
   const clean: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(payload)) if (value !== undefined) clean[key] = value;
   return JSON.stringify(clean);
-}
-
-function categoryPayload(category: Category): string {
-  return canonical({ k: 'c', uid: category.uid!, name: category.name, color: category.color });
-}
-
-function eventPayload(event: EventItem, catUid: string): string {
-  return canonical({
-    k: 'e',
-    uid: event.uid!,
-    cat: catUid,
-    title: event.title,
-    date: event.date,
-    allDay: event.allDay,
-    startTime: event.startTime,
-    endTime: event.endTime,
-    note: event.note,
-    series: event.seriesId !== undefined ? String(event.seriesId) : undefined,
-    repeat: event.repeat,
-    createdAt: event.createdAt,
-  });
-}
-
-function memberPayload(member: Member): string {
-  return canonical({
-    k: 'm',
-    uid: member.uid,
-    name: member.name,
-    joinedAt: member.joinedAt,
-    by: member.by,
-  });
-}
-
-/** Rekordy kalendarza w obecnym stanie, z gotową treścią do porównania. */
-async function localSet(space: string): Promise<Map<string, SyncShadow>> {
-  const out = new Map<string, SyncShadow>();
-  const put = (uid: string, kind: SyncShadow['kind'], json: string) =>
-    out.set(uid, { uid, space, kind, json });
-
-  const categories = (await db.categories.where('space').equals(space).toArray()).filter(
-    (c) => c.uid,
-  );
-  const uidById = new Map<number, string>();
-  for (const category of categories) {
-    uidById.set(category.id!, category.uid!);
-    put(category.uid!, 'kategoria', categoryPayload(category));
-  }
-  if (uidById.size > 0) {
-    const events = await db.events.where('categoryId').anyOf([...uidById.keys()]).toArray();
-    for (const event of events) {
-      if (event.uid) put(event.uid, 'wydarzenie', eventPayload(event, uidById.get(event.categoryId!)!));
-    }
-  }
-  for (const member of await db.members.where('space').equals(space).toArray()) {
-    put(member.uid, 'czlonek', memberPayload(member));
-  }
-  return out;
-}
-
-/** Nadaje `uid` kategorii kalendarza i jej wydarzeniom, które jeszcze go nie mają. */
-async function ensureUids(space: string): Promise<void> {
-  await db.transaction('rw', db.categories, db.events, async () => {
-    const categories = await db.categories.where('space').equals(space).toArray();
-    for (const category of categories) {
-      if (!category.uid) await db.categories.update(category.id!, { uid: randomId() });
-    }
-    const ids = categories.map((c) => c.id!);
-    if (ids.length === 0) return;
-    const events = await db.events.where('categoryId').anyOf(ids).toArray();
-    for (const event of events) {
-      if (!event.uid) await db.events.update(event.id!, { uid: randomId() });
-    }
-  });
-}
-
-function parsePayload(text: string): Payload | null {
-  try {
-    const value = JSON.parse(text) as Record<string, unknown>;
-    if (!(value.k === 'c' || value.k === 'e' || value.k === 'm') || !isUid(value.uid)) return null;
-    return value as unknown as Payload;
-  } catch {
-    return null;
-  }
-}
-
-/** Kolejność nakładania: kategorie i członkowie, potem wydarzenia, usunięcia kategorii na końcu. */
-function applyOrder(p: Payload): number {
-  if (p.k === 'c') return 'del' in p ? 2 : 0;
-  if (p.k === 'm') return 0;
-  return 1;
-}
-
-async function currentLocalJson(space: string, uid: string, kind: Letter): Promise<string | null> {
-  if (kind === 'm') {
-    const member = await db.members.get(uid);
-    return member?.space === space ? memberPayload(member) : null;
-  }
-  if (kind === 'c') {
-    const category = await db.categories.where('uid').equals(uid).first();
-    return category?.space === space ? categoryPayload(category) : null;
-  }
-  const event = await db.events.where('uid').equals(uid).first();
-  if (!event || event.categoryId === undefined) return null;
-  const category = await db.categories.get(event.categoryId);
-  return category?.space === space && category.uid ? eventPayload(event, category.uid) : null;
 }
 
 export function cleanMemberName(name: unknown): string {
   return typeof name === 'string' ? name.trim().slice(0, MAX_MEMBER_NAME) : '';
 }
 
+// ── Odhaczenia nawyków ────────────────────────────────────────────────────
+// Odhaczenie nie ma własnego identyfikatora — jest jedno na nawyk i dzień.
+// Stały `uid` z nawyku i daty sprawia, że gdy dwie osoby odhaczą ten sam
+// dzień, powstaje jeden rekord, a nie dwa.
+
+const HABIT_UID_LENGTH = 22;
+
+function entryUid(habitUid: string, date: string): string {
+  return `${habitUid}d${date.replace(/-/g, '')}`;
+}
+
+function parseEntryUid(uid: string): { habitUid: string; date: string } | null {
+  const digits = uid.slice(HABIT_UID_LENGTH + 1);
+  if (uid.length !== HABIT_UID_LENGTH + 9 || !/^\d{8}$/.test(digits)) return null;
+  return {
+    habitUid: uid.slice(0, HABIT_UID_LENGTH),
+    date: `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`,
+  };
+}
+
+// ── Przynależność do kalendarza ──────────────────────────────────────────
+
+/** `uid` kategorii, jeśli należy do kalendarza; w przeciwnym razie null. */
+async function sharedCategoryUid(space: string, categoryId: number | undefined): Promise<string | null> {
+  if (categoryId === undefined) return null;
+  const category = await db.categories.get(categoryId);
+  return category?.space === space && category.uid ? category.uid : null;
+}
+
+/**
+ * Zadanie należy do kalendarza, gdy jest w jego kategorii, a podzadanie —
+ * gdy należy do niego zadanie nadrzędne. Zwraca, czym je opisać.
+ */
+async function taskLinks(
+  space: string,
+  task: Task,
+): Promise<{ cat?: string; parent?: string } | null> {
+  if (task.parentId !== undefined) {
+    const parent = await db.tasks.get(task.parentId);
+    if (!parent?.uid || parent.parentId !== undefined) return null;
+    if (!(await sharedCategoryUid(space, parent.categoryId))) return null;
+    const cat = await sharedCategoryUid(space, task.categoryId);
+    return { parent: parent.uid, ...(cat ? { cat } : {}) };
+  }
+  const cat = await sharedCategoryUid(space, task.categoryId);
+  return cat ? { cat } : null;
+}
+
+// ── Treść rekordów ───────────────────────────────────────────────────────
+
+const categoryJson = (c: Category) => canonical({ k: 'c', uid: c.uid, name: c.name, color: c.color });
+
+const memberJson = (m: Member) =>
+  canonical({ k: 'm', uid: m.uid, name: m.name, joinedAt: m.joinedAt, by: m.by });
+
+const eventJson = (e: EventItem, cat: string) =>
+  canonical({
+    k: 'e',
+    uid: e.uid,
+    cat,
+    title: e.title,
+    date: e.date,
+    allDay: e.allDay,
+    startTime: e.startTime,
+    endTime: e.endTime,
+    note: e.note,
+    series: e.seriesId !== undefined ? String(e.seriesId) : undefined,
+    repeat: e.repeat,
+    createdAt: e.createdAt,
+  });
+
+const taskJson = (t: Task, links: { cat?: string; parent?: string }) =>
+  canonical({
+    k: 't',
+    uid: t.uid,
+    cat: links.cat,
+    parent: links.parent,
+    title: t.title,
+    done: t.done,
+    doneAt: t.doneAt,
+    starred: t.starred,
+    quick: t.quick,
+    startDate: t.startDate,
+    dueDate: t.dueDate,
+    series: t.seriesId !== undefined ? String(t.seriesId) : undefined,
+    repeat: t.repeat,
+    order: t.order,
+    createdAt: t.createdAt,
+  });
+
+const habitJson = (h: Habit, cat: string) =>
+  canonical({
+    k: 'h',
+    uid: h.uid,
+    cat,
+    name: h.name,
+    kind: h.kind,
+    target: h.target,
+    unit: h.unit,
+    period: h.period,
+    archived: h.archived,
+    order: h.order,
+    createdAt: h.createdAt,
+  });
+
+const entryJson = (habitUid: string, date: string, value: number) =>
+  canonical({ k: 'd', uid: entryUid(habitUid, date), habit: habitUid, date, value });
+
+const listJson = (l: Checklist, cat: string) =>
+  canonical({ k: 'l', uid: l.uid, cat, name: l.name, note: l.note, order: l.order, createdAt: l.createdAt });
+
+const itemJson = (
+  i: { uid?: string; text: string; done: boolean; order: number; createdAt: number },
+  listUid: string,
+) =>
+  canonical({
+    k: 'i',
+    uid: i.uid,
+    list: listUid,
+    text: i.text,
+    done: i.done,
+    order: i.order,
+    createdAt: i.createdAt,
+  });
+
+/** Obecna treść jednego rekordu kalendarza albo null, gdy lokalnie go nie ma. */
+async function localJson(space: string, letter: Letter, uid: string): Promise<string | null> {
+  switch (letter) {
+    case 'c': {
+      const c = await db.categories.where('uid').equals(uid).first();
+      return c?.space === space ? categoryJson(c) : null;
+    }
+    case 'm': {
+      const m = await db.members.get(uid);
+      return m?.space === space ? memberJson(m) : null;
+    }
+    case 'e': {
+      const e = await db.events.where('uid').equals(uid).first();
+      const cat = e ? await sharedCategoryUid(space, e.categoryId) : null;
+      return e && cat ? eventJson(e, cat) : null;
+    }
+    case 't': {
+      const t = await db.tasks.where('uid').equals(uid).first();
+      const links = t ? await taskLinks(space, t) : null;
+      return t && links ? taskJson(t, links) : null;
+    }
+    case 'h': {
+      const h = await db.habits.where('uid').equals(uid).first();
+      const cat = h ? await sharedCategoryUid(space, h.categoryId) : null;
+      return h && cat ? habitJson(h, cat) : null;
+    }
+    case 'd': {
+      const parsed = parseEntryUid(uid);
+      if (!parsed) return null;
+      const h = await db.habits.where('uid').equals(parsed.habitUid).first();
+      if (!h || !(await sharedCategoryUid(space, h.categoryId))) return null;
+      const entry = await db.habitEntries.where('[habitId+date]').equals([h.id!, parsed.date]).first();
+      return entry && entry.value > 0 ? entryJson(parsed.habitUid, parsed.date, entry.value) : null;
+    }
+    case 'l': {
+      const l = await db.lists.where('uid').equals(uid).first();
+      const cat = l ? await sharedCategoryUid(space, l.categoryId) : null;
+      return l && cat ? listJson(l, cat) : null;
+    }
+    case 'i': {
+      const i = await db.listItems.where('uid').equals(uid).first();
+      if (!i) return null;
+      const l = await db.lists.get(i.listId);
+      return l?.uid && (await sharedCategoryUid(space, l.categoryId)) ? itemJson(i, l.uid) : null;
+    }
+  }
+}
+
+/** Wszystkie rekordy kalendarza w obecnym stanie, z gotową treścią do porównania. */
+async function localSet(space: string): Promise<Map<string, SyncShadow>> {
+  const out = new Map<string, SyncShadow>();
+  const put = (letter: Letter, uid: string, json: string) =>
+    out.set(uid, { uid, space, kind: KIND_BY_LETTER[letter], json });
+
+  const categories = (await db.categories.where('space').equals(space).toArray()).filter((c) => c.uid);
+  const catIds = categories.map((c) => c.id!);
+  const catUid = new Map(categories.map((c) => [c.id!, c.uid!]));
+  for (const c of categories) put('c', c.uid!, categoryJson(c));
+  for (const m of await db.members.where('space').equals(space).toArray()) put('m', m.uid, memberJson(m));
+  if (catIds.length === 0) return out;
+
+  for (const e of await db.events.where('categoryId').anyOf(catIds).toArray()) {
+    if (e.uid) put('e', e.uid, eventJson(e, catUid.get(e.categoryId!)!));
+  }
+
+  const parents = (await db.tasks.where('categoryId').anyOf(catIds).toArray()).filter(
+    (t) => t.uid && t.parentId === undefined,
+  );
+  for (const t of parents) put('t', t.uid!, taskJson(t, { cat: catUid.get(t.categoryId!)! }));
+  if (parents.length > 0) {
+    const parentUid = new Map(parents.map((t) => [t.id!, t.uid!]));
+    for (const t of await db.tasks.where('parentId').anyOf([...parentUid.keys()]).toArray()) {
+      if (!t.uid) continue;
+      const cat = t.categoryId !== undefined ? catUid.get(t.categoryId) : undefined;
+      put('t', t.uid, taskJson(t, { parent: parentUid.get(t.parentId!)!, ...(cat ? { cat } : {}) }));
+    }
+  }
+
+  const habits = (await db.habits.where('categoryId').anyOf(catIds).toArray()).filter((h) => h.uid);
+  for (const h of habits) {
+    put('h', h.uid!, habitJson(h, catUid.get(h.categoryId!)!));
+    for (const entry of await db.habitEntries.where('habitId').equals(h.id!).toArray()) {
+      if (entry.value > 0) put('d', entryUid(h.uid!, entry.date), entryJson(h.uid!, entry.date, entry.value));
+    }
+  }
+
+  const lists = (await db.lists.where('categoryId').anyOf(catIds).toArray()).filter((l) => l.uid);
+  for (const l of lists) {
+    put('l', l.uid!, listJson(l, catUid.get(l.categoryId!)!));
+    for (const item of await db.listItems.where('listId').equals(l.id!).toArray()) {
+      if (item.uid) put('i', item.uid, itemJson(item, l.uid!));
+    }
+  }
+  return out;
+}
+
+/** Nadaje `uid` wszystkiemu, co należy do kalendarza, a jeszcze go nie ma. */
+async function ensureUids(space: string): Promise<void> {
+  await db.transaction(
+    'rw',
+    [db.categories, db.events, db.tasks, db.habits, db.lists, db.listItems],
+    async () => {
+      const categories = await db.categories.where('space').equals(space).toArray();
+      for (const c of categories) if (!c.uid) await db.categories.update(c.id!, { uid: randomId() });
+      const ids = categories.map((c) => c.id!);
+      if (ids.length === 0) return;
+
+      const give = async <T extends { id?: number; uid?: string }>(
+        rows: T[],
+        update: (id: number, uid: string) => Promise<unknown>,
+      ) => {
+        for (const row of rows) if (!row.uid) await update(row.id!, randomId());
+      };
+
+      await give(await db.events.where('categoryId').anyOf(ids).toArray(), (id, uid) =>
+        db.events.update(id, { uid }),
+      );
+      const parents = (await db.tasks.where('categoryId').anyOf(ids).toArray()).filter(
+        (t) => t.parentId === undefined,
+      );
+      await give(parents, (id, uid) => db.tasks.update(id, { uid }));
+      await give(await db.tasks.where('parentId').anyOf(parents.map((t) => t.id!)).toArray(), (id, uid) =>
+        db.tasks.update(id, { uid }),
+      );
+      await give(await db.habits.where('categoryId').anyOf(ids).toArray(), (id, uid) =>
+        db.habits.update(id, { uid }),
+      );
+      const lists = await db.lists.where('categoryId').anyOf(ids).toArray();
+      await give(lists, (id, uid) => db.lists.update(id, { uid }));
+      await give(await db.listItems.where('listId').anyOf(lists.map((l) => l.id!)).toArray(), (id, uid) =>
+        db.listItems.update(id, { uid }),
+      );
+    },
+  );
+}
+
+function parsePayload(text: string): Payload | null {
+  try {
+    const value = JSON.parse(text) as Record<string, unknown>;
+    if (typeof value.k !== 'string' || !LETTERS.has(value.k) || !isUid(value.uid)) return null;
+    return value as Payload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Kolejność nakładania: najpierw kategoria i członkowie, potem to, co wisi
+ * bezpośrednio na kategorii, potem to, co wisi na tamtym (podzadania,
+ * odhaczenia, pozycje list), a usunięcie kategorii na samym końcu.
+ */
+function applyOrder(p: Payload): number {
+  if (p.k === 'c') return p.del ? 3 : 0;
+  if (p.k === 'm') return 0;
+  if (p.k === 'h' || p.k === 'l') return 1;
+  if (p.k === 't') return p.parent ? 2 : 1;
+  return 2;
+}
+
+/** Usuwa z kategorii wszystko, co było wspólne; prywatne rzeczy tylko odpina. */
+async function dropSharedCategory(category: Category): Promise<void> {
+  const id = category.id!;
+  await db.events.where('categoryId').equals(id).and((e) => !!e.uid).delete();
+  const tasks = await db.tasks.where('categoryId').equals(id).and((t) => !!t.uid).toArray();
+  await db.tasks.where('parentId').anyOf(tasks.map((t) => t.id!)).and((t) => !!t.uid).delete();
+  await db.tasks.bulkDelete(tasks.map((t) => t.id!));
+  const habits = await db.habits.where('categoryId').equals(id).and((h) => !!h.uid).toArray();
+  await db.habitEntries.where('habitId').anyOf(habits.map((h) => h.id!)).delete();
+  await db.habits.bulkDelete(habits.map((h) => h.id!));
+  const lists = await db.lists.where('categoryId').equals(id).and((l) => !!l.uid).toArray();
+  await db.listItems.where('listId').anyOf(lists.map((l) => l.id!)).delete();
+  await db.lists.bulkDelete(lists.map((l) => l.id!));
+
+  await db.events.where('categoryId').equals(id).modify({ categoryId: undefined });
+  await db.tasks.where('categoryId').equals(id).modify({ categoryId: undefined });
+  await db.habits.where('categoryId').equals(id).modify({ categoryId: undefined });
+  await db.lists.where('categoryId').equals(id).modify({ categoryId: undefined });
+  await db.categories.delete(id);
+}
+
+async function applyDelete(space: string, p: Payload): Promise<void> {
+  switch (p.k) {
+    case 'c': {
+      const category = await db.categories.where('uid').equals(p.uid).first();
+      if (category?.space === space) await dropSharedCategory(category);
+      return;
+    }
+    case 'm':
+      await db.members.delete(p.uid);
+      return;
+    case 'e':
+      await db.events.where('uid').equals(p.uid).delete();
+      return;
+    case 't': {
+      const task = await db.tasks.where('uid').equals(p.uid).first();
+      if (!task) return;
+      await db.tasks.where('parentId').equals(task.id!).and((t) => !!t.uid).delete();
+      await db.tasks.delete(task.id!);
+      return;
+    }
+    case 'h': {
+      const habit = await db.habits.where('uid').equals(p.uid).first();
+      if (!habit) return;
+      await db.habitEntries.where('habitId').equals(habit.id!).delete();
+      await db.habits.delete(habit.id!);
+      return;
+    }
+    case 'd': {
+      const parsed = parseEntryUid(p.uid);
+      const habit = parsed ? await db.habits.where('uid').equals(parsed.habitUid).first() : undefined;
+      if (habit && parsed) {
+        await db.habitEntries.where('[habitId+date]').equals([habit.id!, parsed.date]).delete();
+      }
+      return;
+    }
+    case 'l': {
+      const list = await db.lists.where('uid').equals(p.uid).first();
+      if (!list) return;
+      await db.listItems.where('listId').equals(list.id!).delete();
+      await db.lists.delete(list.id!);
+      return;
+    }
+    case 'i':
+      await db.listItems.where('uid').equals(p.uid).delete();
+      return;
+  }
+}
+
+/** Lokalne id wspólnej kategorii o podanym `uid` albo undefined. */
+async function localCategoryId(space: string, uid: unknown): Promise<number | undefined> {
+  if (typeof uid !== 'string') return undefined;
+  const category = await db.categories.where('uid').equals(uid).first();
+  return category?.space === space ? category.id : undefined;
+}
+
+const seriesNumber = (value: unknown) => {
+  const n = typeof value === 'string' ? Number(value) : NaN;
+  return Number.isSafeInteger(n) ? n : undefined;
+};
+
+/** Wstawia albo podmienia rekord znaleziony po `uid`, zachowując lokalne id. */
+async function upsertByUid<T extends { id?: number }>(
+  table: { where(index: string): { equals(v: string): { first(): Promise<T | undefined> } } } & {
+    update(id: number, changes: Partial<T>): Promise<number>;
+    add(item: T): Promise<number>;
+  },
+  uid: string,
+  value: T,
+): Promise<void> {
+  const existing = await table.where('uid').equals(uid).first();
+  if (existing?.id !== undefined) await table.update(existing.id, { ...value, id: existing.id });
+  else await table.add(value);
+}
+
+/** Nakłada jeden rekord z serwera; rekord, którego nie da się zrozumieć, pomija. */
+async function applyUpsert(space: string, p: Payload): Promise<void> {
+  switch (p.k) {
+    case 'c': {
+      const valid = validCategory({ name: p.name, color: p.color, order: 0 });
+      if (!valid) return;
+      const existing = await db.categories.where('uid').equals(p.uid).first();
+      if (existing) {
+        await db.categories.update(existing.id!, { name: valid.name, color: valid.color, space });
+      } else {
+        await db.categories.add({
+          name: valid.name,
+          color: valid.color,
+          order: await db.categories.count(),
+          uid: p.uid,
+          space,
+        });
+      }
+      return;
+    }
+    case 'm': {
+      const name = cleanMemberName(p.name);
+      if (!name || typeof p.joinedAt !== 'number') return;
+      await db.members.put({
+        uid: p.uid,
+        space,
+        name,
+        joinedAt: p.joinedAt,
+        ...(isUid(p.by) ? { by: p.by } : {}),
+      });
+      return;
+    }
+    case 'e': {
+      const categoryId = await localCategoryId(space, p.cat);
+      if (categoryId === undefined) return;
+      const valid = validEvent({ ...p, categoryId, seriesId: seriesNumber(p.series), id: undefined });
+      if (valid) await upsertByUid(db.events, p.uid, { ...valid, uid: p.uid });
+      return;
+    }
+    case 't': {
+      const categoryId = await localCategoryId(space, p.cat);
+      let parentId: number | undefined;
+      if (typeof p.parent === 'string') {
+        parentId = (await db.tasks.where('uid').equals(p.parent).first())?.id;
+        if (parentId === undefined) return;
+      } else if (categoryId === undefined) {
+        return;
+      }
+      const valid = validTask({
+        ...p,
+        categoryId,
+        parentId,
+        seriesId: seriesNumber(p.series),
+        id: undefined,
+      });
+      if (valid) await upsertByUid(db.tasks, p.uid, { ...valid, uid: p.uid });
+      return;
+    }
+    case 'h': {
+      const categoryId = await localCategoryId(space, p.cat);
+      if (categoryId === undefined) return;
+      const valid = validHabit({ ...p, categoryId, id: undefined });
+      if (valid) await upsertByUid(db.habits, p.uid, { ...valid, uid: p.uid });
+      return;
+    }
+    case 'd': {
+      const parsed = parseEntryUid(p.uid);
+      if (!parsed || typeof p.value !== 'number') return;
+      const habit = await db.habits.where('uid').equals(parsed.habitUid).first();
+      if (!habit || !(await sharedCategoryUid(space, habit.categoryId))) return;
+      const value = Math.min(habit.target, Math.max(0, Math.round(p.value)));
+      const existing = await db.habitEntries.where('[habitId+date]').equals([habit.id!, parsed.date]).first();
+      if (value === 0) {
+        if (existing?.id) await db.habitEntries.delete(existing.id);
+      } else if (existing?.id) {
+        await db.habitEntries.update(existing.id, { value });
+      } else {
+        await db.habitEntries.add({ habitId: habit.id!, date: parsed.date, value });
+      }
+      return;
+    }
+    case 'l': {
+      const categoryId = await localCategoryId(space, p.cat);
+      if (categoryId === undefined) return;
+      const valid = validChecklist({ ...p, categoryId, id: undefined });
+      if (valid) await upsertByUid(db.lists, p.uid, { ...valid, uid: p.uid });
+      return;
+    }
+    case 'i': {
+      const list = typeof p.list === 'string' ? await db.lists.where('uid').equals(p.list).first() : undefined;
+      if (!list?.id || !(await sharedCategoryUid(space, list.categoryId))) return;
+      const valid = validChecklistItem({ ...p, listId: list.id, id: undefined });
+      if (valid) await upsertByUid(db.listItems, p.uid, { ...valid, uid: p.uid });
+      return;
+    }
+  }
+}
+
 /** Nakłada jedną zmianę z serwera, chyba że lokalna zmiana ma pierwszeństwo. */
-async function applyRemote(space: string, payload: Payload, json: string): Promise<void> {
+async function applyRemote(space: string, payload: Payload): Promise<void> {
   const shadow = await db.syncShadow.get(payload.uid);
-  const local = await currentLocalJson(space, payload.uid, payload.k);
+  const local = await localJson(space, payload.k, payload.uid);
 
   // Lokalnie zmienione albo usunięte od ostatniej synchronizacji — wygrywa
   // lokalna wersja, wyślemy ją za chwilę. Rekord nigdy nieuzgodniony (brak
   // cienia) przyjmuje wersję z serwera.
-  const dirty = shadow !== undefined && local !== shadow.json;
-  if (dirty) return;
+  if (shadow !== undefined && local !== shadow.json) return;
 
-  if ('del' in payload) {
-    if (payload.k === 'm') {
-      await db.members.delete(payload.uid);
-    } else if (payload.k === 'e') {
-      await db.events.where('uid').equals(payload.uid).delete();
-    } else {
-      const category = await db.categories.where('uid').equals(payload.uid).first();
-      if (category?.space === space) {
-        // Wspólne wydarzenia znikają razem z kategorią, prywatne tylko się odpinają.
-        await db.events.where('categoryId').equals(category.id!).and((e) => !!e.uid).delete();
-        await db.events.where('categoryId').equals(category.id!).modify({ categoryId: undefined });
-        await db.tasks.where('categoryId').equals(category.id!).modify({ categoryId: undefined });
-        await db.habits.where('categoryId').equals(category.id!).modify({ categoryId: undefined });
-        await db.categories.delete(category.id!);
-      }
-    }
+  if (payload.del) {
+    await applyDelete(space, payload);
     await db.syncShadow.delete(payload.uid);
     return;
   }
 
-  if (payload.k === 'm') {
-    const name = cleanMemberName(payload.name);
-    if (!name || typeof payload.joinedAt !== 'number') return;
-    await db.members.put({
-      uid: payload.uid,
-      space,
-      name,
-      joinedAt: payload.joinedAt,
-      ...(isUid(payload.by) ? { by: payload.by } : {}),
-    });
-  } else if (payload.k === 'c') {
-    const valid = validCategory({ name: payload.name, color: payload.color, order: 0 });
-    if (!valid) return;
-    const existing = await db.categories.where('uid').equals(payload.uid).first();
-    if (existing) {
-      await db.categories.update(existing.id!, { name: valid.name, color: valid.color, space });
-    } else {
-      await db.categories.add({
-        name: valid.name,
-        color: valid.color,
-        order: await db.categories.count(),
-        uid: payload.uid,
-        space,
-      });
-    }
-  } else {
-    const category = await db.categories.where('uid').equals(payload.cat).first();
-    // Wydarzenie z nieznanej kategorii pomijamy bez cienia — wróci przy
-    // następnej pełnej synchronizacji, gdy kategoria już dotrze.
-    if (category?.space !== space) return;
-    const series = payload.series !== undefined ? Number(payload.series) : undefined;
-    const valid = validEvent({
-      title: payload.title,
-      date: payload.date,
-      allDay: payload.allDay,
-      startTime: payload.startTime,
-      endTime: payload.endTime,
-      note: payload.note,
-      categoryId: category.id,
-      seriesId: Number.isSafeInteger(series) ? series : undefined,
-      repeat: payload.repeat,
-      createdAt: payload.createdAt,
-      uid: payload.uid,
-    });
-    if (!valid) return;
-    const existing = await db.events.where('uid').equals(payload.uid).first();
-    if (existing) await db.events.update(existing.id!, { ...valid, id: existing.id });
-    else await db.events.add(valid);
-  }
-
-  const after = await currentLocalJson(space, payload.uid, payload.k);
-  await db.syncShadow.put({ uid: payload.uid, space, kind: KIND_BY_LETTER[payload.k], json: after ?? json });
+  await applyUpsert(space, payload);
+  const after = await localJson(space, payload.k, payload.uid);
+  // Rekord, którego nie dało się nałożyć (np. brak rodzica), nie dostaje
+  // cienia — wróci przy następnej pełnej synchronizacji.
+  if (after === null) return;
+  await db.syncShadow.put({ uid: payload.uid, space, kind: KIND_BY_LETTER[payload.k], json: after });
 }
 
 const running = new Map<string, Promise<void>>();
@@ -285,13 +607,13 @@ async function runSync(transport: SyncTransport, space: string): Promise<void> {
 
   // 1. Pobranie zmian innych osób.
   let since = state.lastSeq;
-  const incoming: { payload: Payload; json: string }[] = [];
+  const incoming: Payload[] = [];
   for (;;) {
     const page = await transport.pull(space, token, since);
     for (const record of page.records) {
       const text = await decryptText(cipherKey, record.blob);
       const payload = text ? parsePayload(text) : null;
-      if (payload && payload.uid === record.uid) incoming.push({ payload, json: canonical(payload) });
+      if (payload && payload.uid === record.uid) incoming.push(payload);
     }
     // Serwer, który mówi „jest więcej”, ale nie posuwa numeru dalej, zapętliłby
     // nas w nieskończoność — wtedy przerywamy i spróbujemy przy następnej okazji.
@@ -302,12 +624,22 @@ async function runSync(transport: SyncTransport, space: string): Promise<void> {
     since = page.seq;
   }
 
-  incoming.sort((a, b) => applyOrder(a.payload) - applyOrder(b.payload));
+  incoming.sort((a, b) => applyOrder(a) - applyOrder(b));
   await db.transaction(
     'rw',
-    [db.categories, db.events, db.tasks, db.habits, db.members, db.syncShadow],
+    [
+      db.categories,
+      db.events,
+      db.tasks,
+      db.habits,
+      db.habitEntries,
+      db.lists,
+      db.listItems,
+      db.members,
+      db.syncShadow,
+    ],
     async () => {
-      for (const { payload, json } of incoming) await applyRemote(space, payload, json);
+      for (const payload of incoming) await applyRemote(space, payload);
     },
   );
   // Kalendarz mógł zostać w międzyczasie opuszczony — wtedy nic nie zapisujemy.
@@ -317,11 +649,13 @@ async function runSync(transport: SyncTransport, space: string): Promise<void> {
   // 2. Wysłanie lokalnych zmian.
   const current = await localSet(space);
   const shadows = await db.syncShadow.where('space').equals(space).toArray();
+  const shadowByUid = new Map(shadows.map((s) => [s.uid, s]));
   const outgoing: { uid: string; text: string; shadow: SyncShadow | null }[] = [];
 
   for (const record of current.values()) {
-    const shadow = shadows.find((s) => s.uid === record.uid);
-    if (shadow?.json !== record.json) outgoing.push({ uid: record.uid, text: record.json, shadow: record });
+    if (shadowByUid.get(record.uid)?.json !== record.json) {
+      outgoing.push({ uid: record.uid, text: record.json, shadow: record });
+    }
   }
   for (const shadow of shadows) {
     if (current.has(shadow.uid)) continue;
