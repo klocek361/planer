@@ -1,4 +1,4 @@
-import { habitStrip, monthDays, previousDay, toKey } from '../lib/dates';
+import { fromKey, habitStrip, monthDays, previousDay, toKey } from '../lib/dates';
 import { db } from './db';
 import type { Habit, HabitEntry, HabitKind, HabitPeriod } from './types';
 
@@ -117,7 +117,9 @@ export function habitWindow(
   const createdKey = toKey(new Date(habit.createdAt));
 
   const keys =
-    habit.period === 'miesiac' ? monthDays(month) : habitStrip(habit.createdAt, stripDays);
+    habit.period === 'miesiac'
+      ? monthDays(month)
+      : habitStrip(habit.createdAt, stripDays, fromKey(todayKey));
 
   const tracked = keys.filter((key) => key <= todayKey && key >= createdKey);
 
