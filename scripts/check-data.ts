@@ -38,6 +38,16 @@ import {
 } from '../src/sync/state';
 import { normalizeInviteCode } from '../src/sync/crypto';
 import {
+  addEntry,
+  addGoal,
+  addMoneyCategory,
+  goalSaved,
+  monthSummary,
+  parseAmount,
+  progress,
+  saveBudgetSettings,
+} from '../src/data/budget';
+import {
   addHabit,
   completedCount,
   currentStreak,
@@ -97,7 +107,7 @@ import { pt as slownikPt } from '../src/i18n/pt';
 import { slavicForm } from '../src/i18n/plural';
 import { setDateLocale, weekdayInitials } from '../src/lib/dates';
 import { enGB, pl as plDate, pt as ptDate, sr as srDate } from 'date-fns/locale';
-import type { Habit } from '../src/data/types';
+import type { Habit, MoneyEntry } from '../src/data/types';
 
 const problems: string[] = [];
 function check(label: string, condition: boolean) {
@@ -1222,7 +1232,7 @@ check('numer wersji ma poprawny kształt', /^\d+\.\d+\.\d+$/.test(APP_VERSION));
 
 const kopiaZWersja = await buildBackup();
 check('kopia zapisuje wersję aplikacji', kopiaZWersja.wersjaAplikacji === APP_VERSION);
-check('kopia zapisuje wersję formatu', kopiaZWersja.wersja === 3);
+check('kopia zapisuje wersję formatu', kopiaZWersja.wersja === 4);
 
 const odczytana = parseBackup(JSON.stringify(kopiaZWersja));
 check(
@@ -1256,6 +1266,47 @@ check(
   'błędne oznaczenie 5 minut odrzuca rekord',
   validTask({ title: 'Woda', done: false, order: 1, createdAt: 1, quick: 'tak' }) === null,
 );
+
+// ── Budżet ──────────────────────────────────────────────────────────────
+check(
+  'notatka zadania przechodzi przez kopię, przycięta',
+  validTask({ title: 'Pościel', done: false, order: 1, createdAt: 1, note: '  zmienić w sobotę ' })?.note === 'zmienić w sobotę',
+);
+check('kwota „12,50” to 1250 groszy', parseAmount('12,50') === 1250);
+check('kwota „12.5” to 1250 groszy', parseAmount('12.5') === 1250);
+check('kwota ze spacjami i walutą', parseAmount('1 234,5 zł') === 123450);
+check('zero i bzdury nie są kwotą', parseAmount('0') === null && parseAmount('abc') === null && parseAmount('') === null);
+check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null);
+{
+  const wpisy: MoneyEntry[] = [
+    { kind: 'przychod', amount: 800000, date: '2026-11-01', categoryId: 9, createdAt: 1 },
+    { kind: 'wydatek', amount: 200000, date: '2026-11-02', categoryId: 1, paidBy: 'osobaAAAA', createdAt: 1 },
+    { kind: 'wydatek', amount: 50000, date: '2026-11-03', categoryId: 1, createdAt: 1 },
+    { kind: 'wplata', amount: 100000, date: '2026-11-04', goalId: 5, createdAt: 1 },
+    { kind: 'wyplata', amount: 20000, date: '2026-11-05', goalId: 5, createdAt: 1 },
+  ];
+  const bilans = monthSummary(wpisy);
+  check('bilans: przychody i wydatki', bilans.income === 800000 && bilans.expense === 250000);
+  check('bilans: zostało = przychody − wydatki − odłożone', bilans.left === 800000 - 250000 - 80000);
+  check('bilans: suma po kategorii', bilans.byCategory.get(1) === 250000);
+  check('bilans: kto zapłacił, także bez wpisu', bilans.byPayer.get('osobaAAAA') === 200000 && bilans.byPayer.get('') === 50000);
+  check('skarbonka: wpłaty minus wypłaty', goalSaved(wpisy, 5) === 80000);
+  check('postęp celu', progress(50, 200) === 0.25 && progress(10, undefined) === null);
+}
+{
+  await db.moneyEntries.clear();
+  await db.moneyCategories.clear();
+  await db.savingsGoals.clear();
+  const jedzenie = await addMoneyCategory('wydatek', 'Jedzenie', undefined, 120000);
+  await addEntry({ kind: 'wydatek', amount: 4599, date: '2026-11-08', categoryId: jedzenie, note: ' Biedronka ' });
+  await addGoal('Wakacje', 800000);
+  const kopiaBudzetu = parseBackup(JSON.stringify(await buildBackup()));
+  check('kopia zawiera budżet', kopiaBudzetu.backup.dane.moneyEntries.length === 1 && kopiaBudzetu.backup.dane.savingsGoals.length === 1 && kopiaBudzetu.backup.dane.moneyCategories[0]?.goal === 120000);
+  check('notatka wpisu jest przycięta', (await db.moneyEntries.toArray())[0]?.note === 'Biedronka');
+  await db.moneyEntries.clear();
+  await db.moneyCategories.clear();
+  await db.savingsGoals.clear();
+}
 
 // ── Wspólne kalendarze: kilka telefonów, kody zaproszeń, serwer w pamięci ──
 {
@@ -1331,6 +1382,10 @@ check(
     db.members,
     db.syncState,
     db.syncShadow,
+    db.budgetSettings,
+    db.moneyCategories,
+    db.moneyEntries,
+    db.savingsGoals,
   ] as const;
   const telefony: Record<string, unknown[][]> = {};
   let aktywny = 'A';
@@ -1425,6 +1480,34 @@ check(
   await przelacz('A');
   await syncSpace(transport, dom);
   check('wspólne odhaczenie tego samego dnia jest jedno', (await db.habitEntries.where('[habitId+date]').equals([odkurzanieA.id!, '2026-11-09']).count()) === 1);
+
+  // Budżet: prywatny nie wychodzi z telefonu, przypięty jest wspólny
+  await przelacz('A');
+  const seqBezBudzetu = serwer.get(dom)!.seq;
+  const zakupyKat = await addMoneyCategory('wydatek', 'Zakupy');
+  await addEntry({ kind: 'wydatek', amount: 12450, date: '2026-11-08', categoryId: zakupyKat, paidBy: ja.memberId });
+  await syncSpace(transport, dom);
+  check('prywatny budżet nie wychodzi z telefonu', serwer.get(dom)!.seq === seqBezBudzetu);
+  await saveBudgetSettings({ categoryId: rodzinaA.id, currency: 'EUR' });
+  await addGoal('Wakacje', 500000);
+  const wakacje = (await db.savingsGoals.toArray())[0]!;
+  await addEntry({ kind: 'wplata', amount: 30000, date: '2026-11-08', goalId: wakacje.id });
+  await addEntry({ kind: 'przychod', amount: 900000, date: '2026-11-01' });
+  await syncSpace(transport, dom);
+  await przelacz('B');
+  await syncSpace(transport, dom);
+  const ustawieniaB = await db.budgetSettings.get('budzet');
+  const rodzinaB = (await db.categories.where('space').equals(dom).first())!;
+  check('B dostaje budżet przypięty do wspólnego kalendarza', ustawieniaB?.categoryId === rodzinaB.id && ustawieniaB?.currency === 'EUR');
+  const wpisyB = await db.moneyEntries.toArray();
+  check('B dostaje wpisy budżetu z kategorią i skarbonką', wpisyB.length === 3 && (await db.moneyCategories.count()) === 1 && (await db.savingsGoals.count()) === 1);
+  check('B widzi, kto zapłacił', wpisyB.find((w) => w.amount === 12450)?.paidBy === ja.memberId);
+  check('B widzi to samo „zostało”', monthSummary(wpisyB).left === 900000 - 12450 - 30000);
+  await addEntry({ kind: 'wydatek', amount: 5000, date: '2026-11-09' });
+  await syncSpace(transport, dom);
+  await przelacz('A');
+  await syncSpace(transport, dom);
+  check('A widzi wydatek dodany przez B', (await db.moneyEntries.count()) === 4);
 
   // Telefon, który miał starą wersję, pominął listę jako niezrozumiałą,
   // a numer zmian i tak poszedł do przodu. Po aktualizacji ma ją dociągnąć.
@@ -1538,6 +1621,7 @@ check(
   await syncSpace(transport, nowyDom);
   check('usunięty kalendarz znika u innych', (await db.categories.count()) === 0 && (await db.events.count()) === 0);
   check('razem z kalendarzem znikają wspólne zadania i nawyki', (await db.tasks.count()) === 0 && (await db.habits.count()) === 0);
+  check('razem z kalendarzem znika wspólny budżet', (await db.moneyEntries.count()) === 0 && (await db.budgetSettings.get('budzet'))?.categoryId === undefined);
 
   for (const t of tabele) await t.clear();
 }

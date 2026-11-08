@@ -40,14 +40,20 @@ const DEFAULT_COUNT = 4;
 
 export function TaskSheet({
   open,
-  task,
-  parentId,
+  task: taskProp,
+  parentId: parentProp,
   categories,
   defaultDueDate,
   onClose,
 }: Props) {
   const { t } = useT();
+  // „Dodaj podzadanie” przełącza otwarty panel na nowe podzadanie edytowanego
+  // zadania — bez zamykania i szukania małego plusa na liście.
+  const [subFor, setSubFor] = useState<number | undefined>(undefined);
+  const task = subFor !== undefined ? null : taskProp;
+  const parentId = subFor ?? parentProp;
   const [title, setTitle] = useState('');
+  const [note, setNote] = useState('');
   const [starred, setStarred] = useState(false);
   const [quick, setQuick] = useState(false);
   const [startDate, setStartDate] = useState('');
@@ -59,8 +65,13 @@ export function TaskSheet({
   const [scope, setScope] = useState<Scope>('to');
 
   useEffect(() => {
+    setSubFor(undefined);
+  }, [open, taskProp]);
+
+  useEffect(() => {
     if (!open) return;
     setTitle(task?.title ?? '');
+    setNote(task?.note ?? '');
     setStarred(task?.starred ?? false);
     setQuick(task?.quick ?? false);
     setStartDate(task?.startDate ?? '');
@@ -95,10 +106,11 @@ export function TaskSheet({
     return keys[keys.length - 1] ?? null;
   }, [repeat, count, dueDate]);
 
-  const save = async () => {
+  const saveDraft = async () => {
     if (!canSave) return;
     const draft = {
       title: trimmed,
+      note: note.trim() || undefined,
       starred,
       quick,
       startDate: dueDate && startDate ? startDate : undefined,
@@ -121,7 +133,18 @@ export function TaskSheet({
         repeat === 'brak' ? undefined : { freq: repeat, count: Math.max(2, count) },
       );
     }
+  };
+
+  const save = async () => {
+    if (!canSave) return;
+    await saveDraft();
     onClose();
+  };
+
+  const addSubtask = async () => {
+    if (!taskProp?.id) return;
+    if (canSave) await saveDraft();
+    setSubFor(taskProp.id);
   };
 
   const remove = async () => {
@@ -148,6 +171,18 @@ export function TaskSheet({
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t.zadania.nazwaPrzyklad}
             className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
+          />
+        </label>
+
+        <label className="flex flex-col gap-2">
+          <span className="text-muted text-xs font-medium">{t.zadania.notatka}</span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={t.zadania.notatkaPrzyklad}
+            rows={2}
+            maxLength={500}
+            className="bg-surface rounded-app text-ink resize-none px-3 py-2.5 text-base"
           />
         </label>
 
@@ -323,6 +358,10 @@ export function TaskSheet({
         )}
 
         <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId} />
+
+        {task?.id !== undefined && task.parentId === undefined && (
+          <Button onClick={addSubtask}>+ {t.zadania.dodajPodzadanie}</Button>
+        )}
 
         <div className="flex gap-2">
           <Button variant="primary" className="flex-1" disabled={!canSave} onClick={save}>

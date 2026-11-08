@@ -13,21 +13,29 @@ import {
   validChecklist,
   validChecklistItem,
   validEvent,
+  validBudgetSettings,
   validHabit,
   validHabitEntry,
+  validMoneyCategory,
+  validMoneyEntry,
   validNote,
+  validSavingsGoal,
   validTask,
 } from './validate';
 import type { Theme } from '../theme/types';
 import { db } from './db';
 import type {
+  BudgetSettings,
   Category,
   Checklist,
   ChecklistItem,
   EventItem,
   Habit,
   HabitEntry,
+  MoneyCategory,
+  MoneyEntry,
   Note,
+  SavingsGoal,
   Task,
 } from './types';
 import { currentDict } from '../i18n';
@@ -39,9 +47,9 @@ import { resetSyncProgress } from '../sync/state';
  */
 
 const FORMAT = 'planer-kaskowy';
-// Wersja 3 dokłada listy. Pliki w wersji 2 i 1 dalej się wczytują —
-// brakujące sekcje wchodzą jako puste.
-const FORMAT_VERSION = 3;
+// Wersja 3 dokłada listy, wersja 4 budżet. Starsze pliki dalej się
+// wczytują — brakujące sekcje wchodzą jako puste.
+const FORMAT_VERSION = 4;
 
 export interface BackupFile {
   aplikacja: string;
@@ -62,6 +70,10 @@ export interface BackupFile {
     notes: Note[];
     lists: Checklist[];
     listItems: ChecklistItem[];
+    budgetSettings: BudgetSettings[];
+    moneyCategories: MoneyCategory[];
+    moneyEntries: MoneyEntry[];
+    savingsGoals: SavingsGoal[];
   };
   motyw: {
     aktualny: Theme;
@@ -83,6 +95,12 @@ export async function buildBackup(): Promise<BackupFile> {
       db.lists.toArray(),
       db.listItems.toArray(),
     ]);
+  const [budgetSettings, moneyCategories, moneyEntries, savingsGoals] = await Promise.all([
+    db.budgetSettings.toArray(),
+    db.moneyCategories.toArray(),
+    db.moneyEntries.toArray(),
+    db.savingsGoals.toArray(),
+  ]);
 
   const { theme, saved } = useThemeStore.getState();
   const { order, hidden, calendarTasks } = useLayoutStore.getState();
@@ -93,7 +111,20 @@ export async function buildBackup(): Promise<BackupFile> {
     wersja: FORMAT_VERSION,
     wersjaAplikacji: APP_VERSION,
     zapisano: new Date().toISOString(),
-    dane: { categories, events, tasks, habits, habitEntries, notes, lists, listItems },
+    dane: {
+      categories,
+      events,
+      tasks,
+      habits,
+      habitEntries,
+      notes,
+      lists,
+      listItems,
+      budgetSettings,
+      moneyCategories,
+      moneyEntries,
+      savingsGoals,
+    },
     motyw: { aktualny: theme, zapisane: saved },
     uklad: { order, hidden, calendarTasks },
     sekcje,
@@ -190,6 +221,11 @@ export function parseBackup(json: string): ParsedBackup {
   // Kopie sprzed wprowadzenia list nie mają tych sekcji — wchodzą jako puste.
   const lists = keepValid((dane.lists ?? []) as unknown[], validChecklist);
   const listItems = keepValid((dane.listItems ?? []) as unknown[], validChecklistItem);
+  // Kopie sprzed budżetu nie mają tych sekcji — wchodzą jako puste.
+  const budgetSettings = keepValid((dane.budgetSettings ?? []) as unknown[], validBudgetSettings);
+  const moneyCategories = keepValid((dane.moneyCategories ?? []) as unknown[], validMoneyCategory);
+  const moneyEntries = keepValid((dane.moneyEntries ?? []) as unknown[], validMoneyEntry);
+  const savingsGoals = keepValid((dane.savingsGoals ?? []) as unknown[], validSavingsGoal);
 
   const skipped =
     categories.skipped +
@@ -199,7 +235,11 @@ export function parseBackup(json: string): ParsedBackup {
     habitEntries.skipped +
     notes.skipped +
     lists.skipped +
-    listItems.skipped;
+    listItems.skipped +
+    budgetSettings.skipped +
+    moneyCategories.skipped +
+    moneyEntries.skipped +
+    savingsGoals.skipped;
 
   const motyw =
     typeof candidate.motyw === 'object' && candidate.motyw !== null
@@ -223,6 +263,10 @@ export function parseBackup(json: string): ParsedBackup {
         notes: notes.kept,
         lists: lists.kept,
         listItems: listItems.kept,
+        budgetSettings: budgetSettings.kept.slice(0, 1),
+        moneyCategories: moneyCategories.kept,
+        moneyEntries: moneyEntries.kept,
+        savingsGoals: savingsGoals.kept,
       },
       motyw: {
         aktualny: sanitizeTheme(motyw.aktualny),
@@ -257,9 +301,17 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
       db.notes,
       db.lists,
       db.listItems,
+      db.budgetSettings,
+      db.moneyCategories,
+      db.moneyEntries,
+      db.savingsGoals,
     ],
     async () => {
       await Promise.all([
+        db.budgetSettings.clear(),
+        db.moneyCategories.clear(),
+        db.moneyEntries.clear(),
+        db.savingsGoals.clear(),
         db.categories.clear(),
         db.events.clear(),
         db.tasks.clear(),
@@ -278,6 +330,10 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
         db.notes.bulkAdd(backup.dane.notes),
         db.lists.bulkAdd(backup.dane.lists),
         db.listItems.bulkAdd(backup.dane.listItems),
+        db.budgetSettings.bulkAdd(backup.dane.budgetSettings),
+        db.moneyCategories.bulkAdd(backup.dane.moneyCategories),
+        db.moneyEntries.bulkAdd(backup.dane.moneyEntries),
+        db.savingsGoals.bulkAdd(backup.dane.savingsGoals),
       ]);
     },
   );

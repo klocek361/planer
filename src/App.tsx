@@ -5,6 +5,7 @@ import { ListsScreen } from './features/lists/ListsScreen';
 import { OverviewScreen } from './features/overview/OverviewScreen';
 import { SettingsScreen } from './features/settings/SettingsScreen';
 import { TasksScreen } from './features/tasks/TasksScreen';
+import { BudgetScreen } from './features/budget/BudgetScreen';
 import { useApplyTheme } from './theme/useApplyTheme';
 import { useAutoSync } from './sync/useAutoSync';
 import { useBackDismiss } from './platform/back';
@@ -46,6 +47,7 @@ export function App() {
           {tab === 'zadania' && <TasksScreen onOpenSettings={openSettings} />}
           {tab === 'listy' && <ListsScreen onOpenSettings={openSettings} />}
           {tab === 'nawyki' && <HabitsScreen onOpenSettings={openSettings} />}
+          {tab === 'budzet' && <BudgetScreen onOpenSettings={openSettings} />}
           <TabBar tabs={tabs} active={tab} onChange={setTab} />
         </>
       )}

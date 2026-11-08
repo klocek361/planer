@@ -5,6 +5,20 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.5.0] — 2026-11-08
+
+### Nowe
+- **Zakładka Budżet.** Bilans miesiąca: przychody, wydatki i ile zostało;
+  wydatki według kategorii z opcjonalnym celem miesięcznym; opcjonalnie
+  „kto zapłacił”; skarbonki z kwotą docelową, wpłatami i wypłatami; wpisy
+  miesiąca po dniach. Waluta do wyboru.
+- **Wspólny budżet:** przypięty do wspólnego kalendarza widzą i uzupełniają
+  wszyscy jego członkowie; bez przypięcia zostaje tylko na telefonie.
+- **Notatka do zadania** — wyświetlana drobnym drukiem pod tytułem.
+- **„+ Dodaj podzadanie”** w edycji zadania — bez szukania małego plusa
+  na liście.
+- Kopia zapasowa obejmuje budżet (format 4).
+
 ## [1.4.1] — 2026-11-08
 
 ### Poprawki

@@ -82,6 +82,12 @@ export function TaskRow({
           )}
         </span>
 
+        {task.note && !task.done && (
+          <span className="text-muted line-clamp-2 block pt-0.5 text-xs leading-snug whitespace-pre-line">
+            {task.note}
+          </span>
+        )}
+
         {meta.length > 0 && !task.done && (
           <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-0.5 text-xs">
             {meta.map((item, index) => (
