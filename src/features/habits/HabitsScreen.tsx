@@ -21,8 +21,11 @@ import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from '../../ui/icons';
 import { HabitRow } from './HabitRow';
 import { HabitSheet } from './HabitSheet';
 
-/** Ile ostatnich dni pokazują kropki pod nawykiem. */
-const WEEK = 7;
+/**
+ * Ile dni historii pobieramy. Kropki pokazują tydzień, wynik okresu 28 dni,
+ * ale seria może być dłuższa — rok wystarcza z zapasem, a wpisów jest mało.
+ */
+const HISTORY_DAYS = 366;
 
 /**
  * Nawyki w układzie „miękkim”: karteczka z sentencją, nawyki pogrupowane
@@ -36,15 +39,15 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
   const [quote, setQuote] = useState<string | null>(() => randomQuote());
 
   const todayKey = useMemo(() => toKey(new Date()), []);
-  const week = useMemo(() => lastDays(WEEK), []);
+  const history = useMemo(() => lastDays(HISTORY_DAYS), []);
   const monthKeys = useMemo(() => monthDays(month), [month]);
 
-  // Jedno zapytanie na oba tryby — zakres obejmuje i ostatni tydzień, i cały
-  // oglądany miesiąc, żeby przełączanie miesięcy nie mnożyło zapytań.
+  // Jedno zapytanie na wszystko — zakres obejmuje i historię do serii,
+  // i cały oglądany miesiąc, żeby przełączanie miesięcy nie mnożyło zapytań.
   const range = useMemo(() => {
-    const all = [...week, ...monthKeys].sort();
+    const all = [history[0]!, todayKey, monthKeys[0]!, monthKeys[monthKeys.length - 1]!].sort();
     return { from: all[0]!, to: all[all.length - 1]! };
-  }, [week, monthKeys]);
+  }, [history, todayKey, monthKeys]);
 
   const habits = useLiveQuery(() => db.habits.orderBy('order').toArray());
   const entries = useLiveQuery(() => entriesBetween(range.from, range.to), [range]);

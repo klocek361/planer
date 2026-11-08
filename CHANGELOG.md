@@ -5,6 +5,12 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.3.1] — 2026-11-08
+
+### Poprawki
+- Nawyki znów pokazują serię — „🔥 5 dni” po prawej stronie — oraz wynik
+  okresu („18/28 dni”). Liczniki mają z powrotem jednostkę („3/8 szklanki”).
+
 ## [1.3.0] — 2026-11-08
 
 ### Nowy wygląd Przeglądu i Nawyków
