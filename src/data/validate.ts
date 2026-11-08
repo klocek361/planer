@@ -7,6 +7,7 @@
  * częściowo uszkodzonym pliku lepiej odzyskać resztę niż nic.
  */
 
+import type { BudgetSettings, MoneyCategory, MoneyEntry, SavingsGoal } from './types';
 import { FONTS, TEXTURES } from '../theme/catalog';
 import { DEFAULT_THEME } from '../theme/presets';
 import type { ColorKey, Theme } from '../theme/types';
@@ -130,6 +131,7 @@ export function validTask(input: unknown): Task | null {
   return {
     id: r.id as number | undefined,
     title: r.title,
+    ...(isText(r.note) ? { note: r.note.trim().slice(0, 500) } : {}),
     done: r.done,
     doneAt: r.doneAt as number | undefined,
     starred,
@@ -301,4 +303,76 @@ export function sanitizeThemeList(input: unknown): Theme[] {
   if (!Array.isArray(input)) return [];
   // Rozsądny limit, żeby spreparowany plik nie zapchał pamięci przeglądarki.
   return input.slice(0, 50).map(sanitizeTheme);
+}
+
+// ── Budżet ────────────────────────────────────────────────────────────────
+
+/** Kwota w groszach: liczba całkowita, dodatnia, z rozsądnym sufitem. */
+const isAmount = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isSafeInteger(v) && v > 0 && v <= 1_000_000_000_00;
+const isOptionalAmount = (v: unknown): v is number | undefined => v === undefined || isAmount(v);
+const isCurrency = (v: unknown): v is string => typeof v === 'string' && /^[A-Z]{3}$/.test(v);
+const withUid = (r: Record<string, unknown>) => (isUid(r.uid) ? { uid: r.uid } : {});
+
+export function validBudgetSettings(input: unknown): BudgetSettings | null {
+  const r = record(input);
+  if (!r || !isCurrency(r.currency) || !isOptionalId(r.categoryId)) return null;
+  return {
+    id: 'budzet',
+    currency: r.currency,
+    ...(r.categoryId !== undefined ? { categoryId: r.categoryId as number } : {}),
+  };
+}
+
+export function validMoneyCategory(input: unknown): MoneyCategory | null {
+  const r = record(input);
+  if (!r || (r.kind !== 'wydatek' && r.kind !== 'przychod')) return null;
+  if (!isText(r.name) || !isHex(r.color) || !isNumber(r.order) || !isOptionalId(r.id)) return null;
+  if (!isOptionalAmount(r.goal)) return null;
+  return {
+    id: r.id as number | undefined,
+    kind: r.kind,
+    name: r.name.trim().slice(0, 40),
+    color: r.color,
+    ...(r.goal !== undefined ? { goal: r.goal as number } : {}),
+    order: r.order,
+    ...withUid(r),
+  };
+}
+
+const ENTRY_KINDS = new Set(['wydatek', 'przychod', 'wplata', 'wyplata']);
+
+export function validMoneyEntry(input: unknown): MoneyEntry | null {
+  const r = record(input);
+  if (!r || typeof r.kind !== 'string' || !ENTRY_KINDS.has(r.kind)) return null;
+  if (!isAmount(r.amount) || !isDateKey(r.date) || !isNumber(r.createdAt)) return null;
+  if (!isOptionalId(r.categoryId) || !isOptionalId(r.goalId) || !isOptionalId(r.id)) return null;
+  if (!isOptionalText(r.note) || !(r.paidBy === undefined || isUid(r.paidBy))) return null;
+  return {
+    id: r.id as number | undefined,
+    kind: r.kind as MoneyEntry['kind'],
+    amount: r.amount,
+    date: r.date,
+    ...(r.categoryId !== undefined ? { categoryId: r.categoryId as number } : {}),
+    ...(r.goalId !== undefined ? { goalId: r.goalId as number } : {}),
+    ...(r.note !== undefined ? { note: (r.note as string).trim().slice(0, 120) } : {}),
+    ...(r.paidBy !== undefined ? { paidBy: r.paidBy as string } : {}),
+    createdAt: r.createdAt,
+    ...withUid(r),
+  };
+}
+
+export function validSavingsGoal(input: unknown): SavingsGoal | null {
+  const r = record(input);
+  if (!r || !isText(r.name) || !isAmount(r.target) || !isNumber(r.order)) return null;
+  if (!isNumber(r.createdAt) || !isOptionalDateKey(r.deadline) || !isOptionalId(r.id)) return null;
+  return {
+    id: r.id as number | undefined,
+    name: r.name.trim().slice(0, 40),
+    target: r.target,
+    ...(r.deadline !== undefined ? { deadline: r.deadline as string } : {}),
+    order: r.order,
+    createdAt: r.createdAt,
+    ...withUid(r),
+  };
 }

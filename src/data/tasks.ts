@@ -5,6 +5,7 @@ import { addMonths } from 'date-fns';
 
 export interface TaskDraft {
   title: string;
+  note?: string;
   starred: boolean;
   /** Zadanie na 5 minut. */
   quick?: boolean;

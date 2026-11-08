@@ -67,6 +67,8 @@ export interface EventItem {
 export interface Task {
   id?: number;
   title: string;
+  /** Notatka do zadania — pokazywana drobnym drukiem pod tytułem. */
+  note?: string;
   done: boolean;
   doneAt?: number;
   /**
@@ -230,7 +232,70 @@ export interface SyncShadow {
     | 'nawyk'
     | 'odhaczenie'
     | 'lista'
-    | 'pozycja';
+    | 'pozycja'
+    | 'budzet'
+    | 'kategoria-pieniedzy'
+    | 'wpis'
+    | 'skarbonka';
   /** Treść rekordu w postaci wysyłanej na serwer (przed szyfrowaniem). */
   json: string;
+}
+
+// ── Budżet ────────────────────────────────────────────────────────────────
+// Jeden budżet domowy. Kwoty zawsze w groszach (centach) jako liczby
+// całkowite — bez błędów zaokrągleń przy dodawaniu.
+
+/** Ustawienia budżetu — jeden wiersz o id 'budzet'. */
+export interface BudgetSettings {
+  id: 'budzet';
+  /** Kod waluty ISO, np. 'PLN'. */
+  currency: string;
+  /** Wspólna kategoria, do której przypięty jest budżet. Pusta — budżet prywatny. */
+  categoryId?: number;
+}
+
+export type MoneyKind = 'wydatek' | 'przychod';
+
+/** Kategoria wydatków albo przychodów — osobna od kategorii kalendarza. */
+export interface MoneyCategory {
+  id?: number;
+  kind: MoneyKind;
+  name: string;
+  color: string;
+  /** Cel miesięczny w groszach, opcjonalny. */
+  goal?: number;
+  order: number;
+  uid?: string;
+}
+
+/** Wpis: wydatek, przychód albo wpłata/wypłata ze skarbonki. */
+export interface MoneyEntry {
+  id?: number;
+  kind: MoneyKind | 'wplata' | 'wyplata';
+  /** Kwota w groszach, zawsze dodatnia — znak wynika z rodzaju. */
+  amount: number;
+  /** 'RRRR-MM-DD' */
+  date: string;
+  /** Kategoria pieniędzy (dla wydatku i przychodu). */
+  categoryId?: number;
+  /** Skarbonka (dla wpłaty i wypłaty). */
+  goalId?: number;
+  note?: string;
+  /** Kto zapłacił — `uid` członka wspólnego kalendarza. Opcjonalne. */
+  paidBy?: string;
+  createdAt: number;
+  uid?: string;
+}
+
+/** Skarbonka — cel oszczędnościowy. Odłożona kwota to suma wpłat minus wypłat. */
+export interface SavingsGoal {
+  id?: number;
+  name: string;
+  /** Kwota docelowa w groszach. */
+  target: number;
+  /** 'RRRR-MM-DD', opcjonalny termin. */
+  deadline?: string;
+  order: number;
+  createdAt: number;
+  uid?: string;
 }

@@ -155,6 +155,17 @@ export function StarIcon({ className, filled = false }: IconProps & { filled?: b
   );
 }
 
+/** Portfel — zakładka Budżet. */
+export function BudgetIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18a1 1 0 0 1 1 1v2" />
+      <rect x="3.5" y="8" width="17" height="11" rx="2.5" />
+      <path d="M16 13.5h1.5" />
+    </svg>
+  );
+}
+
 /** Krzyżyk — zamknięcie karteczki. */
 export function CloseIcon({ className }: IconProps) {
   return (

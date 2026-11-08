@@ -6,8 +6,12 @@ import type {
   ChecklistItem,
   EventItem,
   Habit,
+  BudgetSettings,
   HabitEntry,
   Member,
+  MoneyCategory,
+  MoneyEntry,
+  SavingsGoal,
   Note,
   SyncShadow,
   SyncState,
@@ -26,6 +30,10 @@ export class PlanerDB extends Dexie {
   syncState!: Table<SyncState, string>;
   syncShadow!: Table<SyncShadow, string>;
   members!: Table<Member, string>;
+  budgetSettings!: Table<BudgetSettings, string>;
+  moneyCategories!: Table<MoneyCategory, number>;
+  moneyEntries!: Table<MoneyEntry, number>;
+  savingsGoals!: Table<SavingsGoal, number>;
 
   /** Nazwa bazy do podmiany tylko w testach przejścia między wersjami. */
   constructor(name = 'planer-kaskowy') {
@@ -141,6 +149,15 @@ export class PlanerDB extends Dexie {
       habits: '++id, order, archived, categoryId, uid',
       lists: '++id, order, categoryId, uid',
       listItems: '++id, listId, [listId+done], order, uid',
+    });
+
+    // Wersja 9: budżet — ustawienia, kategorie pieniędzy, wpisy i skarbonki.
+    // Nowe tabele, więc nic nie trzeba migrować.
+    this.version(9).stores({
+      budgetSettings: '&id',
+      moneyCategories: '++id, kind, order, uid',
+      moneyEntries: '++id, date, kind, categoryId, goalId, uid',
+      savingsGoals: '++id, order, uid',
     });
 
     // Uruchamiane raz, przy pierwszym otwarciu aplikacji na danym telefonie.

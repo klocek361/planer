@@ -1,5 +1,16 @@
 import { db } from '../data/db';
-import type { Category, Checklist, EventItem, Habit, Member, SyncShadow, Task } from '../data/types';
+import type {
+  Category,
+  Checklist,
+  EventItem,
+  Habit,
+  Member,
+  MoneyCategory,
+  MoneyEntry,
+  SavingsGoal,
+  SyncShadow,
+  Task,
+} from '../data/types';
 import {
   isUid,
   validCategory,
@@ -7,6 +18,9 @@ import {
   validChecklistItem,
   validEvent,
   validHabit,
+  validMoneyCategory,
+  validMoneyEntry,
+  validSavingsGoal,
   validTask,
 } from '../data/validate';
 import { decryptText, deriveCipherKey, deriveToken, encryptText, randomId } from './crypto';
@@ -30,7 +44,7 @@ import { PUSH_BATCH, type SyncTransport } from './transport';
  */
 
 /** Rodzaj rekordu: jedna litera w treści wysyłanej na serwer. */
-type Letter = 'c' | 'e' | 'm' | 't' | 'h' | 'd' | 'l' | 'i';
+type Letter = 'c' | 'e' | 'm' | 't' | 'h' | 'd' | 'l' | 'i' | 'u' | 'k' | 's' | 'x';
 
 const KIND_BY_LETTER = {
   c: 'kategoria',
@@ -41,6 +55,10 @@ const KIND_BY_LETTER = {
   d: 'odhaczenie',
   l: 'lista',
   i: 'pozycja',
+  u: 'budzet',
+  k: 'kategoria-pieniedzy',
+  s: 'skarbonka',
+  x: 'wpis',
 } as const satisfies Record<Letter, SyncShadow['kind']>;
 
 const LETTER_BY_KIND = Object.fromEntries(
@@ -54,9 +72,13 @@ type Payload = { k: Letter; uid: string; del?: true } & Record<string, unknown>;
 
 /**
  * Wersja formatu rekordów. Podbijamy ją przy każdym nowym rodzaju rekordu:
- * 1 — wydarzenia, kategoria, członkowie; 2 — także zadania, nawyki, listy.
+ * 1 — wydarzenia, kategoria, członkowie; 2 — także zadania, nawyki, listy;
+ * 3 — także budżet (ustawienia, kategorie pieniędzy, wpisy, skarbonki).
  */
-export const SYNC_FORMAT = 2;
+export const SYNC_FORMAT = 3;
+
+/** Stały identyfikator rekordu z ustawieniami budżetu — budżet jest jeden. */
+const BUDGET_UID = 'ustawieniabudzetu';
 
 /** Najdłuższe imię członka. */
 export const MAX_MEMBER_NAME = 40;
@@ -120,6 +142,12 @@ async function taskLinks(
   return cat ? { cat } : null;
 }
 
+/** `uid` wspólnej kategorii, do której przypięty jest budżet — albo null. */
+async function budgetCategoryUid(space: string): Promise<string | null> {
+  const settings = await db.budgetSettings.get('budzet');
+  return sharedCategoryUid(space, settings?.categoryId);
+}
+
 // ── Treść rekordów ───────────────────────────────────────────────────────
 
 const categoryJson = (c: Category) => canonical({ k: 'c', uid: c.uid, name: c.name, color: c.color });
@@ -150,6 +178,7 @@ const taskJson = (t: Task, links: { cat?: string; parent?: string }) =>
     cat: links.cat,
     parent: links.parent,
     title: t.title,
+    note: t.note,
     done: t.done,
     doneAt: t.doneAt,
     starred: t.starred,
@@ -197,6 +226,37 @@ const itemJson = (
     createdAt: i.createdAt,
   });
 
+const moneyCategoryJson = (c: MoneyCategory) =>
+  canonical({ k: 'k', uid: c.uid, kind: c.kind, name: c.name, color: c.color, goal: c.goal, order: c.order });
+
+const goalJson = (g: SavingsGoal) =>
+  canonical({
+    k: 's',
+    uid: g.uid,
+    name: g.name,
+    target: g.target,
+    deadline: g.deadline,
+    order: g.order,
+    createdAt: g.createdAt,
+  });
+
+async function entryJsonLocal(e: MoneyEntry): Promise<string> {
+  const cat = e.categoryId !== undefined ? (await db.moneyCategories.get(e.categoryId))?.uid : undefined;
+  const goal = e.goalId !== undefined ? (await db.savingsGoals.get(e.goalId))?.uid : undefined;
+  return canonical({
+    k: 'x',
+    uid: e.uid,
+    kind: e.kind,
+    amount: e.amount,
+    date: e.date,
+    cat,
+    goal,
+    note: e.note,
+    paidBy: e.paidBy,
+    createdAt: e.createdAt,
+  });
+}
+
 /** Obecna treść jednego rekordu kalendarza albo null, gdy lokalnie go nie ma. */
 async function localJson(space: string, letter: Letter, uid: string): Promise<string | null> {
   switch (letter) {
@@ -241,6 +301,26 @@ async function localJson(space: string, letter: Letter, uid: string): Promise<st
       if (!i) return null;
       const l = await db.lists.get(i.listId);
       return l?.uid && (await sharedCategoryUid(space, l.categoryId)) ? itemJson(i, l.uid) : null;
+    }
+    case 'u': {
+      const cat = await budgetCategoryUid(space);
+      const settings = await db.budgetSettings.get('budzet');
+      return cat && settings ? canonical({ k: 'u', uid: BUDGET_UID, cat, currency: settings.currency }) : null;
+    }
+    case 'k': {
+      if (!(await budgetCategoryUid(space))) return null;
+      const c = await db.moneyCategories.where('uid').equals(uid).first();
+      return c ? moneyCategoryJson(c) : null;
+    }
+    case 's': {
+      if (!(await budgetCategoryUid(space))) return null;
+      const g = await db.savingsGoals.where('uid').equals(uid).first();
+      return g ? goalJson(g) : null;
+    }
+    case 'x': {
+      if (!(await budgetCategoryUid(space))) return null;
+      const e = await db.moneyEntries.where('uid').equals(uid).first();
+      return e ? entryJsonLocal(e) : null;
     }
   }
 }
@@ -290,6 +370,16 @@ async function localSet(space: string): Promise<Map<string, SyncShadow>> {
       if (item.uid) put('i', item.uid, itemJson(item, l.uid!));
     }
   }
+
+  // Budżet — w całości, gdy jest przypięty do kategorii tego kalendarza.
+  const budgetCat = await budgetCategoryUid(space);
+  if (budgetCat) {
+    const settings = (await db.budgetSettings.get('budzet'))!;
+    put('u', BUDGET_UID, canonical({ k: 'u', uid: BUDGET_UID, cat: budgetCat, currency: settings.currency }));
+    for (const c of await db.moneyCategories.toArray()) if (c.uid) put('k', c.uid, moneyCategoryJson(c));
+    for (const g of await db.savingsGoals.toArray()) if (g.uid) put('s', g.uid, goalJson(g));
+    for (const e of await db.moneyEntries.toArray()) if (e.uid) put('x', e.uid, await entryJsonLocal(e));
+  }
   return out;
 }
 
@@ -297,7 +387,18 @@ async function localSet(space: string): Promise<Map<string, SyncShadow>> {
 async function ensureUids(space: string): Promise<void> {
   await db.transaction(
     'rw',
-    [db.categories, db.events, db.tasks, db.habits, db.lists, db.listItems],
+    [
+      db.categories,
+      db.events,
+      db.tasks,
+      db.habits,
+      db.lists,
+      db.listItems,
+      db.budgetSettings,
+      db.moneyCategories,
+      db.moneyEntries,
+      db.savingsGoals,
+    ],
     async () => {
       const categories = await db.categories.where('space').equals(space).toArray();
       for (const c of categories) if (!c.uid) await db.categories.update(c.id!, { uid: randomId() });
@@ -329,6 +430,11 @@ async function ensureUids(space: string): Promise<void> {
       await give(await db.listItems.where('listId').anyOf(lists.map((l) => l.id!)).toArray(), (id, uid) =>
         db.listItems.update(id, { uid }),
       );
+      if (await budgetCategoryUid(space)) {
+        await give(await db.moneyCategories.toArray(), (id, uid) => db.moneyCategories.update(id, { uid }));
+        await give(await db.savingsGoals.toArray(), (id, uid) => db.savingsGoals.update(id, { uid }));
+        await give(await db.moneyEntries.toArray(), (id, uid) => db.moneyEntries.update(id, { uid }));
+      }
     },
   );
 }
@@ -344,14 +450,18 @@ function parsePayload(text: string): Payload | null {
 }
 
 /**
- * Kolejność nakładania: najpierw kategoria i członkowie, potem to, co wisi
- * bezpośrednio na kategorii, potem to, co wisi na tamtym (podzadania,
- * odhaczenia, pozycje list), a usunięcie kategorii na samym końcu.
+ * Kolejność nakładania: najpierw kategoria, członkowie i ustawienia budżetu,
+ * potem to, co wisi bezpośrednio na nich, potem to, co wisi na tamtym
+ * (podzadania, odhaczenia, pozycje list, wpisy), a usunięcie kategorii
+ * i odpięcie budżetu na samym końcu.
  */
 function applyOrder(p: Payload): number {
   if (p.k === 'c') return p.del ? 3 : 0;
+  // Odpięcie budżetu też na końcu — wcześniej wpisy budżetu wyglądałyby na
+  // lokalnie zmienione i ich usunięcia zostałyby pominięte.
+  if (p.k === 'u') return p.del ? 3 : 0;
   if (p.k === 'm') return 0;
-  if (p.k === 'h' || p.k === 'l') return 1;
+  if (p.k === 'h' || p.k === 'l' || p.k === 'k' || p.k === 's') return 1;
   if (p.k === 't') return p.parent ? 2 : 1;
   return 2;
 }
@@ -369,6 +479,15 @@ async function dropSharedCategory(category: Category): Promise<void> {
   const lists = await db.lists.where('categoryId').equals(id).and((l) => !!l.uid).toArray();
   await db.listItems.where('listId').anyOf(lists.map((l) => l.id!)).delete();
   await db.lists.bulkDelete(lists.map((l) => l.id!));
+
+  // Budżet przypięty do tej kategorii: wspólne wpisy znikają, budżet się odpina.
+  const settings = await db.budgetSettings.get('budzet');
+  if (settings?.categoryId === id) {
+    await db.moneyEntries.filter((e) => !!e.uid).delete();
+    await db.savingsGoals.filter((g) => !!g.uid).delete();
+    await db.moneyCategories.filter((c) => !!c.uid).delete();
+    await db.budgetSettings.put({ id: 'budzet', currency: settings.currency });
+  }
 
   await db.events.where('categoryId').equals(id).modify({ categoryId: undefined });
   await db.tasks.where('categoryId').equals(id).modify({ categoryId: undefined });
@@ -421,6 +540,36 @@ async function applyDelete(space: string, p: Payload): Promise<void> {
     }
     case 'i':
       await db.listItems.where('uid').equals(p.uid).delete();
+      return;
+    case 'u': {
+      // Ktoś odpiął budżet od kalendarza — u nas też przestaje być wspólny.
+      const settings = await db.budgetSettings.get('budzet');
+      if (settings && (await budgetCategoryUid(space))) {
+        await db.budgetSettings.put({ id: 'budzet', currency: settings.currency });
+      }
+      return;
+    }
+    case 'k': {
+      const c = await db.moneyCategories.where('uid').equals(p.uid).first();
+      if (!c) return;
+      await db.moneyEntries
+        .where('categoryId')
+        .equals(c.id!)
+        .modify((entry) => {
+          delete entry.categoryId;
+        });
+      await db.moneyCategories.delete(c.id!);
+      return;
+    }
+    case 's': {
+      const g = await db.savingsGoals.where('uid').equals(p.uid).first();
+      if (!g) return;
+      await db.moneyEntries.where('goalId').equals(g.id!).delete();
+      await db.savingsGoals.delete(g.id!);
+      return;
+    }
+    case 'x':
+      await db.moneyEntries.where('uid').equals(p.uid).delete();
       return;
   }
 }
@@ -539,6 +688,40 @@ async function applyUpsert(space: string, p: Payload): Promise<void> {
       if (valid) await upsertByUid(db.lists, p.uid, { ...valid, uid: p.uid });
       return;
     }
+    case 'u': {
+      const categoryId = await localCategoryId(space, p.cat);
+      if (categoryId === undefined || typeof p.currency !== 'string' || !/^[A-Z]{3}$/.test(p.currency)) return;
+      await db.budgetSettings.put({ id: 'budzet', currency: p.currency, categoryId });
+      return;
+    }
+    case 'k': {
+      if (!(await budgetCategoryUid(space))) return;
+      const valid = validMoneyCategory({ ...p, id: undefined });
+      if (valid) await upsertByUid(db.moneyCategories, p.uid, { ...valid, uid: p.uid });
+      return;
+    }
+    case 's': {
+      if (!(await budgetCategoryUid(space))) return;
+      const valid = validSavingsGoal({ ...p, id: undefined });
+      if (valid) await upsertByUid(db.savingsGoals, p.uid, { ...valid, uid: p.uid });
+      return;
+    }
+    case 'x': {
+      if (!(await budgetCategoryUid(space))) return;
+      let categoryId: number | undefined;
+      let goalId: number | undefined;
+      if (typeof p.cat === 'string') {
+        categoryId = (await db.moneyCategories.where('uid').equals(p.cat).first())?.id;
+        if (categoryId === undefined) return;
+      }
+      if (typeof p.goal === 'string') {
+        goalId = (await db.savingsGoals.where('uid').equals(p.goal).first())?.id;
+        if (goalId === undefined) return;
+      }
+      const valid = validMoneyEntry({ ...p, categoryId, goalId, id: undefined });
+      if (valid) await upsertByUid(db.moneyEntries, p.uid, { ...valid, uid: p.uid });
+      return;
+    }
     case 'i': {
       const list = typeof p.list === 'string' ? await db.lists.where('uid').equals(p.list).first() : undefined;
       if (!list?.id || !(await sharedCategoryUid(space, list.categoryId))) return;
@@ -645,6 +828,10 @@ async function runSync(transport: SyncTransport, space: string): Promise<void> {
       db.listItems,
       db.members,
       db.syncShadow,
+      db.budgetSettings,
+      db.moneyCategories,
+      db.moneyEntries,
+      db.savingsGoals,
     ],
     async () => {
       for (const payload of incoming) await applyRemote(space, payload);
