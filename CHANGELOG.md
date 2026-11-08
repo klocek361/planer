@@ -5,6 +5,28 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.3.0] — 2026-11-08
+
+### Nowy wygląd Przeglądu i Nawyków
+- **Przegląd:** nagłówek z datą i losową sentencją, zakładki „dziś”
+  i „wkrótce” (dwa tygodnie, po dniach albo po obszarach), karty po
+  kategoriach z wydarzeniami, nawykami i zadaniami, filtr „⚡ 5 min”
+  i pływający „+” do dodania zadania.
+- **Nawyki:** karteczka z sentencją, nawyki pogrupowane po kategoriach,
+  kółko z postępem dnia i kropki ostatnich 7 dni, pływający „+”.
+
+### Zmiany we wspólnym kalendarzu
+- **Kod zamiast linku.** Zaprasza się 8-cyfrowym kodem — jednorazowym,
+  ważnym 24 godziny. „Nowy kod” unieważnia poprzedni, „Unieważnij kod”
+  wyłącza go od razu. Udostępniany jest sam tekst z kodem.
+- **Kilka wspólnych kalendarzy** na jednym telefonie. Każdy zakłada się,
+  wpisując samą nazwę (np. „Nasz dom”) — powstaje z niej wspólna kategoria.
+- **Lista członków** w każdym kalendarzu: imię wpisane przez samego członka
+  (osobne w każdym kalendarzu) i to, kto go zaprosił.
+- **Opuść** usuwa z listy członków; dane zostają u wychodzącego jako prywatne.
+  **Odetnij wszystkich** daje kalendarzowi nowy klucz.
+- Serwer ogranicza próby odgadnięcia kodu (30 na godzinę z jednego adresu).
+
 ## [1.2.0] — 2026-11-08
 
 ### Nowe
