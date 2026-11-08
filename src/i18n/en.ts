@@ -182,6 +182,10 @@ export const en: Dict = {
   },
 
   przeglad: {
+    wkrotce: 'Soon',
+    poDniach: 'by day',
+    poObszarach: 'by area',
+    nicWkrotce: 'Nothing in the next two weeks.',
     naDzis: 'For today',
     wydarzenia: 'Events',
     zalegle: 'Overdue',
@@ -200,8 +204,8 @@ export const en: Dict = {
     opis:
       'The order in this list is the order on the screen. A section you switch off disappears from view, but nothing in it is lost — just switch it back on.',
     liczniki: 'Counters for today',
-    dzis: '“Today” section',
-    tydzien: '“This week” section',
+    dzis: '“Today” tab',
+    tydzien: '“Soon” tab',
   },
 
   ustawienia: {

@@ -155,6 +155,15 @@ export function StarIcon({ className, filled = false }: IconProps & { filled?: b
   );
 }
 
+/** Krzyżyk — zamknięcie karteczki. */
+export function CloseIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
 /** Piorunek — znaczek szybkiego zadania, na 5 minut. */
 export function BoltIcon({ className, filled = false }: IconProps & { filled?: boolean }) {
   return (

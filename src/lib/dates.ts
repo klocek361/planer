@@ -238,6 +238,16 @@ export function dayOfMonth(key: string): number {
   return fromKey(key).getDate();
 }
 
+/** Pełna data do nagłówka ekranu, np. 'niedziela, 8 listopada'. */
+export function longDayLabel(key: string): string {
+  return format(fromKey(key), 'EEEE, d MMMM', { locale: activeLocale });
+}
+
+/** Dzień tygodnia z numerem, np. 'wtorek 10' — nagłówek karty dnia. */
+export function weekdayWithDay(key: string): string {
+  return format(fromKey(key), 'EEEE d', { locale: activeLocale });
+}
+
 /** Podpis dnia w nagłówku sekcji, np. 'wtorek, 18 sie'. */
 export function dayHeadingLabel(key: string): string {
   return format(fromKey(key), 'EEEE, d MMM', { locale: activeLocale });

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { randomQuote } from '../../app/quotes';
 import { db } from '../../data/db';
 import { entriesBetween, indexEntries, setHabitValue } from '../../data/habits';
-import type { Habit } from '../../data/types';
+import type { Category, Habit } from '../../data/types';
 import {
   addMonths,
   lastDays,
@@ -13,76 +14,98 @@ import {
 } from '../../lib/dates';
 import { useT } from '../../i18n';
 import { tap } from '../../platform/haptics';
-import { Screen } from '../../ui/Screen';
+import { FONT_STACKS } from '../../theme/catalog';
 import { SettingsButton } from '../../ui/SettingsButton';
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '../../ui/icons';
-import { HabitCard } from './HabitCard';
+import { SoftScreen } from '../../ui/SoftScreen';
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from '../../ui/icons';
+import { HabitRow } from './HabitRow';
 import { HabitSheet } from './HabitSheet';
 
-/**
- * Szerokość paska historii nawyku liczonego ciągle. Pasek zaczyna się w dniu
- * założenia i zapełnia w prawo; po czterech tygodniach okno zaczyna się
- * przesuwać. Nawyki liczone miesiącami mają pasek długi na cały miesiąc.
- */
-const STRIP_DAYS = 28;
+/** Ile ostatnich dni pokazują kropki pod nawykiem. */
+const WEEK = 7;
 
+/**
+ * Nawyki w układzie „miękkim”: karteczka z sentencją, nawyki pogrupowane
+ * po kategoriach, przy każdym kółko z postępem dnia i kropki ostatnich dni.
+ */
 export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { t } = useT();
   const [editing, setEditing] = useState<Habit | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
+  const [quote, setQuote] = useState<string | null>(() => randomQuote());
 
   const todayKey = useMemo(() => toKey(new Date()), []);
-  const strip = useMemo(() => lastDays(STRIP_DAYS), []);
+  const week = useMemo(() => lastDays(WEEK), []);
   const monthKeys = useMemo(() => monthDays(month), [month]);
 
-  // Jedno zapytanie na oba tryby — zakres obejmuje i przesuwane okno, i cały
+  // Jedno zapytanie na oba tryby — zakres obejmuje i ostatni tydzień, i cały
   // oglądany miesiąc, żeby przełączanie miesięcy nie mnożyło zapytań.
   const range = useMemo(() => {
-    const all = [...strip, ...monthKeys].sort();
+    const all = [...week, ...monthKeys].sort();
     return { from: all[0]!, to: all[all.length - 1]! };
-  }, [strip, monthKeys]);
+  }, [week, monthKeys]);
 
   const habits = useLiveQuery(() => db.habits.orderBy('order').toArray());
   const entries = useLiveQuery(() => entriesBetween(range.from, range.to), [range]);
   const categories = useLiveQuery(() => db.categories.orderBy('order').toArray());
 
-  const categoryColors = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const category of categories ?? []) if (category.id) map.set(category.id, category.color);
-    return map;
-  }, [categories]);
-
   const byHabit = useMemo(() => indexEntries(entries ?? []), [entries]);
+  const active = useMemo(() => (habits ?? []).filter((habit) => !habit.archived), [habits]);
 
-  const active = (habits ?? []).filter((habit) => !habit.archived);
+  // Grupy w kolejności kategorii z ustawień; nawyki bez kategorii na końcu.
+  const groups = useMemo(() => {
+    const out: { category?: Category; habits: Habit[] }[] = [];
+    for (const category of categories ?? []) {
+      const list = active.filter((habit) => habit.categoryId === category.id);
+      if (list.length > 0) out.push({ category, habits: list });
+    }
+    const known = new Set((categories ?? []).map((c) => c.id));
+    const rest = active.filter((habit) => !habit.categoryId || !known.has(habit.categoryId));
+    if (rest.length > 0) out.push({ habits: rest });
+    return out;
+  }, [active, categories]);
+
   // Strzałki miesiąca pojawiają się tylko wtedy, gdy jest co nimi przewijać.
   const anyMonthly = active.some((habit) => habit.period === 'miesiac');
   const thisMonth = useMemo(() => startOfMonth(new Date()), []);
   const isCurrentMonth = toKey(month) === toKey(thisMonth);
 
+  const openNew = () => {
+    setEditing(null);
+    setSheetOpen(true);
+  };
+
   return (
-    <Screen
+    <SoftScreen
       title={t.zakladki.nawyki}
-      action={
-        <div className="flex items-center gap-1">
+      actions={<SettingsButton onClick={onOpenSettings} />}
+      fab={{ label: t.nawyki.nowyNawyk, onClick: openNew }}
+    >
+      {quote && (
+        <div
+          className="bg-surface mt-1 mb-6 flex items-start gap-3 px-4 py-3.5 shadow-[0_1px_12px_rgba(0,0,0,0.04)]"
+          style={{ borderRadius: 'calc(var(--r-app) * 1.1)' }}
+        >
+          <p
+            className="text-muted min-w-0 flex-1 text-[1.0625rem] leading-snug italic"
+            style={{ fontFamily: FONT_STACKS.literata }}
+          >
+            {quote}
+          </p>
           <button
             type="button"
-            onClick={() => {
-              setEditing(null);
-              setSheetOpen(true);
-            }}
-            aria-label={t.nawyki.nowyNawyk}
-            className="text-muted active:text-ink -m-2 p-2"
+            onClick={() => setQuote(null)}
+            aria-label={t.wspolne.zamknij}
+            className="text-faint active:text-ink -m-1 shrink-0 p-1"
           >
-            <PlusIcon className="h-6 w-6" />
+            <CloseIcon className="h-5 w-5" />
           </button>
-          <SettingsButton onClick={onOpenSettings} />
         </div>
-      }
-    >
+      )}
+
       {anyMonthly && (
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <button
             type="button"
             onClick={() => setMonth(addMonths(month, -1))}
@@ -91,7 +114,6 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
           >
             <ChevronLeftIcon className="h-5 w-5" />
           </button>
-
           <button
             type="button"
             onClick={() => setMonth(thisMonth)}
@@ -100,7 +122,6 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
           >
             {monthNameLabel(month)}
           </button>
-
           <button
             type="button"
             onClick={() => setMonth(addMonths(month, 1))}
@@ -112,36 +133,41 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
         </div>
       )}
 
-      <ul className="flex flex-col gap-2">
-        {active.map((habit) => (
-          <li key={habit.id}>
-            <HabitCard
-              habit={habit}
-              color={
-                (habit.categoryId ? categoryColors.get(habit.categoryId) : undefined) ??
-                'var(--c-accent)'
-              }
-              days={byHabit.get(habit.id!)}
-              stripDays={STRIP_DAYS}
-              month={month}
-              todayKey={todayKey}
-              onSetValue={(value) => {
-                tap();
-                void setHabitValue(habit.id!, todayKey, value);
-              }}
-              onEdit={() => {
-                setEditing(habit);
-                setSheetOpen(true);
-              }}
-            />
-          </li>
+      <div className="flex flex-col gap-8">
+        {groups.map((group) => (
+          <section key={group.category?.id ?? 'bez'}>
+            <h2 className="text-muted pb-1 text-sm">
+              {group.category?.name ?? t.zadania.bezKategorii}
+              <span className="text-faint"> · {group.habits.length}</span>
+            </h2>
+            <ul>
+              {group.habits.map((habit) => (
+                <li key={habit.id}>
+                  <HabitRow
+                    habit={habit}
+                    color={group.category?.color ?? 'var(--c-accent)'}
+                    days={byHabit.get(habit.id!)}
+                    todayKey={todayKey}
+                    month={month}
+                    size="duzy"
+                    onSetValue={(value) => {
+                      tap();
+                      void setHabitValue(habit.id!, todayKey, value);
+                    }}
+                    onEdit={() => {
+                      setEditing(habit);
+                      setSheetOpen(true);
+                    }}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
 
       {habits !== undefined && active.length === 0 && (
-        <p className="text-muted py-10 text-center text-sm">
-          {t.nawyki.brakNawykow}
-        </p>
+        <p className="text-muted py-10 text-center text-sm">{t.nawyki.brakNawykow}</p>
       )}
 
       <HabitSheet
@@ -150,6 +176,6 @@ export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void })
         categories={categories ?? []}
         onClose={() => setSheetOpen(false)}
       />
-    </Screen>
+    </SoftScreen>
   );
 }

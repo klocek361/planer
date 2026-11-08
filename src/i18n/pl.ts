@@ -184,6 +184,10 @@ export const pl = {
   },
 
   przeglad: {
+    wkrotce: 'Wkrótce',
+    poDniach: 'po dniach',
+    poObszarach: 'po obszarach',
+    nicWkrotce: 'W najbliższych dwóch tygodniach pusto.',
     naDzis: 'Na dziś',
     wydarzenia: 'Wydarzenia',
     zalegle: 'Zaległe',
@@ -202,8 +206,8 @@ export const pl = {
     opis:
       'Kolejność na liście to kolejność na ekranie. Wyłączona sekcja znika z widoku, ale nic z niej nie ginie — wystarczy włączyć ją z powrotem.',
     liczniki: 'Liczniki na dziś',
-    dzis: 'Sekcja „Dziś”',
-    tydzien: 'Sekcja „Ten tydzień”',
+    dzis: 'Zakładka „Dziś”',
+    tydzien: 'Zakładka „Wkrótce”',
   },
 
   ustawienia: {

@@ -1,24 +1,21 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { randomQuote } from '../../app/quotes';
 import { db } from '../../data/db';
-import { entriesBetween, indexEntries, isDayComplete, setHabitValue } from '../../data/habits';
+import { entriesBetween, indexEntries, setHabitValue } from '../../data/habits';
 import { compareTasks, taskDays, toggleTask, updateTask } from '../../data/tasks';
 import type { Category, EventItem, Habit, Task } from '../../data/types';
-import {
-  compareEvents,
-  dayHeadingLabel,
-  toKey,
-  weekDays,
-  weekRangeLabel,
-} from '../../lib/dates';
+import { compareEvents, lastDays, longDayLabel, toKey, weekdayWithDay } from '../../lib/dates';
 import { useT } from '../../i18n';
 import { useVisibleSections } from '../../app/sectionsStore';
 import { SectionsSheet } from '../../ui/SectionsSheet';
 import { tap } from '../../platform/haptics';
-import { Screen } from '../../ui/Screen';
+import { FONT_STACKS } from '../../theme/catalog';
 import { SettingsButton } from '../../ui/SettingsButton';
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, MoreIcon } from '../../ui/icons';
+import { SoftCard, SoftScreen } from '../../ui/SoftScreen';
+import { BoltIcon, MoreIcon } from '../../ui/icons';
 import { EventRow, eventColor } from '../calendar/EventChip';
+import { HabitRow } from '../habits/HabitRow';
 import { TaskRow } from '../tasks/TaskRow';
 import { TaskSheet } from '../tasks/TaskSheet';
 
@@ -26,68 +23,103 @@ interface Props {
   onOpenSettings: () => void;
 }
 
-/** Przesuwa datę o podaną liczbę dni, nie ruszając oryginału. */
-function shiftDays(date: Date, days: number): Date {
-  const copy = new Date(date);
-  copy.setDate(copy.getDate() + days);
-  return copy;
+/** Ile dni do przodu sięga zakładka „wkrótce”. */
+const SOON_DAYS = 14;
+
+type Tab = 'dzis' | 'wkrotce';
+type SoonMode = 'dni' | 'obszary';
+
+/** Kolejne dni od jutra. */
+function nextDays(todayKey: string, count: number): string[] {
+  const out: string[] = [];
+  const day = new Date(`${todayKey}T12:00:00`);
+  for (let i = 0; i < count; i += 1) {
+    day.setDate(day.getDate() + 1);
+    out.push(toKey(day));
+  }
+  return out;
 }
 
+/** Zawartość jednej karty: wydarzenia, nawyki i zadania. */
+interface Bucket {
+  events: EventItem[];
+  habits: Habit[];
+  tasks: Task[];
+}
+
+const emptyBucket = (): Bucket => ({ events: [], habits: [], tasks: [] });
+const isEmpty = (b: Bucket) => b.events.length + b.habits.length + b.tasks.length === 0;
+
 /**
- * Ekran otwierający aplikację: ile jest do zrobienia dziś, co dziś wypada
- * i jak wygląda reszta tygodnia. Nic się tu nie zakłada — wszystko prowadzi
- * do tych samych arkuszy edycji, co pozostałe zakładki.
+ * Ekran otwierający aplikację: data i sentencja, a pod nimi „dziś” — karty
+ * po kategoriach z wydarzeniami, nawykami i zadaniami — oraz „wkrótce”,
+ * czyli najbliższe dwa tygodnie po dniach albo po obszarach.
  */
 export function OverviewScreen({ onOpenSettings }: Props) {
   const { t } = useT();
-  const [weekBase, setWeekBase] = useState(() => new Date());
   const [editing, setEditing] = useState<Task | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sekcjeOpen, setSekcjeOpen] = useState(false);
+  const [quote] = useState(() => randomQuote());
+  const [onlyQuick, setOnlyQuick] = useState(false);
+  const [soonMode, setSoonMode] = useState<SoonMode>('dni');
 
-  // Które bloki ekranu pokazać i w jakiej kolejności.
+  // Które bloki ekranu pokazać: „dziś” i „ten tydzień” to teraz dwie zakładki.
   const widoczneSekcje = useVisibleSections('przeglad');
+  const tabs = (['dzis', 'wkrotce'] as Tab[]).filter((tab) =>
+    widoczneSekcje.includes(tab === 'dzis' ? 'dzis' : 'tydzien'),
+  );
+  const [tabChoice, setTab] = useState<Tab>('dzis');
+  const tab = tabs.includes(tabChoice) ? tabChoice : tabs[0];
   const nazwaSekcji = (id: string) =>
-    id === 'liczniki'
-      ? t.sekcje.liczniki
-      : id === 'dzis'
-        ? t.sekcje.dzis
-        : t.sekcje.tydzien;
+    id === 'liczniki' ? t.sekcje.liczniki : id === 'dzis' ? t.sekcje.dzis : t.sekcje.tydzien;
 
   const todayKey = useMemo(() => toKey(new Date()), []);
-  const week = useMemo(() => weekDays(weekBase), [weekBase]);
-  const weekFrom = week[0]!;
-  const weekTo = week[week.length - 1]!;
-
-  // Zakres pobierania obejmuje i dzisiaj, i oglądany tydzień — przy cofaniu się
-  // do minionych tygodni dzisiejsze liczniki muszą dalej działać.
-  const range = useMemo(() => {
-    const keys = [todayKey, weekFrom, weekTo].sort();
-    return { from: keys[0]!, to: keys[keys.length - 1]! };
-  }, [todayKey, weekFrom, weekTo]);
+  const soonKeys = useMemo(() => nextDays(todayKey, SOON_DAYS), [todayKey]);
+  const lastKey = soonKeys[soonKeys.length - 1]!;
+  const week = useMemo(() => lastDays(7), []);
 
   const events = useLiveQuery(
-    () => db.events.where('date').between(range.from, range.to, true, true).toArray(),
-    [range],
+    () => db.events.where('date').between(todayKey, lastKey, true, true).toArray(),
+    [todayKey, lastKey],
   );
   const tasks = useLiveQuery(() => db.tasks.toArray());
   const categories = useLiveQuery(() => db.categories.orderBy('order').toArray());
   const habits = useLiveQuery(() => db.habits.orderBy('order').toArray());
-  const habitEntries = useLiveQuery(() => entriesBetween(todayKey, todayKey), [todayKey]);
+  const habitEntries = useLiveQuery(() => entriesBetween(week[0]!, todayKey), [week, todayKey]);
 
   const categoryList: Category[] = categories ?? [];
+  const categoryById = useMemo(
+    () => new Map(categoryList.filter((c) => c.id).map((c) => [c.id!, c])),
+    [categoryList],
+  );
+  const categoryColors = useMemo(
+    () => new Map(categoryList.filter((c) => c.id).map((c) => [c.id!, c.color])),
+    [categoryList],
+  );
 
-  const categoryColors = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const category of categoryList) if (category.id) map.set(category.id, category.color);
-    return map;
-  }, [categoryList]);
+  // Przegląd pokazuje tylko zadania główne — podzadania rozwijają się
+  // w zakładce Zadania. Filtr „⚡ 5 min” zostawia same szybkie.
+  const openTasks = useMemo(
+    () =>
+      (tasks ?? []).filter(
+        (task) => !task.done && task.parentId === undefined && (!onlyQuick || task.quick),
+      ),
+    [tasks, onlyQuick],
+  );
 
-  const categoryNames = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const category of categoryList) if (category.id) map.set(category.id, category.name);
+  const tasksByDay = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const task of openTasks) {
+      for (const key of taskDays(task, todayKey, lastKey)) {
+        const list = map.get(key);
+        if (list) list.push(task);
+        else map.set(key, [task]);
+      }
+    }
+    for (const list of map.values()) list.sort(compareTasks);
     return map;
-  }, [categoryList]);
+  }, [openTasks, todayKey, lastKey]);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, EventItem[]>();
@@ -100,65 +132,77 @@ export function OverviewScreen({ onOpenSettings }: Props) {
     return map;
   }, [events]);
 
-  // Przegląd pokazuje tylko zadania główne — podzadania rozwijają się dopiero
-  // w zakładce Zadania, tutaj byłyby szumem.
-  const openTasks = useMemo(
-    () => (tasks ?? []).filter((task) => !task.done && task.parentId === undefined),
-    [tasks],
-  );
-
-  // Zadanie rozpisane na kilka dni pojawia się w każdym z nich — po to się
-  // je rozpisuje, żeby widzieć je przez cały czas trwania, a nie tylko
-  // w dniu terminu.
-  const tasksByDay = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    for (const task of openTasks) {
-      for (const key of taskDays(task, range.from, range.to)) {
-        const list = map.get(key);
-        if (list) list.push(task);
-        else map.set(key, [task]);
-      }
-    }
-    for (const list of map.values()) list.sort(compareTasks);
-    return map;
-  }, [openTasks, range]);
-
-  const todayTasks = tasksByDay.get(todayKey) ?? [];
-  const todayEvents = eventsByDay.get(todayKey) ?? [];
   const overdue = useMemo(
     () => openTasks.filter((task) => task.dueDate !== undefined && task.dueDate < todayKey),
     [openTasks, todayKey],
   );
-
-  // Zrobione dziś liczymy z pełnej listy, nie z `openTasks` — te są już odhaczone.
-  const doneToday = useMemo(
-    () => (tasks ?? []).filter((task) => task.done && task.dueDate === todayKey).length,
-    [tasks, todayKey],
-  );
-  const todayTotal = todayTasks.length + doneToday;
-
-  const activeHabits = useMemo(
-    () => (habits ?? []).filter((habit) => !habit.archived),
-    [habits],
-  );
+  const activeHabits = useMemo(() => (habits ?? []).filter((h) => !h.archived), [habits]);
   const habitValues = useMemo(() => indexEntries(habitEntries ?? []), [habitEntries]);
-  const habitsDone = activeHabits.filter((habit) =>
-    isDayComplete(habit, habitValues.get(habit.id!)?.get(todayKey)),
-  ).length;
 
-  const isThisWeek = week.includes(todayKey);
+  // Liczniki nad zakładkami liczą zawsze wszystko, niezależnie od filtra.
+  const allOpen = (tasks ?? []).filter((task) => !task.done && task.parentId === undefined);
+  const doneToday = (tasks ?? []).filter((task) => task.done && task.dueDate === todayKey).length;
+  const todayOpen = allOpen.filter((task) => taskDays(task, todayKey, todayKey).length > 0).length;
+  const todayTotal = todayOpen + doneToday;
+  const overdueAll = allOpen.filter((task) => task.dueDate !== undefined && task.dueDate < todayKey);
 
-  const openTask = (task: Task) => {
+  /** Rozkłada zawartość na karty kategorii; bez kategorii na końcu. */
+  const byCategory = (bucket: Bucket) => {
+    const map = new Map<number, Bucket>();
+    const get = (id: number | undefined) => {
+      const key = id !== undefined && categoryById.has(id) ? id : 0;
+      let b = map.get(key);
+      if (!b) map.set(key, (b = emptyBucket()));
+      return b;
+    };
+    for (const event of bucket.events) get(event.categoryId).events.push(event);
+    for (const habit of bucket.habits) get(habit.categoryId).habits.push(habit);
+    for (const task of bucket.tasks) get(task.categoryId).tasks.push(task);
+    const order = [...categoryList.map((c) => c.id!), 0];
+    return order
+      .filter((id) => map.has(id))
+      .map((id) => ({ category: categoryById.get(id), bucket: map.get(id)! }));
+  };
+
+  const today: Bucket = {
+    events: onlyQuick ? [] : (eventsByDay.get(todayKey) ?? []),
+    habits: onlyQuick ? [] : activeHabits,
+    // Zaległe na górze dnia — to one najbardziej czekają.
+    tasks: [...overdue, ...(tasksByDay.get(todayKey) ?? []).filter((t) => !overdue.includes(t))],
+  };
+
+  const soonByDay = soonKeys.map((key) => ({
+    key,
+    bucket: {
+      events: onlyQuick ? [] : (eventsByDay.get(key) ?? []),
+      habits: [],
+      tasks: tasksByDay.get(key) ?? [],
+    },
+  }));
+  const soonAll: Bucket = emptyBucket();
+  const seenTasks = new Set<number>();
+  for (const { bucket } of soonByDay) {
+    soonAll.events.push(...bucket.events);
+    for (const task of bucket.tasks) {
+      if (!seenTasks.has(task.id!)) {
+        seenTasks.add(task.id!);
+        soonAll.tasks.push(task);
+      }
+    }
+  }
+
+  const openTask = (task: Task | null) => {
     setEditing(task);
     setSheetOpen(true);
   };
 
-  const taskRow = (task: Task, hideDueDate: boolean) => (
+  const taskRow = (task: Task, hideDueDate: boolean, hideCategory: boolean) => (
     <TaskRow
       task={task}
-      categoryName={task.categoryId ? categoryNames.get(task.categoryId) : undefined}
+      categoryName={task.categoryId ? categoryById.get(task.categoryId)?.name : undefined}
       categoryColor={task.categoryId ? categoryColors.get(task.categoryId) : undefined}
       hideDueDate={hideDueDate}
+      hideCategory={hideCategory}
       onToggle={() => {
         tap();
         void toggleTask(task.id!, !task.done);
@@ -168,149 +212,119 @@ export function OverviewScreen({ onOpenSettings }: Props) {
     />
   );
 
-  /*
-    Trzy bloki ekranu trzymane osobno, żeby dało się je ustawić w dowolnej
-    kolejności i pojedynczo wyłączyć. Klucz odpowiada identyfikatorowi sekcji.
-  */
-  const bloki: Record<string, ReactNode> = {
-    liczniki: (
-          <div className="grid grid-cols-3 gap-2">
-            <StatCard
-              label={t.przeglad.naDzis}
-              value={`${doneToday}/${todayTotal}`}
-              ratio={todayTotal === 0 ? 0 : doneToday / todayTotal}
-            />
-            <StatCard label={t.przeglad.wydarzenia} value={String(todayEvents.length)} />
-            <StatCard
-              label={t.przeglad.zalegle}
-              value={String(overdue.length)}
-              alert={overdue.length > 0}
-            />
-          </div>
-    ),
-    dzis: (
-          <Section title={t.wspolne.dzis} hint={dayHeadingLabel(todayKey)}>
-            {todayEvents.length === 0 && todayTasks.length === 0 && activeHabits.length === 0 ? (
-              <p className="text-muted py-4 text-center text-sm">{t.przeglad.nicNaDzis}</p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {todayEvents.length > 0 && (
-                  <ul className="flex flex-col gap-1.5">
-                    {todayEvents.map((event) => (
-                      <li key={event.id}>
-                        <EventRow
-                          event={event}
-                          color={eventColor(event, categoryColors)}
-                          onClick={() => undefined}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                )}
+  const rows = (bucket: Bucket, opts: { hideDueDate: boolean; hideCategory: boolean; dated?: boolean }) => (
+    <ul className="flex flex-col gap-1.5">
+      {bucket.events.map((event) => (
+        <li key={`e${event.id}`}>
+          {opts.dated && (
+            <span className="text-muted block text-[0.6875rem]">{weekdayWithDay(event.date)}</span>
+          )}
+          <EventRow event={event} color={eventColor(event, categoryColors)} onClick={() => undefined} />
+        </li>
+      ))}
+      {bucket.habits.map((habit) => (
+        <li key={`h${habit.id}`}>
+          <HabitRow
+            habit={habit}
+            color={(habit.categoryId ? categoryColors.get(habit.categoryId) : undefined) ?? 'var(--c-accent)'}
+            days={habitValues.get(habit.id!)}
+            todayKey={todayKey}
+            size="maly"
+            onSetValue={(value) => {
+              tap();
+              void setHabitValue(habit.id!, todayKey, value);
+            }}
+          />
+        </li>
+      ))}
+      {bucket.tasks.map((task) => (
+        <li key={`t${task.id}`}>{taskRow(task, opts.hideDueDate, opts.hideCategory)}</li>
+      ))}
+    </ul>
+  );
 
-                {todayTasks.length > 0 && (
-                  <ul className="flex flex-col gap-1">
-                    {todayTasks.map((task) => (
-                      <li key={task.id}>{taskRow(task, true)}</li>
-                    ))}
-                  </ul>
-                )}
+  const categoryCard = (category: Category | undefined, body: ReactNode, key: string | number) => (
+    <SoftCard key={key}>
+      <h3 className="text-ink flex items-center gap-2.5 pb-2 text-[1.0625rem] font-semibold">
+        <span
+          className="h-3 w-3 shrink-0 rounded-full"
+          style={{ backgroundColor: category?.color ?? 'var(--c-text-faint)' }}
+          aria-hidden="true"
+        />
+        <span className="truncate">{category?.name ?? t.zadania.bezKategorii}</span>
+      </h3>
+      {body}
+    </SoftCard>
+  );
 
-                {activeHabits.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                    <SubHeading text={t.przeglad.nawykiLicznik(habitsDone, activeHabits.length)} />
-                    <ul className="flex flex-col gap-1">
-                      {activeHabits.map((habit) => (
-                        <li key={habit.id}>
-                          <HabitTick
-                            habit={habit}
-                            color={
-                              (habit.categoryId ? categoryColors.get(habit.categoryId) : undefined) ??
-                              'var(--c-accent)'
-                            }
-                            value={habitValues.get(habit.id!)?.get(todayKey) ?? 0}
-                            todayKey={todayKey}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </Section>
-    ),
-    tydzien: (
-          <Section
-            title={t.przeglad.tenTydzien}
-            hint={weekRangeLabel(week)}
-            nav={
-              <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => setWeekBase(shiftDays(weekBase, -7))}
-                  aria-label={t.przeglad.poprzedniTydzien}
-                  className="text-muted active:text-ink -m-1.5 p-1.5"
-                >
-                  <ChevronLeftIcon className="h-5 w-5" />
-                </button>
-                {!isThisWeek && (
-                  <button
-                    type="button"
-                    onClick={() => setWeekBase(new Date())}
-                    className="text-accent px-1 text-xs font-medium"
-                  >
-                    {t.wspolne.dzis}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setWeekBase(shiftDays(weekBase, 7))}
-                  aria-label={t.przeglad.nastepnyTydzien}
-                  className="text-muted active:text-ink -m-1.5 p-1.5"
-                >
-                  <ChevronRightIcon className="h-5 w-5" />
-                </button>
-              </div>
-            }
-          >
-            <ul className="flex flex-col gap-4">
-              {week.map((key) => {
-                const dayEvents = eventsByDay.get(key) ?? [];
-                const dayTasks = tasksByDay.get(key) ?? [];
-                if (dayEvents.length === 0 && dayTasks.length === 0) return null;
+  const emptyText = (text: string) => <p className="text-muted py-8 text-center text-sm">{text}</p>;
 
-                return (
-                  <li key={key} className="flex flex-col gap-1.5">
-                    <SubHeading text={dayHeadingLabel(key)} strong={key === todayKey} />
-                    {dayEvents.map((event) => (
-                      <EventRow
-                        key={event.id}
-                        event={event}
-                        color={eventColor(event, categoryColors)}
-                        onClick={() => undefined}
-                      />
-                    ))}
-                    {dayTasks.map((task) => (
-                      <div key={task.id}>{taskRow(task, true)}</div>
-                    ))}
-                  </li>
-                );
-              })}
-            </ul>
-
-            {week.every(
-              (key) => (eventsByDay.get(key) ?? []).length === 0 && (tasksByDay.get(key) ?? []).length === 0,
-            ) && <p className="text-muted py-4 text-center text-sm">{t.przeglad.pustyTydzien}</p>}
-          </Section>
-    ),
-  };
+  let content: ReactNode = null;
+  if (tab === 'dzis') {
+    const cards = byCategory(today);
+    content =
+      cards.length === 0
+        ? emptyText(t.przeglad.nicNaDzis)
+        : cards.map(({ category, bucket }) =>
+            categoryCard(category, rows(bucket, { hideDueDate: true, hideCategory: true }), category?.id ?? 0),
+          );
+  } else if (tab === 'wkrotce') {
+    const switcher = (
+      <div className="flex items-center gap-2 pb-1 text-sm">
+        {(['dni', 'obszary'] as SoonMode[]).map((mode, i) => (
+          <span key={mode} className="flex items-center gap-2">
+            {i > 0 && <span className="text-faint">·</span>}
+            <button
+              type="button"
+              onClick={() => setSoonMode(mode)}
+              aria-pressed={soonMode === mode}
+              className={soonMode === mode ? 'text-ink font-semibold' : 'text-muted'}
+            >
+              {mode === 'dni' ? t.przeglad.poDniach : t.przeglad.poObszarach}
+            </button>
+          </span>
+        ))}
+      </div>
+    );
+    let cards: ReactNode;
+    if (soonMode === 'dni') {
+      const days = soonByDay.filter(({ bucket }) => !isEmpty(bucket));
+      cards =
+        days.length === 0
+          ? emptyText(t.przeglad.nicWkrotce)
+          : days.map(({ key, bucket }) => (
+              <SoftCard key={key}>
+                <h3 className="text-muted pb-2 text-xs font-semibold tracking-[0.18em] uppercase">
+                  {weekdayWithDay(key)}
+                </h3>
+                {rows(bucket, { hideDueDate: true, hideCategory: false })}
+              </SoftCard>
+            ));
+    } else {
+      const areas = byCategory(soonAll);
+      cards =
+        areas.length === 0
+          ? emptyText(t.przeglad.nicWkrotce)
+          : areas.map(({ category, bucket }) =>
+              categoryCard(
+                category,
+                rows(bucket, { hideDueDate: false, hideCategory: true, dated: true }),
+                category?.id ?? 0,
+              ),
+            );
+    }
+    content = (
+      <>
+        {switcher}
+        {cards}
+      </>
+    );
+  }
 
   return (
-    <Screen
-      title={t.zakladki.przeglad}
-      action={
-        <div className="flex items-center gap-1">
+    <SoftScreen
+      actions={
+        <>
           <button
             type="button"
             onClick={() => setSekcjeOpen(true)}
@@ -320,14 +334,65 @@ export function OverviewScreen({ onOpenSettings }: Props) {
             <MoreIcon className="h-6 w-6" />
           </button>
           <SettingsButton onClick={onOpenSettings} />
-        </div>
+        </>
       }
+      fab={{ label: t.zadania.noweZadanie, onClick: () => openTask(null) }}
     >
-      <div className="flex flex-col gap-6 pt-1">
-        {widoczneSekcje.map((id) => (
-          <div key={id}>{bloki[id]}</div>
-        ))}
-      </div>
+      <header className="pt-2 pb-6">
+        <p className="text-muted text-sm first-letter:uppercase">{longDayLabel(todayKey)}</p>
+        <p
+          className="text-ink pt-1.5 text-[1.625rem] leading-[1.25]"
+          style={{ fontFamily: FONT_STACKS.literata }}
+        >
+          {quote}
+        </p>
+      </header>
+
+      {widoczneSekcje.includes('liczniki') && (
+        <div className="grid grid-cols-3 gap-2 pb-6">
+          <StatCard
+            label={t.przeglad.naDzis}
+            value={`${doneToday}/${todayTotal}`}
+            ratio={todayTotal === 0 ? 0 : doneToday / todayTotal}
+          />
+          <StatCard label={t.przeglad.wydarzenia} value={String((eventsByDay.get(todayKey) ?? []).length)} />
+          <StatCard label={t.przeglad.zalegle} value={String(overdueAll.length)} alert={overdueAll.length > 0} />
+        </div>
+      )}
+
+      {tabs.length > 0 && (
+        <div className="flex items-center gap-6 pb-5">
+          {tabs.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setTab(item)}
+              aria-pressed={tab === item}
+              className={`relative pb-2 text-[1.0625rem] lowercase ${tab === item ? 'text-ink' : 'text-muted'}`}
+            >
+              {item === 'dzis' ? t.wspolne.dzis : t.przeglad.wkrotce}
+              {tab === item && (
+                <span className="bg-ink absolute bottom-0 left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full" />
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              tap();
+              setOnlyQuick((value) => !value);
+            }}
+            aria-pressed={onlyQuick}
+            aria-label={t.zadania.tylkoSzybkie}
+            className={`ml-auto flex items-center gap-1 pb-2 text-sm ${onlyQuick ? 'text-accent font-semibold' : 'text-muted'}`}
+          >
+            <BoltIcon className="h-4 w-4" filled={onlyQuick} />
+            {t.zadania.piecMin}
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4">{content}</div>
 
       <SectionsSheet
         open={sekcjeOpen}
@@ -340,9 +405,10 @@ export function OverviewScreen({ onOpenSettings }: Props) {
         open={sheetOpen}
         task={editing}
         categories={categoryList}
+        defaultDueDate={editing ? undefined : todayKey}
         onClose={() => setSheetOpen(false)}
       />
-    </Screen>
+    </SoftScreen>
   );
 }
 
@@ -359,12 +425,11 @@ function StatCard({
   alert?: boolean;
 }) {
   return (
-    <div className="bg-surface rounded-app flex flex-col gap-1.5 px-3 py-2.5">
-      <span
-        className={`text-2xl leading-none font-semibold tabular-nums ${
-          alert ? 'text-weekend' : 'text-ink'
-        }`}
-      >
+    <div
+      className="bg-surface flex flex-col gap-1.5 px-3 py-2.5 shadow-[0_1px_12px_rgba(0,0,0,0.04)]"
+      style={{ borderRadius: 'calc(var(--r-app) * 1.1)' }}
+    >
+      <span className={`text-2xl leading-none font-semibold tabular-nums ${alert ? 'text-weekend' : 'text-ink'}`}>
         {value}
       </span>
       <span className="text-muted text-[0.6875rem] leading-tight">{label}</span>
@@ -377,92 +442,5 @@ function StatCard({
         </span>
       )}
     </div>
-  );
-}
-
-function Section({
-  title,
-  hint,
-  nav,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  nav?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-ink text-lg leading-none font-semibold">
-          {title}
-          {hint && <span className="text-muted ml-2 text-xs font-normal">{hint}</span>}
-        </h2>
-        {nav}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function SubHeading({ text, strong = false }: { text: string; strong?: boolean }) {
-  return (
-    <span
-      className={`text-[0.6875rem] font-medium tracking-wide uppercase ${
-        strong ? 'text-ink' : 'text-muted'
-      }`}
-    >
-      {text}
-    </span>
-  );
-}
-
-/** Nawyk w skrócie: nazwa i jedno dotknięcie, bez paska historii. */
-function HabitTick({
-  habit,
-  color,
-  value,
-  todayKey,
-}: {
-  habit: Habit;
-  color: string;
-  value: number;
-  todayKey: string;
-}) {
-  const done = isDayComplete(habit, value);
-  const counter = habit.kind === 'licznik';
-  const next = counter ? value + 1 : done ? 0 : 1;
-  // Odhaczony licznik nic już nie przyjmuje. Cofać się da w zakładce Nawyki,
-  // gdzie jest minus — z ekranu podsumowania nie powinno dać się jednym
-  // przypadkowym stuknięciem skasować ośmiu wcześniejszych.
-  const spent = counter && done;
-
-  return (
-    <button
-      type="button"
-      disabled={spent}
-      onClick={() => {
-        tap();
-        void setHabitValue(habit.id!, todayKey, next);
-      }}
-      aria-pressed={done}
-      className="flex w-full items-center gap-3 py-1 text-left"
-    >
-      <span
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors"
-        style={{
-          backgroundColor: done ? color : 'transparent',
-          borderColor: done ? color : 'var(--c-border)',
-        }}
-      >
-        {done && <CheckIcon className="h-3.5 w-3.5 text-white" />}
-      </span>
-      <span className="text-ink min-w-0 flex-1 truncate text-sm">{habit.name}</span>
-      {habit.kind === 'licznik' && (
-        <span className="text-muted shrink-0 text-xs tabular-nums">
-          {value}/{habit.target}
-        </span>
-      )}
-    </button>
   );
 }
