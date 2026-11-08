@@ -28,3 +28,6 @@ prompty/
 *.jpeg
 *.png
 !public/**/*.png
+
+# Pobrane sugestie z serwera — imiona i treści użytkowników, nie do repozytorium.
+sync-server/sugestie.json

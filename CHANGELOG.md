@@ -5,6 +5,14 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.6.0] — 2026-11-08
+
+### Nowe
+- **Sugestie:** mały przycisk (!) w lewym górnym rogu każdego ekranu otwiera
+  panel z imieniem i treścią sugestii. Sugestie trafiają na serwer razem
+  z wersją aplikacji i nazwą ekranu; imię zapamiętuje się na telefonie.
+  Pobiera się je poleceniem `npm run sugestie` w `sync-server/`.
+
 ## [1.5.0] — 2026-11-08
 
 ### Nowe

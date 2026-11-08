@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PlusIcon } from './icons';
+import { FeedbackButton } from './Feedback';
 
 interface Props {
   /** Tytuł na środku górnego paska. Pusty — pasek ma same przyciski. */
@@ -21,6 +22,9 @@ export function SoftScreen({ title, actions, fab, children }: Props) {
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="pt-safe px-safe shrink-0">
         <div className="relative flex h-14 items-center justify-end">
+          <div className="absolute left-0">
+            <FeedbackButton />
+          </div>
           {title && (
             <h1 className="text-ink pointer-events-none absolute inset-x-16 truncate text-center text-base font-semibold">
               {title}

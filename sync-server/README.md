@@ -46,6 +46,7 @@ VITE_SYNC_URL=http://localhost:8787 npm run dev
 | `PUT` | `/s/:id/zaproszenie` | wystawia zaproszenie na 24 h (zastępuje poprzednie) |
 | `DELETE` | `/s/:id/zaproszenie` | unieważnia zaproszenie |
 | `POST` | `/z/:lookup` | odbiera zaproszenie — raz, bez tokenu, max 30 prób/h z adresu |
+| `POST` | `/sugestie` | zapisuje sugestię z aplikacji — bez tokenu, max 10/h z adresu |
 
 Zapytania o przestrzeń wymagają `Authorization: Bearer <token>`; token telefon
 wylicza z klucza, serwer trzyma tylko jego skrót SHA-256. Limity: 16 KB na
@@ -65,4 +66,15 @@ Po zmianach w `schema.sql` lub `src/`:
 ```bash
 npm run schema:remote   # dokłada nowe tabele, istniejące dane zostają
 npm run deploy
+```
+
+## Sugestie z aplikacji
+
+Przycisk (!) w lewym górnym rogu aplikacji wysyła imię i treść sugestii.
+To jedyne dane na serwerze, które **nie są szyfrowane** — czyta je tylko
+właściciel serwera. Pobranie (w katalogu `sync-server/`, po `wrangler login`):
+
+```bash
+npm run sugestie        # tabela w terminalu, najnowsze na górze
+npm run sugestie:plik   # to samo do pliku sugestie.json (jest w .gitignore)
 ```

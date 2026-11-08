@@ -14,6 +14,7 @@
  *   PUT    /s/:id/zaproszenie — wystaw zaproszenie { lookup, blob } (24 h, zastępuje poprzednie)
  *   DELETE /s/:id/zaproszenie — unieważnij zaproszenie
  *   POST   /z/:lookup       — odbierz zaproszenie (raz; bez tokenu, z limitem prób)
+ *   POST   /sugestie        — zapisz sugestię { name, text, version?, screen? } (bez tokenu, z limitem)
  * Zapytania o przestrzeń: nagłówek `Authorization: Bearer <token>`.
  */
 
@@ -31,6 +32,11 @@ const LOOKUP = /^[A-Za-z0-9_-]{43}$/;
 const INVITE_TTL = 24 * 60 * 60 * 1000;
 /** Ile prób odebrania zaproszenia na godzinę z jednego adresu. */
 const MAX_ATTEMPTS_PER_HOUR = 30;
+
+/** Ile sugestii na godzinę z jednego adresu. */
+const MAX_SUGGESTIONS_PER_HOUR = 10;
+const MAX_NAME = 60;
+const MAX_TEXT = 4000;
 
 const MAX_BLOB = 16_000;
 const MAX_BATCH = 100;
@@ -125,6 +131,33 @@ export default {
         env.DB.prepare('DELETE FROM invite_attempts WHERE hour < ?').bind(hour - 24),
       ]);
       return invite ? reply(request, env, 200, { blob: invite.blob }) : reply(request, env, 404);
+    }
+
+    // Sugestia z aplikacji — bez tokenu, z limitem na adres.
+    if (request.method === 'POST' && parts[0] === 'sugestie' && parts.length === 1) {
+      const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+      const name = typeof body?.name === 'string' ? body.name.trim() : '';
+      const text = typeof body?.text === 'string' ? body.text.trim() : '';
+      if (!name || !text || name.length > MAX_NAME || text.length > MAX_TEXT) {
+        return reply(request, env, 400);
+      }
+      const ip = request.headers.get('CF-Connecting-IP') ?? 'nieznany';
+      const hour = Math.floor(Date.now() / 3_600_000);
+      const sent = await env.DB.prepare(
+        `INSERT INTO invite_attempts (ip, hour, n) VALUES (?, ?, 1)
+         ON CONFLICT (ip, hour) DO UPDATE SET n = n + 1 RETURNING n`,
+      )
+        .bind(`sugestie:${ip}`, hour)
+        .first<{ n: number }>();
+      if ((sent?.n ?? 0) > MAX_SUGGESTIONS_PER_HOUR) return reply(request, env, 429);
+
+      const short = (value: unknown) => (typeof value === 'string' ? value.slice(0, 40) : null);
+      await env.DB.prepare(
+        'INSERT INTO suggestions (created, name, text, version, screen) VALUES (?, ?, ?, ?, ?)',
+      )
+        .bind(Date.now(), name, text, short(body?.version), short(body?.screen))
+        .run();
+      return reply(request, env, 201, { ok: true });
     }
 
     if (parts[0] !== 's' || !parts[1] || !ID.test(parts[1])) return reply(request, env, 404);

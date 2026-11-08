@@ -10,6 +10,7 @@ import { useApplyTheme } from './theme/useApplyTheme';
 import { useAutoSync } from './sync/useAutoSync';
 import { useBackDismiss } from './platform/back';
 import { TabBar } from './ui/TabBar';
+import { FeedbackSheet, useFeedbackStore } from './ui/Feedback';
 import { useLayoutStore } from './app/layoutStore';
 import { visibleTabs, type TabId } from './app/tabs';
 
@@ -35,6 +36,12 @@ export function App() {
     if (!tabs.includes(tab)) setTab(tabs[0] ?? 'kalendarz');
   }, [tabs, tab]);
 
+  // Sugestia zgłoszona z ekranu dostaje jego nazwę — łatwiej zrozumieć, o co chodzi.
+  const setFeedbackScreen = useFeedbackStore((state) => state.setScreen);
+  useEffect(() => {
+    setFeedbackScreen(settingsOpen ? 'ustawienia' : tab);
+  }, [settingsOpen, tab, setFeedbackScreen]);
+
   // Wysokość liczona w dvh, żeby pasek adresu Safari nie ucinał dolnej nawigacji.
   return (
     <div className="flex h-[100dvh] flex-col">
@@ -51,6 +58,7 @@ export function App() {
           <TabBar tabs={tabs} active={tab} onChange={setTab} />
         </>
       )}
+      <FeedbackSheet />
     </div>
   );
 }
