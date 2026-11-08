@@ -25,7 +25,7 @@ import { SectionsSheet } from '../../ui/SectionsSheet';
 import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
 import { SettingsButton } from '../../ui/SettingsButton';
-import { MoreIcon, PlusIcon } from '../../ui/icons';
+import { BoltIcon, MoreIcon, PlusIcon } from '../../ui/icons';
 import { TaskRow } from './TaskRow';
 import { TaskSheet } from './TaskSheet';
 
@@ -52,6 +52,8 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
   // Tryby widoczne w przełączniku bierzemy z ustawień sekcji tego ekranu.
   const widoczneTryby = useVisibleSections('zadania') as Mode[];
   const [showDone, setShowDone] = useState(false);
+  // Filtr „⚡ 5 min” — pokazuje tylko szybkie zadania, we wszystkich trybach.
+  const [onlyQuick, setOnlyQuick] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [parentId, setParentId] = useState<number | undefined>(undefined);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -76,7 +78,16 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
   }, [categories]);
 
   const tree = useMemo(() => buildTaskTree(tasks ?? []), [tasks]);
-  const open = useMemo(() => tree.filter(({ task }) => !task.done), [tree]);
+  const isQuickNode = ({ task, subtasks }: TaskNode) =>
+    task.quick === true || subtasks.some((subtask) => !subtask.done && subtask.quick === true);
+  const quickCount = useMemo(
+    () => tree.filter((node) => !node.task.done && isQuickNode(node)).length,
+    [tree],
+  );
+  const open = useMemo(
+    () => tree.filter((node) => !node.task.done && (!onlyQuick || isQuickNode(node))),
+    [tree, onlyQuick],
+  );
   const done = useMemo(() => tree.filter(({ task }) => task.done), [tree]);
 
   const overdue = useMemo(
@@ -202,6 +213,22 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
       title={t.zakladki.zadania}
       action={
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              tap();
+              setOnlyQuick((value) => !value);
+            }}
+            aria-pressed={onlyQuick}
+            aria-label={t.zadania.tylkoSzybkie}
+            className={`rounded-app mr-1 flex items-center gap-1 px-2.5 py-1 text-sm font-medium transition-colors ${
+              onlyQuick ? 'bg-selected text-selected-ink' : 'bg-surface text-muted'
+            }`}
+          >
+            <BoltIcon className="h-4 w-4" filled={onlyQuick} />
+            {t.zadania.piecMin}
+            {quickCount > 0 && <span className="opacity-70">· {quickCount}</span>}
+          </button>
           <button
             type="button"
             onClick={openNew}

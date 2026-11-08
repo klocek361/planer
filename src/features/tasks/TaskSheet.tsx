@@ -14,7 +14,7 @@ import { Button } from '../../ui/Button';
 import { CategoryPicker } from '../../ui/CategoryChip';
 import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
-import { StarIcon, TrashIcon } from '../../ui/icons';
+import { BoltIcon, StarIcon, TrashIcon } from '../../ui/icons';
 
 interface Props {
   open: boolean;
@@ -49,6 +49,7 @@ export function TaskSheet({
   const { t } = useT();
   const [title, setTitle] = useState('');
   const [starred, setStarred] = useState(false);
+  const [quick, setQuick] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
@@ -61,6 +62,7 @@ export function TaskSheet({
     if (!open) return;
     setTitle(task?.title ?? '');
     setStarred(task?.starred ?? false);
+    setQuick(task?.quick ?? false);
     setStartDate(task?.startDate ?? '');
     setDueDate(task?.dueDate ?? defaultDueDate ?? '');
     setCategoryId(task?.categoryId);
@@ -98,6 +100,7 @@ export function TaskSheet({
     const draft = {
       title: trimmed,
       starred,
+      quick,
       startDate: dueDate && startDate ? startDate : undefined,
       dueDate: dueDate || undefined,
       categoryId,
@@ -158,6 +161,19 @@ export function TaskSheet({
           <StarIcon
             className={`h-6 w-6 ${starred ? 'text-star' : 'text-faint'}`}
             filled={starred}
+          />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setQuick((value) => !value)}
+          aria-pressed={quick}
+          className="bg-surface rounded-app flex items-center justify-between px-3 py-2.5 text-left"
+        >
+          <span className="text-ink text-sm font-medium">{t.zadania.naPiecMinut}</span>
+          <BoltIcon
+            className={`h-6 w-6 ${quick ? 'text-accent' : 'text-faint'}`}
+            filled={quick}
           />
         </button>
 

@@ -1,7 +1,7 @@
 import type { Task } from '../../data/types';
 import { dueInfo, rangeInfo, type DueTone } from '../../lib/dates';
 import { useT } from '../../i18n';
-import { CheckIcon, PlusIcon, RepeatIcon, StarIcon } from '../../ui/icons';
+import { BoltIcon, CheckIcon, PlusIcon, RepeatIcon, StarIcon } from '../../ui/icons';
 
 interface Props {
   task: Task;
@@ -38,7 +38,11 @@ export function TaskRow({
   onAddSubtask,
 }: Props) {
   const { t } = useT();
-  const meta: { text: string; className: string; dot?: string }[] = [];
+  const meta: { text: string; className: string; dot?: string; bolt?: boolean }[] = [];
+  // Piorunek idzie pierwszy — to najszybsza informacja o zadaniu.
+  if (task.quick) {
+    meta.push({ text: t.zadania.piecMin, className: 'text-accent font-medium', bolt: true });
+  }
   if (categoryName && !hideCategory) {
     meta.push({ text: categoryName, className: 'text-muted', dot: categoryColor });
   }
@@ -82,6 +86,7 @@ export function TaskRow({
           <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 pt-0.5 text-xs">
             {meta.map((item, index) => (
               <span key={index} className={`flex items-center gap-1 ${item.className}`}>
+                {item.bolt && <BoltIcon className="h-3 w-3" filled />}
                 {item.dot && (
                   <span
                     className="h-2 w-2 rounded-full"

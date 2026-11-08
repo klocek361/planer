@@ -6,6 +6,8 @@ import { addMonths } from 'date-fns';
 export interface TaskDraft {
   title: string;
   starred: boolean;
+  /** Zadanie na 5 minut. */
+  quick?: boolean;
   /** Początek zadania wielodniowego; bez niego zadanie ma sam termin. */
   startDate?: string;
   dueDate?: string;
@@ -130,11 +132,16 @@ export async function toggleTask(id: number, done: boolean): Promise<void> {
 const NO_DUE_DATE = '￿';
 
 /**
- * Kolejność: najpierw niezrobione, potem według terminu (najbliższy pierwszy,
- * bez terminu na końcu), a przy równym terminie ważniejsze wyżej.
+ * Kolejność: najpierw niezrobione, wśród nich szybkie (na 5 minut) zawsze na
+ * górze, potem według terminu (najbliższy pierwszy, bez terminu na końcu),
+ * a przy równym terminie ważniejsze wyżej.
  */
 export function compareTasks(a: Task, b: Task): number {
   if (a.done !== b.done) return a.done ? 1 : -1;
+
+  const aQuick = !a.done && a.quick === true;
+  const bQuick = !b.done && b.quick === true;
+  if (aQuick !== bQuick) return aQuick ? -1 : 1;
 
   const aDue = a.dueDate ?? NO_DUE_DATE;
   const bDue = b.dueDate ?? NO_DUE_DATE;

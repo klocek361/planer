@@ -155,6 +155,20 @@ export function StarIcon({ className, filled = false }: IconProps & { filled?: b
   );
 }
 
+/** Piorunek — znaczek szybkiego zadania, na 5 minut. */
+export function BoltIcon({ className, filled = false }: IconProps & { filled?: boolean }) {
+  return (
+    <svg
+      {...base}
+      fill={filled ? 'currentColor' : 'none'}
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M13 3 5 13.5h6L10 21l8-10.5h-6z" />
+    </svg>
+  );
+}
+
 /** Strzałki w kółko — znaczek wydarzenia, które się powtarza. */
 export function RepeatIcon({ className }: IconProps) {
   return (
