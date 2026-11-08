@@ -19,3 +19,23 @@ CREATE TABLE IF NOT EXISTS records (
 );
 
 CREATE INDEX IF NOT EXISTS records_by_seq ON records (space, seq);
+
+-- Zaproszenia: jednorazowe, ważne 24 h. `lookup` to identyfikator wyprowadzony
+-- z 8-cyfrowego kodu; sam kod ani klucz kalendarza tu nie trafiają.
+CREATE TABLE IF NOT EXISTS invites (
+  lookup TEXT PRIMARY KEY,
+  space TEXT NOT NULL,
+  blob TEXT NOT NULL,
+  expires INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS invites_by_space ON invites (space);
+
+-- Licznik prób odebrania zaproszenia z jednego adresu w danej godzinie —
+-- żeby kodu nie dało się odgadnąć, sprawdzając kolejne liczby.
+CREATE TABLE IF NOT EXISTS invite_attempts (
+  ip TEXT NOT NULL,
+  hour INTEGER NOT NULL,
+  n INTEGER NOT NULL,
+  PRIMARY KEY (ip, hour)
+);

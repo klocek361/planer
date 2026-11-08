@@ -43,7 +43,26 @@ VITE_SYNC_URL=http://localhost:8787 npm run dev
 | `PUT` | `/s/:id/r` | zapisuje do 100 zaszyfrowanych rekordów |
 | `GET` | `/s/:id/zmiany?od=N` | zmiany o numerze większym niż N (po 500) |
 | `DELETE` | `/s/:id` | zamyka przestrzeń i kasuje jej dane |
+| `PUT` | `/s/:id/zaproszenie` | wystawia zaproszenie na 24 h (zastępuje poprzednie) |
+| `DELETE` | `/s/:id/zaproszenie` | unieważnia zaproszenie |
+| `POST` | `/z/:lookup` | odbiera zaproszenie — raz, bez tokenu, max 30 prób/h z adresu |
 
-Każde zapytanie wymaga `Authorization: Bearer <token>`; token telefon
+Zapytania o przestrzeń wymagają `Authorization: Bearer <token>`; token telefon
 wylicza z klucza, serwer trzyma tylko jego skrót SHA-256. Limity: 16 KB na
 rekord, 5000 rekordów na przestrzeń. CORS tylko dla adresów z `ALLOWED_ORIGINS`.
+
+## Zaproszenia
+
+8-cyfrowy kod nie trafia na serwer. Telefon wyprowadza z niego (PBKDF2,
+300 tys. rund) identyfikator zaproszenia i klucz, którym szyfruje klucz
+kalendarza. Serwer trzyma zaszyfrowane zaproszenie pod tym identyfikatorem
+przez 24 h i oddaje je tylko raz.
+
+## Aktualizacja serwera
+
+Po zmianach w `schema.sql` lub `src/`:
+
+```bash
+npm run schema:remote   # dokłada nowe tabele, istniejące dane zostają
+npm run deploy
+```

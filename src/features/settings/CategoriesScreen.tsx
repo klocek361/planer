@@ -94,7 +94,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
                 aria-hidden="true"
               />
               <span className="text-ink flex-1 truncate text-sm font-medium">{category.name}</span>
-              {category.shared && (
+              {category.space && (
                 <span className="text-accent text-xs font-medium">{t.wspolny.wspolna}</span>
               )}
               <span className="text-faint font-mono text-xs">{category.color}</span>

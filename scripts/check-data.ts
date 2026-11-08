@@ -22,12 +22,20 @@ import {
   moveCategory,
   updateCategory,
 } from '../src/data/categories';
-import { addEvent, deleteEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
+import { addEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
 import { addTask, buildTaskTree, deleteTask, toggleTask } from '../src/data/tasks';
-import { syncNow } from '../src/sync/engine';
-import { createSpace, joinSpace, leaveSpace, rotateLink, setCategoryShared } from '../src/sync/state';
-import { parseJoinLink } from '../src/sync/crypto';
 import { SyncError, type SyncTransport } from '../src/sync/transport';
+import { syncAll, syncSpace } from '../src/sync/engine';
+import {
+  createInvite,
+  createSpace,
+  joinWithCode,
+  leaveSpace,
+  revokeInvite,
+  rotateKey,
+  setMyName,
+} from '../src/sync/state';
+import { normalizeInviteCode } from '../src/sync/crypto';
 import {
   addHabit,
   completedCount,
@@ -1248,9 +1256,11 @@ check(
   validTask({ title: 'Woda', done: false, order: 1, createdAt: 1, quick: 'tak' }) === null,
 );
 
-// ── Wspólny kalendarz: dwa telefony, serwer w pamięci ─────────────────────
+// ── Wspólne kalendarze: kilka telefonów, kody zaproszeń, serwer w pamięci ──
 {
-  const serwer = new Map<string, { token: string; seq: number; rekordy: Map<string, { seq: number; blob: string }> }>();
+  type Przestrzen = { token: string; seq: number; rekordy: Map<string, { seq: number; blob: string }> };
+  const serwer = new Map<string, Przestrzen>();
+  const zaproszenia = new Map<string, { space: string; blob: string }>();
   const przestrzen = (id: string, token: string) => {
     const s = serwer.get(id);
     if (!s) throw new SyncError('brak-przestrzeni');
@@ -1268,9 +1278,7 @@ check(
     async pull(id, token, since) {
       const s = przestrzen(id, token);
       // Małe strony, żeby przetestować dopytywanie o kolejne.
-      const nowe = [...s.rekordy.entries()]
-        .filter(([, r]) => r.seq > since)
-        .sort((a, b) => a[1].seq - b[1].seq);
+      const nowe = [...s.rekordy.entries()].filter(([, r]) => r.seq > since).sort((a, b) => a[1].seq - b[1].seq);
       const strona = nowe.slice(0, 3);
       return {
         records: strona.map(([uid, r]) => ({ uid, seq: r.seq, blob: r.blob })),
@@ -1281,121 +1289,178 @@ check(
     async close(id, token) {
       przestrzen(id, token);
       serwer.delete(id);
+      for (const [k, z] of zaproszenia) if (z.space === id) zaproszenia.delete(k);
+    },
+    async putInvite(id, token, lookup, blob) {
+      przestrzen(id, token);
+      for (const [k, z] of zaproszenia) if (z.space === id) zaproszenia.delete(k);
+      zaproszenia.set(lookup, { space: id, blob });
+      return Date.now() + 86_400_000;
+    },
+    async deleteInvite(id, token) {
+      przestrzen(id, token);
+      for (const [k, z] of zaproszenia) if (z.space === id) zaproszenia.delete(k);
+    },
+    async takeInvite(lookup) {
+      const z = zaproszenia.get(lookup);
+      if (!z) throw new SyncError('zly-kod');
+      zaproszenia.delete(lookup);
+      return z.blob;
     },
   };
+  const kodBledu = async (dzialanie: () => Promise<unknown>) => {
+    try {
+      await dzialanie();
+      return 'brak';
+    } catch (err) {
+      return err instanceof SyncError ? err.code : 'inny';
+    }
+  };
 
-  // Dwa telefony na jednej bazie testowej: przełączenie zapisuje tabele
+  // Kilka telefonów na jednej bazie testowej: przełączenie zapisuje tabele
   // jednego „telefonu” i wgrywa drugiego.
-  const tabele = [db.categories, db.events, db.tasks, db.habits, db.syncState, db.syncShadow] as const;
-  const telefony: Record<string, unknown[][]> = { A: tabele.map(() => []), B: tabele.map(() => []) };
+  const tabele = [db.categories, db.events, db.tasks, db.habits, db.members, db.syncState, db.syncShadow] as const;
+  const telefony: Record<string, unknown[][]> = {};
   let aktywny = 'A';
-  const przelacz = async (na: 'A' | 'B') => {
+  const przelacz = async (na: string) => {
     telefony[aktywny] = await Promise.all(tabele.map((t) => t.toArray()));
     for (const [i, t] of tabele.entries()) {
       await t.clear();
-      await (t as typeof db.events).bulkAdd(telefony[na]![i] as never[]);
+      await (t as typeof db.events).bulkAdd((telefony[na]?.[i] ?? []) as never[]);
     }
     aktywny = na;
   };
 
   for (const t of tabele) await t.clear();
-  await addCategory('Rodzina', '#6E8399');
   await addCategory('Praca', '#7E8E62');
-  const [rodzinaA, pracaA] = await db.categories.orderBy('order').toArray();
-  await addEvent({ title: 'Urodziny babci', date: '2026-09-01', allDay: true, categoryId: rodzinaA!.id });
-  await addEvent({ title: 'Tajne spotkanie', date: '2026-09-02', allDay: true, categoryId: pracaA!.id });
+  const pracaA = (await db.categories.toArray())[0]!;
+
+  // Telefon A zakłada kalendarz: nazwa i własne imię
+  const dom = await createSpace(transport, '  Rodzina  ', ' Michał ');
+  const rodzinaA = (await db.categories.where('space').equals(dom).first())!;
+  check('wspólny kalendarz tworzy kategorię o tej nazwie', rodzinaA?.name === 'Rodzina');
+  check('prywatna kategoria zostaje prywatna', !(await db.categories.get(pracaA.id!))!.space);
+  const ja = (await db.syncState.get(dom))!;
+  check('założyciel jest pierwszym członkiem', (await db.members.get(ja.memberId))?.name === 'Michał');
+
+  await addEvent({ title: 'Urodziny babci', date: '2026-09-01', allDay: true, categoryId: rodzinaA.id });
+  await addEvent({ title: 'Tajne spotkanie', date: '2026-09-02', allDay: true, categoryId: pracaA.id });
   await addEvent(
-    { title: 'Basen', date: '2026-09-03', allDay: false, startTime: '18:00', categoryId: rodzinaA!.id },
+    { title: 'Basen', date: '2026-09-03', allDay: false, startTime: '18:00', categoryId: rodzinaA.id },
     { freq: 'tydzien', count: 3 },
   );
+  await syncSpace(transport, dom);
+  const bloki = [...serwer.get(dom)!.rekordy.values()].map((r) => r.blob).join('');
+  check('na serwer idzie kategoria, członek i 4 wspólne wydarzenia', serwer.get(dom)!.rekordy.size === 6);
+  check('serwer nie widzi treści ani imion', !/babci|Micha|Rodzina/.test(bloki));
 
-  const link = await createSpace(transport, [rodzinaA!.id!], 'https://x.github.io/planer/');
-  check('link do wspólnego kalendarza ma sekret po #', /#dolacz=[\w-]{22}\.[\w-]{43}$/.test(link));
-  check('link da się wyciągnąć z dłuższej wiadomości', parseJoinLink(`Hej, dołącz: ${link} :)`) !== null);
-  const [tylkoPrzestrzen] = [...serwer.values()];
-  const wszystkieBloki = [...tylkoPrzestrzen!.rekordy.values()].map((r) => r.blob).join('');
-  check('na serwer idzie kategoria i 4 wspólne wydarzenia', tylkoPrzestrzen!.rekordy.size === 5);
-  check('serwer nie widzi treści wydarzeń', !wszystkieBloki.includes('babci') && !atob(wszystkieBloki.slice(0, 40).replace(/-/g, '+').replace(/_/g, '/')).includes('Urodziny'));
+  // Kod zaproszenia
+  const kod = await createInvite(transport, dom);
+  check('kod zaproszenia ma 8 cyfr', /^\d{8}$/.test(kod));
+  check('kod przyjmuje spacje i myślniki', normalizeInviteCode(`${kod.slice(0, 4)} - ${kod.slice(4)}`) === kod);
+  check('serwer nie zna samego kodu', ![...zaproszenia.keys()].some((k) => k.includes(kod)));
 
-  // Telefon B dołącza
+  // Telefon B dołącza kodem
   await przelacz('B');
-  await joinSpace(transport, `Kalendarz: ${link}`);
+  const domB = await joinWithCode(transport, `${kod.slice(0, 4)} ${kod.slice(4)}`, 'Kasia');
+  check('B dołącza do tego samego kalendarza', domB === dom);
   const kategorieB = await db.categories.toArray();
-  check('B dostaje wspólną kategorię', kategorieB.length === 1 && kategorieB[0]!.name === 'Rodzina' && kategorieB[0]!.shared === true);
+  check('B dostaje wspólną kategorię', kategorieB.length === 1 && kategorieB[0]!.name === 'Rodzina' && kategorieB[0]!.space === dom);
   check('B dostaje wspólne wydarzenia, bez prywatnych', (await db.events.count()) === 4 && !(await db.events.toArray()).some((e) => e.title === 'Tajne spotkanie'));
-  const basenyB = await db.events.filter((e) => e.title === 'Basen').toArray();
-  check('seria zostaje serią po drugiej stronie', basenyB.length === 3 && new Set(basenyB.map((e) => e.seriesId)).size === 1);
+  const czlonkowieB = await db.members.toArray();
+  const kasia = czlonkowieB.find((m) => m.name === 'Kasia');
+  check('B widzi obu członków', czlonkowieB.length === 2);
+  check('przy B zapisano, kto ją zaprosił', kasia?.by === ja.memberId);
 
-  // B zmienia i dodaje, A to widzi
+  // Kod działa tylko raz
+  await przelacz('C');
+  check('zużyty kod nie wpuszcza drugiej osoby', (await kodBledu(() => joinWithCode(transport, kod, 'Obcy'))) === 'zly-kod');
+  check('nieudane wejście nie zostawia śladu', (await db.syncState.count()) === 0 && (await db.categories.count()) === 0);
+  check('kod z błędną liczbą cyfr jest odrzucany', (await kodBledu(() => joinWithCode(transport, '1234', 'Obcy'))) === 'zly-kod');
+
+  // A widzi B na liście członków, zmiany B docierają do A
+  await przelacz('B');
   const urodzinyB = (await db.events.filter((e) => e.title === 'Urodziny babci').first())!;
   await updateEvent(urodzinyB.id!, { title: 'Urodziny babci 🎂' });
-  await addEvent({ title: 'Wywiadówka', date: '2026-09-10', allDay: true, categoryId: kategorieB[0]!.id });
-  await syncNow(transport);
+  await setMyName(dom, 'Kasia K.');
+  await syncSpace(transport, dom);
   await przelacz('A');
-  await syncNow(transport);
+  await syncSpace(transport, dom);
+  check('A widzi B na liście członków pod nowym imieniem', (await db.members.where('space').equals(dom).toArray()).some((m) => m.name === 'Kasia K.'));
   check('A widzi zmianę od B', (await db.events.filter((e) => e.title === 'Urodziny babci 🎂').count()) === 1);
-  check('A widzi nowe wydarzenie od B', (await db.events.filter((e) => e.title === 'Wywiadówka').count()) === 1);
   check('prywatne wydarzenie A zostaje na miejscu', (await db.events.filter((e) => e.title === 'Tajne spotkanie').count()) === 1);
 
-  // A usuwa, B traci
-  const wywiadowkaA = (await db.events.filter((e) => e.title === 'Wywiadówka').first())!;
-  await deleteEvent(wywiadowkaA.id!);
-  await syncNow(transport);
-  await przelacz('B');
-  await syncNow(transport);
-  check('usunięcie u A znika u B', (await db.events.filter((e) => e.title === 'Wywiadówka').count()) === 0);
-
   // Konflikt: obie strony zmieniają to samo; kto wyśle później, ten wygrywa
+  await przelacz('B');
   const basenB = (await db.events.filter((e) => e.title === 'Basen').first())!;
   await updateEvent(basenB.id!, { startTime: '19:00' });
   await przelacz('A');
   const basenA = (await db.events.where('uid').equals(basenB.uid!).first())!;
   await updateEvent(basenA.id!, { startTime: '17:00' });
-  await syncNow(transport);
+  await syncSpace(transport, dom);
   await przelacz('B');
-  await syncNow(transport);
+  await syncSpace(transport, dom);
   check('przy konflikcie lokalna zmiana nie ginie', (await db.events.where('uid').equals(basenB.uid!).first())!.startTime === '19:00');
   await przelacz('A');
-  await syncNow(transport);
+  await syncSpace(transport, dom);
   check('po konflikcie obie strony mają to samo', (await db.events.where('uid').equals(basenB.uid!).first())!.startTime === '19:00');
+  const seqPrzed = serwer.get(dom)!.seq;
+  await syncSpace(transport, dom);
+  check('synchronizacja bez zmian nic nie wysyła', serwer.get(dom)!.seq === seqPrzed);
 
-  // Ponowna synchronizacja bez zmian nic nie wysyła
-  const seqPrzed = [...serwer.values()][0]!.seq;
-  await syncNow(transport);
-  check('synchronizacja bez zmian nic nie wysyła', [...serwer.values()][0]!.seq === seqPrzed);
+  // Nowy kod unieważnia poprzedni, unieważnienie działa
+  const kod1 = await createInvite(transport, dom);
+  const kod2 = await createInvite(transport, dom);
+  await revokeInvite(transport, dom);
+  await przelacz('C');
+  check('nowy kod unieważnia poprzedni', (await kodBledu(() => joinWithCode(transport, kod1, 'Obcy'))) === 'zly-kod');
+  check('unieważniony kod nie działa', (await kodBledu(() => joinWithCode(transport, kod2, 'Obcy'))) === 'zly-kod');
 
-  // Nowy link: stary przestaje działać
-  const nowyLink = await rotateLink(transport, 'https://x.github.io/planer/');
-  check('nowy link różni się od starego', nowyLink !== link && serwer.size === 1);
-  await przelacz('B');
-  let bladStaregoLinku = '';
-  try {
-    await syncNow(transport);
-  } catch (err) {
-    bladStaregoLinku = err instanceof SyncError ? err.code : 'inny';
-  }
-  check('stary link po wymianie przestaje działać', bladStaregoLinku === 'brak-przestrzeni');
-  await leaveSpace();
-  await joinSpace(transport, nowyLink);
-  check('B wraca nowym linkiem bez dublowania', (await db.events.count()) === 4 && (await db.categories.count()) === 1);
-
-  // Wyłączenie współdzielenia kategorii usuwa ją u drugiej osoby
+  // Drugi kalendarz: osobna kategoria, osobni członkowie, osobne imię
   await przelacz('A');
-  const rodzinaPoZmianie = (await db.categories.filter((c) => c.name === 'Rodzina').first())!;
-  await setCategoryShared(rodzinaPoZmianie.id!, false);
-  await syncNow(transport);
-  check('A zachowuje swoje dane po wyłączeniu współdzielenia', (await db.events.where('categoryId').equals(rodzinaPoZmianie.id!).count()) === 4);
-  await przelacz('B');
-  await syncNow(transport);
-  check('B traci kategorię, której A już nie współdzieli', (await db.categories.count()) === 0 && (await db.events.count()) === 0);
+  const praca = await createSpace(transport, 'Zespół', 'Michał z pracy');
+  check('telefon należy do dwóch kalendarzy naraz', (await db.syncState.count()) === 2);
+  check('każdy kalendarz ma własną listę członków', (await db.members.where('space').equals(praca).count()) === 1 && (await db.members.where('space').equals(dom).count()) === 2);
+  check('imię jest osobne w każdym kalendarzu', (await db.members.where('space').equals(praca).first())!.name === 'Michał z pracy');
+  await syncAll(transport, () => undefined);
+  check('wydarzenia nie przeciekają między kalendarzami', serwer.get(praca)!.rekordy.size === 2);
 
-  let zlyLink = '';
-  try {
-    await joinSpace(transport, 'to nie jest link');
-  } catch (err) {
-    zlyLink = err instanceof SyncError ? err.code : 'inny';
-  }
-  check('zły link jest odrzucany bez śladu', zlyLink === 'odmowa');
+  // B wychodzi: znika z listy u A, u siebie zachowuje dane jako prywatne
+  await przelacz('B');
+  await leaveSpace(transport, dom);
+  check('po wyjściu kategoria zostaje jako prywatna', (await db.categories.count()) === 1 && !(await db.categories.toArray())[0]!.space);
+  check('po wyjściu wydarzenia zostają', (await db.events.count()) === 4);
+  check('po wyjściu nie ma śladu członkostwa', (await db.syncState.count()) === 0 && (await db.members.count()) === 0);
+  await przelacz('A');
+  await syncSpace(transport, dom);
+  check('A nie widzi już B na liście członków', (await db.members.where('space').equals(dom).count()) === 1);
+
+  // Ktoś nowy wchodzi, a potem A odcina wszystkich
+  const kod3 = await createInvite(transport, dom);
+  await przelacz('C');
+  await joinWithCode(transport, kod3, 'Gość');
+  await przelacz('A');
+  await syncSpace(transport, dom);
+  check('A widzi nowego członka', (await db.members.where('space').equals(dom).count()) === 2);
+  const nowyDom = await rotateKey(transport, dom);
+  check('po odcięciu A zostaje sam', (await db.members.where('space').equals(nowyDom).count()) === 1);
+  check('stary kalendarz znika z serwera', !serwer.has(dom) && serwer.has(nowyDom));
+  check('wydarzenia przechodzą do nowego kalendarza', (await db.events.count()) === 5 && (await db.categories.where('space').equals(nowyDom).count()) === 1);
+  await przelacz('C');
+  check('odcięta osoba traci dostęp', (await kodBledu(() => syncSpace(transport, dom))) === 'brak-przestrzeni');
+
+  // Usunięcie wspólnej kategorii usuwa kalendarz u innych
+  await przelacz('A');
+  const kod4 = await createInvite(transport, nowyDom);
+  await przelacz('D');
+  await joinWithCode(transport, kod4, 'Dorota');
+  check('D dostaje kalendarz', (await db.events.count()) === 4);
+  await przelacz('A');
+  await deleteCategory((await db.categories.where('space').equals(nowyDom).first())!.id!);
+  await syncSpace(transport, nowyDom);
+  await przelacz('D');
+  await syncSpace(transport, nowyDom);
+  check('usunięty kalendarz znika u innych', (await db.categories.count()) === 0 && (await db.events.count()) === 0);
 
   for (const t of tabele) await t.clear();
 }

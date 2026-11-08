@@ -3,10 +3,9 @@
 Kalendarz, zadania i nawyki w jednym — z wyglądem do przestawienia pod siebie.
 
 Aplikacja działa jako PWA: instaluje się z przeglądarki, bez App Store i bez kont.
-**Dane zostają na telefonie.** Jedyny wyjątek to kategorie, które sama
-udostępnisz we **Wspólnym kalendarzu** — ich wydarzenia trafiają na serwer
-wyłącznie zaszyfrowane, a klucz do nich ma tylko link, który wysyłasz
-zaufanym osobom.
+**Dane zostają na telefonie.** Jedyny wyjątek to **wspólne kalendarze** —
+ich wydarzenia trafiają na serwer wyłącznie zaszyfrowane, a klucz mają tylko
+członkowie, zaproszeni jednorazowym kodem.
 
 ## Instalacja na iPhonie
 
@@ -38,19 +37,21 @@ Adres aplikacji: `https://klocek361.github.io/planer/`.
 Adres bazowy bierze się z nazwy repozytorium automatycznie, więc zmiana nazwy
 niczego nie psuje.
 
-## Wspólny kalendarz
+## Wspólne kalendarze
 
-Ustawienia → Wspólny kalendarz → wybór kategorii → link dla drugiej osoby.
-Druga osoba wkleja link w **swojej** aplikacji (Ustawienia → Wspólny kalendarz
-→ Dołącz). Zmiany synchronizują się same, co ok. 45 s przy otwartej aplikacji.
+Ustawienia → Wspólny kalendarz → „Nowy wspólny kalendarz” → nazwa i własne
+imię. Powstaje wspólna kategoria — wydarzenia dodane do niej widzą wszyscy
+członkowie. Kolejne osoby zapraszasz **8-cyfrowym kodem** (jednorazowym,
+ważnym 24 h); wpisują go w swojej aplikacji w „Dołącz kodem”.
 
-- Bez kont i haseł: dostęp daje link. Klucz szyfrujący siedzi w części po `#`,
-  której przeglądarka nie wysyła nigdzie — serwer widzi tylko zaszyfrowane bloki.
-- „Zmień link” zakłada nową przestrzeń i zamyka starą, gdy link trafił
-  w niepowołane ręce.
+- Bez kont i haseł. Klucz kalendarza zostaje na telefonach członków, serwer
+  widzi tylko zaszyfrowane bloki. Kod jednorazowo przekazuje ten klucz.
+- Każdy kalendarz ma listę członków (imię i kto zaprosił). Można należeć do
+  kilku kalendarzy naraz, z innym imieniem w każdym.
+- „Odetnij wszystkich” daje kalendarzowi nowy klucz, gdy trzeba kogoś odciąć.
 - Serwer to Cloudflare Worker z bazą D1 (darmowy plan), kod w `sync-server/`,
-  instrukcja wdrożenia w `sync-server/README.md`. Bez skonfigurowanego serwera
-  aplikacja działa jak dotąd, w pełni lokalnie.
+  instrukcja w `sync-server/README.md`. Bez skonfigurowanego serwera aplikacja
+  działa jak dotąd, w pełni lokalnie.
 
 ## Praca lokalna
 
@@ -76,7 +77,7 @@ npm run icons      # przegenerowanie ikon aplikacji
 | `src/ui/` | Wspólne elementy: przyciski, panele, próbnik koloru |
 | `src/platform/` | Rzeczy zależne od systemu — **jedyne miejsce do podmiany** przy przejściu na Capacitora (App Store, Android) |
 | `src/lib/` | Rachunki na datach |
-| `src/sync/` | Wspólny kalendarz: szyfrowanie, silnik synchronizacji, link |
+| `src/sync/` | Wspólne kalendarze: szyfrowanie, synchronizacja, kody zaproszeń |
 | `sync-server/` | Serwer wspólnego kalendarza (Cloudflare Worker + D1) |
 
 Cały wygląd żyje jako zmienne CSS ustawiane z jednego obiektu motywu, więc

@@ -1,18 +1,17 @@
 /**
- * Szyfrowanie wspólnego kalendarza.
+ * Szyfrowanie wspólnych kalendarzy.
  *
- * Link do wspólnej przestrzeni ma postać `#dolacz=<id>.<klucz>`. Z klucza
- * wyprowadzamy (HKDF) dwie niezależne rzeczy:
+ * Każdy kalendarz ma losowy klucz (32 bajty), który zostaje na telefonach
+ * członków. Z klucza wyprowadzamy (HKDF) dwie niezależne rzeczy:
  * - klucz AES-GCM, którym szyfrujemy każdy rekord — serwer go nie zna,
- * - token zapisu, który serwer sprawdza — żeby sama znajomość `id` nie
- *   pozwalała niczego czytać ani zapisywać.
- * Z tokenu nie da się odtworzyć klucza szyfrującego.
+ * - token zapisu, który serwer sprawdza — żeby sama znajomość id kalendarza
+ *   nie pozwalała niczego czytać ani zapisywać.
+ * Klucz trafia do nowej osoby w zaproszeniu, zaszyfrowanym 8-cyfrowym kodem.
  */
 
 const KEY_BYTES = 32;
 const ID_BYTES = 16;
 const IV_BYTES = 12;
-const LINK_PREFIX = 'dolacz=';
 
 export function toBase64Url(bytes: Uint8Array): string {
   let binary = '';
@@ -41,21 +40,54 @@ export function newSpaceSecret(): SpaceSecret {
   return { spaceId: randomId(ID_BYTES), key: randomId(KEY_BYTES) };
 }
 
-/** Link do wysłania drugiej osobie. Sekret siedzi po `#`, więc nie trafia do serwera strony. */
-export function buildJoinLink(base: string, secret: SpaceSecret): string {
-  return `${base.replace(/#.*$/, '')}#${LINK_PREFIX}${secret.spaceId}.${secret.key}`;
+/** Długość kodu zaproszenia. */
+export const INVITE_DIGITS = 8;
+
+/** Losowy kod z 8 cyfr — równomiernie, bez przewagi niższych liczb. */
+export function newInviteCode(): string {
+  const limit = 10 ** INVITE_DIGITS;
+  const ceiling = Math.floor(0x1_0000_0000 / limit) * limit;
+  for (;;) {
+    const [value] = crypto.getRandomValues(new Uint32Array(1));
+    if (value! < ceiling) return String(value! % limit).padStart(INVITE_DIGITS, '0');
+  }
 }
 
-const SECRET_PATTERN = /dolacz=([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})/;
+/** Zostawia same cyfry — kod da się wkleić razem ze spacjami czy myślnikami. */
+export function normalizeInviteCode(text: string): string | null {
+  const digits = text.replace(/\D/g, '');
+  return digits.length === INVITE_DIGITS ? digits : null;
+}
+
+const INVITE_SALT = new TextEncoder().encode('planer-kaskowy-zaproszenie');
+const INVITE_ITERATIONS = 300_000;
 
 /**
- * Wyciąga sekret z wklejonego tekstu. Przyjmuje cały link albo sam fragment,
- * także z doklejonym tekstem wiadomości dookoła.
+ * Z kodu wyprowadzamy (PBKDF2, celowo powoli) dwie rzeczy: identyfikator, pod
+ * którym serwer trzyma zaproszenie, i klucz, którym jest ono zaszyfrowane.
+ * Serwer zna tylko identyfikator, a powolne wyprowadzanie utrudnia mu
+ * odgadnięcie kodu przez sprawdzanie wszystkich 100 milionów możliwości.
  */
-export function parseJoinLink(text: string): SpaceSecret | null {
-  const match = SECRET_PATTERN.exec(text.trim());
-  if (!match) return null;
-  return { spaceId: match[1]!, key: match[2]! };
+export async function inviteMaterial(code: string): Promise<{ lookup: string; key: CryptoKey }> {
+  const base = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(code),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  );
+  const bits = new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-256', salt: INVITE_SALT, iterations: INVITE_ITERATIONS },
+      base,
+      512,
+    ),
+  );
+  const key = await crypto.subtle.importKey('raw', bits.slice(32), 'AES-GCM', false, [
+    'encrypt',
+    'decrypt',
+  ]);
+  return { lookup: toBase64Url(bits.slice(0, 32)), key };
 }
 
 async function hkdfBase(key: string): Promise<CryptoKey> {
