@@ -8,6 +8,8 @@ import type {
   Habit,
   HabitEntry,
   Note,
+  SyncShadow,
+  SyncState,
   Task,
 } from './types';
 
@@ -20,6 +22,8 @@ class PlanerDB extends Dexie {
   notes!: Table<Note, number>;
   lists!: Table<Checklist, number>;
   listItems!: Table<ChecklistItem, number>;
+  syncState!: Table<SyncState, string>;
+  syncShadow!: Table<SyncShadow, string>;
 
   constructor() {
     super('planer-kaskowy');
@@ -74,6 +78,17 @@ class PlanerDB extends Dexie {
     this.version(5).stores({
       lists: '++id, order',
       listItems: '++id, listId, [listId+done], order',
+    });
+
+    // Wersja 6: wspólny kalendarz. Kategorie i wydarzenia dostają indeks
+    // globalnego `uid`, a dwie nowe tabele trzymają stan synchronizacji:
+    // `syncState` — przynależność do wspólnej przestrzeni (jeden wiersz),
+    // `syncShadow` — ostatnio uzgodniona z serwerem treść każdego rekordu.
+    this.version(6).stores({
+      categories: '++id, order, uid',
+      events: '++id, date, categoryId, seriesId, uid',
+      syncState: '&id',
+      syncShadow: '&uid',
     });
 
     // Uruchamiane raz, przy pierwszym otwarciu aplikacji na danym telefonie.

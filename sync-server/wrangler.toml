@@ -1,0 +1,16 @@
+name = "planer-sync"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+# Publikacja pod adresem https://planer-sync.<subdomena>.workers.dev
+workers_dev = true
+
+[vars]
+# Strony, które mogą rozmawiać z serwerem. Lokalny serwer deweloperski Vite
+# jest dopisany na czas prób.
+ALLOWED_ORIGINS = "https://klocek361.github.io,http://localhost:5173"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "planer-sync"
+# Baza utworzona przez `npx wrangler d1 create planer-sync`.
+database_id = "d724ca6b-51c4-4254-80bd-59571e890512"

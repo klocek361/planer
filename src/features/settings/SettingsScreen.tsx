@@ -11,14 +11,24 @@ import { CalendarPrefsScreen } from './CalendarPrefsScreen';
 import { LanguageScreen } from './LanguageScreen';
 import { CategoriesScreen } from './CategoriesScreen';
 import { TabsScreen } from './TabsScreen';
+import { SharingScreen } from './SharingScreen';
 
-type View = 'menu' | 'kategorie' | 'wyglad' | 'zakladki' | 'kalendarz' | 'jezyk' | 'kopia';
+type View =
+  | 'menu'
+  | 'kategorie'
+  | 'wyglad'
+  | 'zakladki'
+  | 'kalendarz'
+  | 'wspolny'
+  | 'jezyk'
+  | 'kopia';
 
 const ROWS: Exclude<View, 'menu'>[] = [
   'wyglad',
   'kategorie',
   'zakladki',
   'kalendarz',
+  'wspolny',
   'jezyk',
   'kopia',
 ];
@@ -42,6 +52,8 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
   if (view === 'jezyk') return <LanguageScreen onBack={back} />;
 
   if (view === 'kopia') return <BackupScreen onBack={back} />;
+
+  if (view === 'wspolny') return <SharingScreen onBack={back} />;
 
   return (
     <Screen

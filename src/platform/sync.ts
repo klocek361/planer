@@ -1,0 +1,64 @@
+import {
+  SyncError,
+  type PullResult,
+  type SyncErrorCode,
+  type SyncTransport,
+} from '../sync/transport';
+
+/**
+ * Połączenie z serwerem wspólnego kalendarza przez HTTP — jedyne miejsce
+ * w aplikacji, które wysyła coś do sieci. Adres serwera przychodzi z budowania
+ * (`VITE_SYNC_URL`); bez niego wspólny kalendarz jest po prostu niedostępny.
+ */
+
+export const SYNC_URL: string = (import.meta.env?.VITE_SYNC_URL as string | undefined) ?? '';
+
+export const syncAvailable = (): boolean => SYNC_URL.length > 0;
+
+function codeFor(status: number): SyncErrorCode {
+  if (status === 404) return 'brak-przestrzeni';
+  if (status === 401 || status === 403 || status === 409) return 'odmowa';
+  if (status === 413 || status === 429) return 'limit';
+  return 'serwer';
+}
+
+export function httpTransport(baseUrl: string = SYNC_URL): SyncTransport {
+  const base = baseUrl.replace(/\/+$/, '');
+
+  async function call(method: string, path: string, token: string, body?: unknown): Promise<unknown> {
+    let response: Response;
+    try {
+      response = await fetch(`${base}${path}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        cache: 'no-store',
+      });
+    } catch {
+      throw new SyncError('siec');
+    }
+    if (!response.ok) throw new SyncError(codeFor(response.status));
+    const text = await response.text();
+    return text ? (JSON.parse(text) as unknown) : null;
+  }
+
+  return {
+    async create(spaceId, token) {
+      await call('POST', `/s/${spaceId}`, token);
+    },
+    async push(spaceId, token, records) {
+      await call('PUT', `/s/${spaceId}/r`, token, { records });
+    },
+    async pull(spaceId, token, since) {
+      const data = (await call('GET', `/s/${spaceId}/zmiany?od=${since}`, token)) as PullResult | null;
+      if (!data || !Array.isArray(data.records)) throw new SyncError('serwer');
+      return data;
+    },
+    async close(spaceId, token) {
+      await call('DELETE', `/s/${spaceId}`, token);
+    },
+  };
+}

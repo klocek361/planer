@@ -5,7 +5,16 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
-## [Nieopublikowane]
+## [1.2.0] — 2026-11-08
+
+### Nowe
+- Gotowy zestaw wyglądu **Kaśkowy** — ciepła złamana biel, szałwiowa zieleń,
+  bursztynowe weekendy, miękkie zaokrąglenia i faktura papieru.
+- **Zadania na 5 minut** — oznaczane piorunkiem, zawsze na górze listy.
+  Przycisk „⚡ 5 min” w nagłówku Zadań pokazuje tylko takie zadania.
+- **Wspólny kalendarz** — wybrane kategorie wspólne z drugą osobą, edycja
+  po obu stronach, synchronizacja w tle. Dostęp przez link, bez kont;
+  dane na serwerze wyłącznie zaszyfrowane (AES-GCM, klucz tylko w linku).
 
 ### Poprawki
 - Test paska nawyku ciągłego nie zależy już od dzisiejszej daty.

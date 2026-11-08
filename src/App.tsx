@@ -6,6 +6,7 @@ import { OverviewScreen } from './features/overview/OverviewScreen';
 import { SettingsScreen } from './features/settings/SettingsScreen';
 import { TasksScreen } from './features/tasks/TasksScreen';
 import { useApplyTheme } from './theme/useApplyTheme';
+import { useAutoSync } from './sync/useAutoSync';
 import { useBackDismiss } from './platform/back';
 import { TabBar } from './ui/TabBar';
 import { useLayoutStore } from './app/layoutStore';
@@ -13,6 +14,7 @@ import { visibleTabs, type TabId } from './app/tabs';
 
 export function App() {
   useApplyTheme();
+  useAutoSync();
 
   const order = useLayoutStore((state) => state.order);
   const hidden = useLayoutStore((state) => state.hidden);

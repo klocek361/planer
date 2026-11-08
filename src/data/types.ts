@@ -13,6 +13,13 @@ export interface Category {
   /** Kolor w zapisie HEX, np. '#7E8E62'. */
   color: string;
   order: number;
+  /**
+   * Globalny identyfikator, nadawany kategorii dopiero przy współdzieleniu.
+   * Lokalne `id` różni się między telefonami, `uid` jest wspólne.
+   */
+  uid?: string;
+  /** Kategoria należy do wspólnego kalendarza i synchronizuje się z drugą osobą. */
+  shared?: boolean;
 }
 
 /** Co ile powtarza się wydarzenie z serii. */
@@ -50,6 +57,8 @@ export interface EventItem {
   /** Reguła, z której seria powstała — pokazywana przy edycji. */
   repeat?: Repeat;
   createdAt: number;
+  /** Globalny identyfikator wydarzenia ze wspólnej kategorii (patrz `Category.uid`). */
+  uid?: string;
 }
 
 export interface Task {
@@ -150,4 +159,33 @@ export interface Note {
   content: string;
   createdAt: number;
   updatedAt: number;
+}
+
+/**
+ * Przynależność telefonu do wspólnego kalendarza. Jeden wiersz o id 'stan'.
+ * Klucz szyfrujący zostaje wyłącznie na tym telefonie.
+ */
+export interface SyncState {
+  id: 'stan';
+  /** Identyfikator przestrzeni na serwerze — pierwsza część linku. */
+  spaceId: string;
+  /** Klucz szyfrujący, base64url — druga część linku. Nigdy nie idzie na serwer. */
+  key: string;
+  /** Numer ostatniej pobranej zmiany; następne pobranie zaczyna się za nim. */
+  lastSeq: number;
+  /** Kiedy ostatnio udało się zsynchronizować (ms). */
+  lastSyncAt?: number;
+  /** Ostatni błąd, do pokazania w ustawieniach. Pusty, gdy wszystko działa. */
+  lastError?: string;
+}
+
+/**
+ * Ostatnio uzgodniona z serwerem treść rekordu. Porównanie z nią mówi, co się
+ * zmieniło lokalnie od poprzedniej synchronizacji — bez śledzenia każdego zapisu.
+ */
+export interface SyncShadow {
+  uid: string;
+  kind: 'kategoria' | 'wydarzenie';
+  /** Treść rekordu w postaci wysyłanej na serwer (przed szyfrowaniem). */
+  json: string;
 }

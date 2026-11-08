@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dev-dist/
+.wrangler/
 .toolchain/
 *.local
 .DS_Store
