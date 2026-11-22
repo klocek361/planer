@@ -50,3 +50,26 @@ CREATE TABLE IF NOT EXISTS suggestions (
   version TEXT,
   screen TEXT
 );
+
+-- Rozmowy o sugestiach. Telefon przy wysłaniu sugestii losuje klucz rozmowy
+-- i trzyma go u siebie; tu leży tylko jego skrót SHA-256. Kto zna klucz, ten
+-- czyta odpowiedzi i dopisuje wiadomości. Starsze sugestie nie mają rozmowy.
+CREATE TABLE IF NOT EXISTS suggestion_threads (
+  suggestion_id INTEGER PRIMARY KEY,
+  key_hash TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS suggestion_threads_by_key ON suggestion_threads (key_hash);
+
+-- Wiadomości w rozmowie: 'autor' — osoba, która zgłosiła sugestię (z aplikacji),
+-- 'wlasciciel' — odpowiedź właściciela (wpisywana wranglerem z Planer uwagi).
+-- Tak jak sugestie: niezaszyfrowane.
+CREATE TABLE IF NOT EXISTS suggestion_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  suggestion_id INTEGER NOT NULL,
+  created INTEGER NOT NULL,
+  author TEXT NOT NULL CHECK (author IN ('autor', 'wlasciciel')),
+  text TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS suggestion_messages_by_suggestion ON suggestion_messages (suggestion_id, id);

@@ -46,7 +46,9 @@ VITE_SYNC_URL=http://localhost:8787 npm run dev
 | `PUT` | `/s/:id/zaproszenie` | wystawia zaproszenie na 24 h (zastępuje poprzednie) |
 | `DELETE` | `/s/:id/zaproszenie` | unieważnia zaproszenie |
 | `POST` | `/z/:lookup` | odbiera zaproszenie — raz, bez tokenu, max 30 prób/h z adresu |
-| `POST` | `/sugestie` | zapisuje sugestię z aplikacji — bez tokenu, max 10/h z adresu |
+| `POST` | `/sugestie` | zapisuje sugestię z aplikacji — bez tokenu, max 10/h z adresu; opcjonalnie z kluczem rozmowy |
+| `POST` | `/sugestie/rozmowy` | rozmowy o sugestiach wysłanych z danym kluczem `{ klucz }` |
+| `POST` | `/sugestie/:nr/wiadomosc` | dopisuje wiadomość autora sugestii `{ klucz, text }` — max 30/h z adresu, 200 na rozmowę |
 
 Zapytania o przestrzeń wymagają `Authorization: Bearer <token>`; token telefon
 wylicza z klucza, serwer trzyma tylko jego skrót SHA-256. Limity: 16 KB na
@@ -78,3 +80,11 @@ właściciel serwera. Pobranie (w katalogu `sync-server/`, po `wrangler login`):
 npm run sugestie        # tabela w terminalu, najnowsze na górze
 npm run sugestie:plik   # to samo do pliku sugestie.json (jest w .gitignore)
 ```
+
+**Rozmowy.** Przy wysłaniu sugestii telefon losuje klucz rozmowy (32 bajty)
+i trzyma go u siebie; serwer zapisuje tylko jego skrót SHA-256
+(`suggestion_threads`). Z kluczem telefon czyta odpowiedzi i dopisuje
+wiadomości (`suggestion_messages`, autor `autor`). Odpowiedzi właściciela
+(autor `wlasciciel`) nie mają adresu w API — wpisuje się je wprost do D1
+wranglerem, tak jak pobiera się sugestie. Wiadomości, tak jak sugestie,
+nie są szyfrowane. Sugestie ze starszych wersji aplikacji nie mają rozmowy.

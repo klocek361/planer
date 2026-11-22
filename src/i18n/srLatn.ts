@@ -345,6 +345,12 @@ export const srLatn: Dict = {
     wyslano: 'Hvala! Predlog je poslat.',
     blad: 'Slanje nije uspelo. Proveri internet i pokušaj ponovo.',
     limit: 'Previše poruka odjednom. Pokušaj za sat vremena.',
+    nowaOdpowiedz: 'novi odgovor',
+    prywatnosc: 'Odgovor će se pojaviti ovde, ispod obrasca. Telefon pamti nasumičan ključ razgovora — nije povezan s tvojim kalendarima ni podacima.',
+    rozmowy: 'Tvoji predlozi i odgovori',
+    ty: 'Ti',
+    dopisz: 'Napiši odgovor…',
+    wyslijKrotko: 'Pošalji',
   },
 
   zakladkiEkran: {

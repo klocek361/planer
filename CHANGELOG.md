@@ -5,6 +5,14 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.8.0] — 2026-11-22
+
+### Nowe
+- **Rozmowa o sugestii:** na wysłaną sugestię przychodzi odpowiedź — widać
+  ją w panelu sugestii, pod formularzem, i można odpisać. Kropka na
+  przycisku (!) oznacza nową odpowiedź. Telefon zapamiętuje losowy klucz
+  rozmowy, niezwiązany z kalendarzami ani innymi danymi.
+
 ## [1.7.0] — 2026-11-22
 
 ### Nowe

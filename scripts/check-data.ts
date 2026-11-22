@@ -94,6 +94,7 @@ import {
 } from '../src/data/lists';
 import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
 import { PORTUGUESAS, SENTENCJE, randomQuote } from '../src/app/quotes';
+import { hasUnreadReply, isThreadKey, lastReplyId, newThreadKey, parseConversations } from '../src/app/conversations';
 import {
   SECTION_IDS,
   defaultSections,
@@ -1308,6 +1309,46 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     ulozone.join(',') === '3,1,2,4',
   );
   check('sortowanie nie rusza listy wejściowej', kategorie.map((c) => c.id).join(',') === '1,2,3,4');
+}
+
+// ── Rozmowy o sugestiach ────────────────────────────────────────────────
+{
+  const k1 = newThreadKey();
+  const k2 = newThreadKey();
+  check('klucz rozmowy: 43 znaki base64url', isThreadKey(k1) && k1.length === 43);
+  check('klucz rozmowy jest losowy', k1 !== k2);
+  check('zły klucz rozmowy odrzucony', !isThreadKey('abc') && !isThreadKey(undefined) && !isThreadKey(`${k1}!`.slice(1)));
+
+  const odp = {
+    rozmowy: [
+      { id: 3, created: 100, text: 'Starsza', wiadomosci: [{ id: 7, created: 150, od: 'wlasciciel', text: 'Dzięki' }] },
+      {
+        id: 5,
+        created: 200,
+        text: 'Nowsza',
+        wiadomosci: [
+          { id: 9, created: 260, od: 'autor', text: 'Dopisek' },
+          { id: 8, created: 250, od: 'wlasciciel', text: 'Odpowiedź' },
+          { id: 10, created: 270, od: 'ktoś', text: 'obcy nadawca' },
+          { id: -1, created: 1, od: 'autor', text: 'zły numer' },
+        ],
+      },
+      { id: 'x', created: 1, text: 'zły numer sugestii' },
+      null,
+    ],
+  };
+  const rozmowy = parseConversations(odp);
+  check('rozmowy: odrzuca śmieci', rozmowy.length === 2);
+  check('rozmowy: najnowsza aktywność na górze', rozmowy[0]!.id === 5);
+  check(
+    'rozmowy: wiadomości po kolei, bez obcych nadawców',
+    rozmowy[0]!.wiadomosci.map((m) => m.id).join(',') === '8,9',
+  );
+  check('rozmowy: zła odpowiedź serwera to pusta lista', parseConversations(null).length === 0 && parseConversations({ rozmowy: 'x' }).length === 0);
+  check('ostatnia odpowiedź to najwyższy numer od właściciela', lastReplyId(rozmowy) === 8);
+  check('nowa odpowiedź, gdy przeczytana była starsza', hasUnreadReply(rozmowy, 7));
+  check('brak nowej, gdy przeczytana ta sama', !hasUnreadReply(rozmowy, 8));
+  check('dopisek autora nie liczy się jako odpowiedź', lastReplyId([{ id: 1, created: 1, text: 'x', wiadomosci: [{ id: 4, created: 2, od: 'autor', text: 'y' }] }]) === 0);
 }
 
 // ── Sentencje ───────────────────────────────────────────────────────────

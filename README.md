@@ -44,4 +44,5 @@ kategorie zostają prywatne. Budżet można przypiąć do wspólnego kalendarza,
 ## Sugestie
 
 Przycisk **(!)** w lewym górnym rogu każdego ekranu pozwala wysłać pomysł
-albo zgłosić błąd.
+albo zgłosić błąd. Odpowiedź pojawia się w tym samym panelu, pod formularzem —
+można na nią odpisać. Kropka na **(!)** oznacza nową odpowiedź.

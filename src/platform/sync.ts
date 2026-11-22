@@ -88,23 +88,43 @@ export function httpTransport(baseUrl: string = SYNC_URL): SyncTransport {
   };
 }
 
-/** Wysyła sugestię na serwer. Bez tokenu — serwer ogranicza liczbę wiadomości. */
-export async function sendSuggestion(suggestion: {
-  name: string;
-  text: string;
-  version: string;
-  screen: string;
-}): Promise<void> {
+/** POST z JSON-em do serwera, bez tokenu. Zwraca odpowiedź albo rzuca SyncError. */
+async function postJson(path: string, body: unknown): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetch(`${SYNC_URL.replace(/\/+$/, '')}/sugestie`, {
+    response = await fetch(`${SYNC_URL.replace(/\/+$/, '')}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(suggestion),
+      body: JSON.stringify(body),
       cache: 'no-store',
     });
   } catch {
     throw new SyncError('siec');
   }
   if (!response.ok) throw new SyncError(codeFor(response.status));
+  return response.json().catch(() => null);
+}
+
+/**
+ * Wysyła sugestię na serwer. Bez tokenu — serwer ogranicza liczbę wiadomości.
+ * `klucz` — klucz rozmowy tego telefonu, żeby dało się odpowiedzieć.
+ */
+export async function sendSuggestion(suggestion: {
+  name: string;
+  text: string;
+  version: string;
+  screen: string;
+  klucz: string;
+}): Promise<void> {
+  await postJson('/sugestie', suggestion);
+}
+
+/** Rozmowy o sugestiach wysłanych z tym kluczem (surowa odpowiedź serwera). */
+export function fetchConversations(klucz: string): Promise<unknown> {
+  return postJson('/sugestie/rozmowy', { klucz });
+}
+
+/** Dopisuje wiadomość do rozmowy o sugestii `nr`. */
+export async function sendConversationMessage(klucz: string, nr: number, text: string): Promise<void> {
+  await postJson(`/sugestie/${nr}/wiadomosc`, { klucz, text });
 }

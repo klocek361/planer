@@ -14,7 +14,9 @@
  *   PUT    /s/:id/zaproszenie — wystaw zaproszenie { lookup, blob } (24 h, zastępuje poprzednie)
  *   DELETE /s/:id/zaproszenie — unieważnij zaproszenie
  *   POST   /z/:lookup       — odbierz zaproszenie (raz; bez tokenu, z limitem prób)
- *   POST   /sugestie        — zapisz sugestię { name, text, version?, screen? } (bez tokenu, z limitem)
+ *   POST   /sugestie        — zapisz sugestię { name, text, version?, screen?, klucz? } (bez tokenu, z limitem)
+ *   POST   /sugestie/rozmowy — rozmowy o sugestiach wysłanych z danym kluczem { klucz }
+ *   POST   /sugestie/:nr/wiadomosc — dopisz wiadomość do rozmowy { klucz, text } (z limitem)
  * Zapytania o przestrzeń: nagłówek `Authorization: Bearer <token>`.
  */
 
@@ -37,6 +39,12 @@ const MAX_ATTEMPTS_PER_HOUR = 30;
 const MAX_SUGGESTIONS_PER_HOUR = 10;
 const MAX_NAME = 60;
 const MAX_TEXT = 4000;
+/** Ile wiadomości w rozmowach na godzinę z jednego adresu. */
+const MAX_MESSAGES_PER_HOUR = 30;
+/** Ile wiadomości może mieć jedna rozmowa. */
+const MAX_THREAD = 200;
+/** Klucz rozmowy: 32 losowe bajty w base64url — jak token przestrzeni. */
+const THREAD_KEY = TOKEN;
 
 const MAX_BLOB = 16_000;
 const MAX_BATCH = 100;
@@ -84,6 +92,19 @@ function bearer(request: Request): string | null {
   const value = request.headers.get('Authorization') ?? '';
   const token = value.startsWith('Bearer ') ? value.slice(7) : '';
   return TOKEN.test(token) ? token : null;
+}
+
+/** Liczy zapytania z adresu w bieżącej godzinie; true — limit przekroczony. */
+async function overLimit(env: Env, request: Request, prefix: string, max: number): Promise<boolean> {
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'nieznany';
+  const hour = Math.floor(Date.now() / 3_600_000);
+  const row = await env.DB.prepare(
+    `INSERT INTO invite_attempts (ip, hour, n) VALUES (?, ?, 1)
+     ON CONFLICT (ip, hour) DO UPDATE SET n = n + 1 RETURNING n`,
+  )
+    .bind(`${prefix}:${ip}`, hour)
+    .first<{ n: number }>();
+  return (row?.n ?? 0) > max;
 }
 
 /** Sprawdza token przestrzeni. Zwraca kod błędu albo null, gdy wszystko gra. */
@@ -141,21 +162,79 @@ export default {
       if (!name || !text || name.length > MAX_NAME || text.length > MAX_TEXT) {
         return reply(request, env, 400);
       }
-      const ip = request.headers.get('CF-Connecting-IP') ?? 'nieznany';
-      const hour = Math.floor(Date.now() / 3_600_000);
-      const sent = await env.DB.prepare(
-        `INSERT INTO invite_attempts (ip, hour, n) VALUES (?, ?, 1)
-         ON CONFLICT (ip, hour) DO UPDATE SET n = n + 1 RETURNING n`,
-      )
-        .bind(`sugestie:${ip}`, hour)
-        .first<{ n: number }>();
-      if ((sent?.n ?? 0) > MAX_SUGGESTIONS_PER_HOUR) return reply(request, env, 429);
+      // Klucz rozmowy jest opcjonalny — starsze wersje aplikacji go nie wysyłają.
+      const key = body?.klucz;
+      if (key !== undefined && (typeof key !== 'string' || !THREAD_KEY.test(key))) {
+        return reply(request, env, 400);
+      }
+      if (await overLimit(env, request, 'sugestie', MAX_SUGGESTIONS_PER_HOUR)) return reply(request, env, 429);
 
       const short = (value: unknown) => (typeof value === 'string' ? value.slice(0, 40) : null);
-      await env.DB.prepare(
-        'INSERT INTO suggestions (created, name, text, version, screen) VALUES (?, ?, ?, ?, ?)',
+      const row = await env.DB.prepare(
+        'INSERT INTO suggestions (created, name, text, version, screen) VALUES (?, ?, ?, ?, ?) RETURNING id',
       )
         .bind(Date.now(), name, text, short(body?.version), short(body?.screen))
+        .first<{ id: number }>();
+      if (row && typeof key === 'string') {
+        await env.DB.prepare('INSERT INTO suggestion_threads (suggestion_id, key_hash) VALUES (?, ?)')
+          .bind(row.id, await sha256(key))
+          .run();
+      }
+      return reply(request, env, 201, { ok: true, ...(row && typeof key === 'string' ? { id: row.id } : {}) });
+    }
+
+    // Rozmowy o sugestiach wysłanych z tego telefonu (po kluczu rozmowy).
+    if (request.method === 'POST' && parts[0] === 'sugestie' && parts[1] === 'rozmowy' && parts.length === 2) {
+      const body = (await request.json().catch(() => null)) as { klucz?: unknown } | null;
+      if (typeof body?.klucz !== 'string' || !THREAD_KEY.test(body.klucz)) return reply(request, env, 400);
+      const hash = await sha256(body.klucz);
+      const [suggestions, messages] = await env.DB.batch([
+        env.DB.prepare(
+          `SELECT s.id, s.created, s.text FROM suggestions s
+           JOIN suggestion_threads t ON t.suggestion_id = s.id
+           WHERE t.key_hash = ? ORDER BY s.id`,
+        ).bind(hash),
+        env.DB.prepare(
+          `SELECT m.id, m.suggestion_id, m.created, m.author, m.text FROM suggestion_messages m
+           JOIN suggestion_threads t ON t.suggestion_id = m.suggestion_id
+           WHERE t.key_hash = ? ORDER BY m.id`,
+        ).bind(hash),
+      ]);
+      type Msg = { id: number; suggestion_id: number; created: number; author: string; text: string };
+      const bySuggestion = new Map<number, { id: number; created: number; od: string; text: string }[]>();
+      for (const m of (messages?.results ?? []) as Msg[]) {
+        const list = bySuggestion.get(m.suggestion_id) ?? [];
+        list.push({ id: m.id, created: m.created, od: m.author, text: m.text });
+        bySuggestion.set(m.suggestion_id, list);
+      }
+      const rozmowy = ((suggestions?.results ?? []) as { id: number; created: number; text: string }[]).map(
+        (s) => ({ id: s.id, created: s.created, text: s.text, wiadomosci: bySuggestion.get(s.id) ?? [] }),
+      );
+      return reply(request, env, 200, { rozmowy });
+    }
+
+    // Wiadomość od autora sugestii — tylko z kluczem tej rozmowy.
+    if (request.method === 'POST' && parts[0] === 'sugestie' && parts[2] === 'wiadomosc' && parts.length === 3) {
+      const nr = Number(parts[1]);
+      if (!Number.isSafeInteger(nr) || nr <= 0) return reply(request, env, 404);
+      const body = (await request.json().catch(() => null)) as { klucz?: unknown; text?: unknown } | null;
+      const text = typeof body?.text === 'string' ? body.text.trim() : '';
+      if (typeof body?.klucz !== 'string' || !THREAD_KEY.test(body.klucz) || !text || text.length > MAX_TEXT) {
+        return reply(request, env, 400);
+      }
+      const thread = await env.DB.prepare('SELECT key_hash FROM suggestion_threads WHERE suggestion_id = ?')
+        .bind(nr)
+        .first<{ key_hash: string }>();
+      if (!thread || !sameText(thread.key_hash, await sha256(body.klucz))) return reply(request, env, 404);
+      if (await overLimit(env, request, 'czat', MAX_MESSAGES_PER_HOUR)) return reply(request, env, 429);
+      const count = await env.DB.prepare('SELECT count(*) AS n FROM suggestion_messages WHERE suggestion_id = ?')
+        .bind(nr)
+        .first<{ n: number }>();
+      if ((count?.n ?? 0) >= MAX_THREAD) return reply(request, env, 429);
+      await env.DB.prepare(
+        "INSERT INTO suggestion_messages (suggestion_id, created, author, text) VALUES (?, ?, 'autor', ?)",
+      )
+        .bind(nr, Date.now(), text)
         .run();
       return reply(request, env, 201, { ok: true });
     }

@@ -349,6 +349,12 @@ export const pt: Dict = {
     wyslano: 'Obrigado! Sugestão enviada.',
     blad: 'Não foi possível enviar. Verifique a ligação e tente de novo.',
     limit: 'Demasiadas mensagens de uma vez. Tente daqui a uma hora.',
+    nowaOdpowiedz: 'nova resposta',
+    prywatnosc: 'A resposta aparecerá aqui, por baixo do formulário. O telemóvel guarda uma chave aleatória da conversa — não está ligada aos seus calendários nem aos seus dados.',
+    rozmowy: 'As suas sugestões e respostas',
+    ty: 'Eu',
+    dopisz: 'Escreva uma resposta…',
+    wyslijKrotko: 'Enviar',
   },
 
   zakladkiEkran: {

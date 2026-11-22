@@ -34,7 +34,8 @@ tag `vX.Y.Z` dla każdej wydanej wersji.
 
 Cloudflare Worker z bazą D1 (darmowy plan), kod w `sync-server/`, instrukcja
 w `sync-server/README.md`. Serwer widzi tylko zaszyfrowane bloki. Przyjmuje
-też sugestie z aplikacji — pobiera się je poleceniem `npm run sugestie`
+też sugestie z aplikacji i rozmowy o nich (`src/app/conversations.ts`,
+`src/ui/Feedback.tsx`) — pobiera się je poleceniem `npm run sugestie`
 w `sync-server/`.
 
 ## Jak to jest poskładane

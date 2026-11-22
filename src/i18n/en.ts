@@ -348,6 +348,12 @@ export const en: Dict = {
     wyslano: 'Thank you! Suggestion sent.',
     blad: 'Could not send. Check your connection and try again.',
     limit: 'Too many messages at once. Try again in an hour.',
+    nowaOdpowiedz: 'new reply',
+    prywatnosc: 'The reply will appear here, below the form. Your phone keeps a random conversation key — it is not linked to your calendars or data.',
+    rozmowy: 'Your suggestions and replies',
+    ty: 'You',
+    dopisz: 'Write a reply…',
+    wyslijKrotko: 'Send',
   },
 
   zakladkiEkran: {

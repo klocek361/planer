@@ -350,6 +350,12 @@ export const pl = {
     wyslano: 'Dziękuję! Sugestia wysłana.',
     blad: 'Nie udało się wysłać. Sprawdź internet i spróbuj ponownie.',
     limit: 'Za dużo wiadomości naraz. Spróbuj za godzinę.',
+    nowaOdpowiedz: 'jest nowa odpowiedź',
+    prywatnosc: 'Odpowiedź pojawi się tutaj, pod formularzem. Telefon zapamiętuje losowy klucz rozmowy — nie jest powiązany z Twoimi kalendarzami ani danymi.',
+    rozmowy: 'Twoje sugestie i odpowiedzi',
+    ty: 'Ty',
+    dopisz: 'Napisz odpowiedź…',
+    wyslijKrotko: 'Wyślij',
   },
 
   zakladkiEkran: {
