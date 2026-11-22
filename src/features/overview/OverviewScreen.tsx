@@ -56,11 +56,11 @@ const isEmpty = (b: Bucket) => b.events.length + b.habits.length + b.tasks.lengt
  * czyli najbliższe dwa tygodnie po dniach albo po obszarach.
  */
 export function OverviewScreen({ onOpenSettings }: Props) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [editing, setEditing] = useState<Task | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sekcjeOpen, setSekcjeOpen] = useState(false);
-  const [quote] = useState(() => randomQuote());
+  const [quote] = useState(() => randomQuote(lang));
   const [onlyQuick, setOnlyQuick] = useState(false);
   const [soonMode, setSoonMode] = useState<SoonMode>('dni');
 

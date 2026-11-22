@@ -9,6 +9,7 @@ import {
   monthRange,
   monthSummary,
   progress,
+  sortBySpent,
 } from '../../data/budget';
 import { db } from '../../data/db';
 import type { MoneyEntry, SavingsGoal } from '../../data/types';
@@ -207,7 +208,7 @@ export function BudgetScreen({ onOpenSettings }: { onOpenSettings: () => void })
           <SoftCard>
             <h3 className="text-muted pb-2 text-sm">{t.budzet.wedlugKategorii}</h3>
             <ul className="flex flex-col gap-2.5">
-              {expenseCategories.map((category) => {
+              {sortBySpent(expenseCategories, summary.byCategory).map((category) => {
                 const spent = summary.byCategory.get(category.id!) ?? 0;
                 const ratio = progress(spent, category.goal);
                 const active = filter === category.id;

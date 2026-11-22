@@ -5,6 +5,17 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.7.0] — 2026-11-22
+
+### Nowe
+- **Sentencje po portugalsku:** w języku portugalskim nagłówek Przeglądu
+  i karteczka w Nawykach losują z osobnej puli przekręconych portugalskich
+  przysłów (nie tłumaczeń). W pozostałych językach bez zmian.
+
+### Zmiany
+- **Budżet:** wydatki według kategorii są ułożone od najwyższej sumy
+  w miesiącu do najniższej.
+
 ## [1.6.1] — 2026-11-08
 
 ### Poprawki

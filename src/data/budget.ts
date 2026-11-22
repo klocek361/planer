@@ -103,6 +103,15 @@ export function monthSummary(entries: MoneyEntry[]): MonthSummary {
   return summary;
 }
 
+/**
+ * Kategorie od najwyższej sumy w miesiącu do najniższej. Przy równych
+ * sumach (np. dwa zera) zostaje kolejność z ustawień — sortowanie jest stabilne.
+ */
+export function sortBySpent<T extends { id?: number }>(categories: T[], byCategory: Map<number, number>): T[] {
+  const sum = (c: T) => byCategory.get(c.id!) ?? 0;
+  return [...categories].sort((a, b) => sum(b) - sum(a));
+}
+
 /** Ile jest w skarbonce: suma wpłat minus wypłat, ze wszystkich miesięcy. */
 export function goalSaved(entries: MoneyEntry[], goalId: number): number {
   let saved = 0;

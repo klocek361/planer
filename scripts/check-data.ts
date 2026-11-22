@@ -45,6 +45,7 @@ import {
   monthSummary,
   parseAmount,
   progress,
+  sortBySpent,
   saveBudgetSettings,
 } from '../src/data/budget';
 import {
@@ -92,6 +93,7 @@ import {
   uncheckAll,
 } from '../src/data/lists';
 import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
+import { PORTUGUESAS, SENTENCJE, randomQuote } from '../src/app/quotes';
 import {
   SECTION_IDS,
   defaultSections,
@@ -1292,6 +1294,30 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   check('bilans: kto zapłacił, także bez wpisu', bilans.byPayer.get('osobaAAAA') === 200000 && bilans.byPayer.get('') === 50000);
   check('skarbonka: wpłaty minus wypłaty', goalSaved(wpisy, 5) === 80000);
   check('postęp celu', progress(50, 200) === 0.25 && progress(10, undefined) === null);
+}
+{
+  // Kategorie w kolejności z ustawień: 1, 2, 3, 4. Wydatki: 3 > 1, a 2 i 4 bez wydatków.
+  const kategorie = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+  const sumy = new Map([
+    [1, 5000],
+    [3, 12000],
+  ]);
+  const ulozone = sortBySpent(kategorie, sumy).map((c) => c.id);
+  check(
+    `kategorie od największej sumy, remisy w kolejności z ustawień (jest ${ulozone.join(',')})`,
+    ulozone.join(',') === '3,1,2,4',
+  );
+  check('sortowanie nie rusza listy wejściowej', kategorie.map((c) => c.id).join(',') === '1,2,3,4');
+}
+
+// ── Sentencje ───────────────────────────────────────────────────────────
+{
+  const losuj = (lang: Parameters<typeof randomQuote>[0]) =>
+    Array.from({ length: 200 }, () => randomQuote(lang));
+  check('po portugalsku tylko sentencje portugalskie', losuj('pt').every((s) => PORTUGUESAS.includes(s)));
+  check('w pozostałych językach polskie i podlaskie', (['pl', 'en', 'sr-Latn', 'sr-Cyrl'] as const).every((l) => losuj(l).every((s) => SENTENCJE.includes(s))));
+  check('„inna” wyklucza podaną sentencję', losuj('pt').length > 0 && Array.from({ length: 200 }, () => randomQuote('pt', PORTUGUESAS[0])).every((s) => s !== PORTUGUESAS[0]));
+  check('pula portugalska bez powtórzeń', new Set(PORTUGUESAS).size === PORTUGUESAS.length);
 }
 {
   await db.moneyEntries.clear();

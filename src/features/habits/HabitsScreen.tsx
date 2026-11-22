@@ -32,11 +32,11 @@ const HISTORY_DAYS = 366;
  * po kategoriach, przy każdym kółko z postępem dnia i kropki ostatnich dni.
  */
 export function HabitsScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [editing, setEditing] = useState<Habit | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
-  const [quote, setQuote] = useState<string | null>(() => randomQuote());
+  const [quote, setQuote] = useState<string | null>(() => randomQuote(lang));
 
   const todayKey = useMemo(() => toKey(new Date()), []);
   const history = useMemo(() => lastDays(HISTORY_DAYS), []);
