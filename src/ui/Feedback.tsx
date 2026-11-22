@@ -3,11 +3,15 @@ import { create } from 'zustand';
 import { APP_VERSION, AUTHOR_NAME } from '../app/version';
 import {
   hasUnreadReply,
+  isArchived,
   isThreadKey,
   lastReplyId,
   newThreadKey,
+  parseArchive,
   parseConversations,
+  setArchived,
   type Conversation,
+  type ConversationArchive,
 } from '../app/conversations';
 import { useT } from '../i18n';
 import { shortDateLabel, toKey } from '../lib/dates';
@@ -29,6 +33,8 @@ const NAME_KEY = 'planer-imie-sugestii';
 const THREAD_KEY = 'planer-klucz-rozmowy';
 /** Numer ostatniej przeczytanej odpowiedzi — do kropki na przycisku (!). */
 const SEEN_KEY = 'planer-rozmowy-przeczytane';
+/** Rozmowy schowane do archiwum — tylko na tym telefonie. */
+const ARCHIVE_KEY = 'planer-rozmowy-archiwum';
 
 /** Co ile pobierać rozmowy, gdy panel jest otwarty. */
 const POLL_OPEN_MS = 30_000;
@@ -146,6 +152,14 @@ export function FeedbackSheet() {
   const [status, setStatus] = useState<'wyslano' | 'blad' | 'limit' | null>(null);
   // Gdy panel otwarto z powodu nowej odpowiedzi — rozmowy idą na górę.
   const [repliesFirst, setRepliesFirst] = useState(false);
+  const [archive, setArchive] = useState<ConversationArchive>(() => parseArchive(readStorage(ARCHIVE_KEY)));
+  const [showArchived, setShowArchived] = useState(false);
+
+  const toggleArchived = (c: Conversation, archived: boolean) => {
+    const next = setArchived(archive, c, archived);
+    setArchive(next);
+    writeStorage(ARCHIVE_KEY, JSON.stringify(next));
+  };
 
   // Rozmowy: przy starcie, po powrocie do aplikacji, a przy otwartym panelu co chwilę.
   useEffect(() => {
@@ -238,13 +252,35 @@ export function FeedbackSheet() {
     </div>
   );
 
+  const archivedCount = conversations.filter((c) => isArchived(c, archive)).length;
+  const shown = conversations.filter((c) => showArchived || !isArchived(c, archive));
   const threads =
     conversations.length > 0 ? (
       <section className="flex flex-col gap-3">
-        <h3 className="text-muted text-sm">{t.sugestie.rozmowy}</h3>
-        {conversations.map((c) => (
-          <Thread key={c.id} conversation={c} />
-        ))}
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-muted text-sm">{t.sugestie.rozmowy}</h3>
+          {archivedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowArchived(!showArchived)}
+              aria-pressed={showArchived}
+              className="text-accent text-xs"
+            >
+              {showArchived ? t.sugestie.ukryjZarchiwizowane : t.sugestie.pokazZarchiwizowane(archivedCount)}
+            </button>
+          )}
+        </div>
+        {shown.map((c) => {
+          const archived = isArchived(c, archive);
+          return (
+            <Thread
+              key={c.id}
+              conversation={c}
+              archived={archived}
+              onArchive={() => toggleArchived(c, !archived)}
+            />
+          );
+        })}
       </section>
     ) : null;
 
@@ -267,8 +303,27 @@ export function FeedbackSheet() {
   );
 }
 
-/** Jedna rozmowa: sugestia, wiadomości i pole na dopisek. */
-function Thread({ conversation }: { conversation: Conversation }) {
+/** Pudełko archiwum; ze strzałką w górę, gdy rozmowa jest w archiwum (= przywróć). */
+function ArchiveIcon({ restore }: { restore: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="5" rx="1" />
+      <path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9" />
+      {restore ? <path d="M12 17v-5m-2.5 2.5L12 12l2.5 2.5" /> : <path d="M10 13h4" />}
+    </svg>
+  );
+}
+
+/** Jedna rozmowa: sugestia, wiadomości, pole na dopisek i archiwum w rogu. */
+function Thread({
+  conversation,
+  archived,
+  onArchive,
+}: {
+  conversation: Conversation;
+  archived: boolean;
+  onArchive: () => void;
+}) {
   const { t } = useT();
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
@@ -296,7 +351,19 @@ function Thread({ conversation }: { conversation: Conversation }) {
   ];
 
   return (
-    <div className="bg-surface rounded-app flex flex-col gap-2 p-3">
+    <div className={`bg-surface rounded-app flex flex-col gap-2 p-3 ${archived ? 'opacity-60' : ''}`}>
+      <div className="-mb-1 flex items-center justify-end gap-2">
+        {archived && <span className="text-muted text-[0.6875rem]">{t.sugestie.zarchiwizowana}</span>}
+        <button
+          type="button"
+          onClick={onArchive}
+          aria-label={archived ? t.sugestie.przywroc : t.sugestie.archiwizuj}
+          title={archived ? t.sugestie.przywroc : t.sugestie.archiwizuj}
+          className="text-muted active:text-ink -m-1.5 p-1.5"
+        >
+          <ArchiveIcon restore={archived} />
+        </button>
+      </div>
       {bubbles.map((m) => {
         const mine = m.od === 'autor';
         return (

@@ -355,6 +355,11 @@ export const srCyrl: Dict = {
     ty: 'Ти',
     dopisz: 'Напиши одговор…',
     wyslijKrotko: 'Пошаљи',
+    archiwizuj: 'Архивирај разговор',
+    przywroc: 'Врати разговор из архиве',
+    pokazZarchiwizowane: (ile: number) => `Прикажи архивиране (${ile})`,
+    ukryjZarchiwizowane: 'Сакриј архивиране',
+    zarchiwizowana: 'у архиви',
   },
 
   zakladkiEkran: {

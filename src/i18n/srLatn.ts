@@ -351,6 +351,11 @@ export const srLatn: Dict = {
     ty: 'Ti',
     dopisz: 'Napiši odgovor…',
     wyslijKrotko: 'Pošalji',
+    archiwizuj: 'Arhiviraj razgovor',
+    przywroc: 'Vrati razgovor iz arhive',
+    pokazZarchiwizowane: (ile: number) => `Prikaži arhivirane (${ile})`,
+    ukryjZarchiwizowane: 'Sakrij arhivirane',
+    zarchiwizowana: 'u arhivi',
   },
 
   zakladkiEkran: {

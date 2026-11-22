@@ -355,6 +355,11 @@ export const pt: Dict = {
     ty: 'Eu',
     dopisz: 'Escreva uma resposta…',
     wyslijKrotko: 'Enviar',
+    archiwizuj: 'Arquivar conversa',
+    przywroc: 'Restaurar conversa do arquivo',
+    pokazZarchiwizowane: (ile: number) => `Mostrar arquivadas (${ile})`,
+    ukryjZarchiwizowane: 'Ocultar arquivadas',
+    zarchiwizowana: 'arquivada',
   },
 
   zakladkiEkran: {

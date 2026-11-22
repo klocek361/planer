@@ -5,6 +5,14 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.9.0] — 2026-11-22
+
+### Nowe
+- **Archiwum rozmów o sugestiach:** ikonka w rogu rozmowy chowa ją do
+  archiwum — tylko na tym telefonie. „Pokaż zarchiwizowane” pokazuje całą
+  historię i pozwala rozmowę przywrócić. Rozmowa wraca sama, gdy przyjdzie
+  na nią nowa odpowiedź.
+
 ## [1.8.0] — 2026-11-22
 
 ### Nowe

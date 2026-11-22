@@ -94,7 +94,16 @@ import {
 } from '../src/data/lists';
 import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
 import { PORTUGUESAS, SENTENCJE, randomQuote } from '../src/app/quotes';
-import { hasUnreadReply, isThreadKey, lastReplyId, newThreadKey, parseConversations } from '../src/app/conversations';
+import {
+  hasUnreadReply,
+  isArchived,
+  isThreadKey,
+  lastReplyId,
+  newThreadKey,
+  parseArchive,
+  parseConversations,
+  setArchived,
+} from '../src/app/conversations';
 import {
   SECTION_IDS,
   defaultSections,
@@ -1349,6 +1358,33 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   check('nowa odpowiedź, gdy przeczytana była starsza', hasUnreadReply(rozmowy, 7));
   check('brak nowej, gdy przeczytana ta sama', !hasUnreadReply(rozmowy, 8));
   check('dopisek autora nie liczy się jako odpowiedź', lastReplyId([{ id: 1, created: 1, text: 'x', wiadomosci: [{ id: 4, created: 2, od: 'autor', text: 'y' }] }]) === 0);
+}
+
+// ── Archiwum rozmów (tylko na telefonie) ────────────────────────────────
+{
+  const rozmowa = {
+    id: 5,
+    created: 1,
+    text: 'Sugestia',
+    wiadomosci: [
+      { id: 3, created: 2, od: 'wlasciciel' as const, text: 'Odpowiedź' },
+      { id: 4, created: 3, od: 'autor' as const, text: 'Dopisek' },
+    ],
+  };
+  const puste = parseArchive('');
+  check('archiwum: pusty zapis to puste archiwum', Object.keys(puste).length === 0);
+  const schowane = setArchived(puste, rozmowa, true);
+  check('archiwum: schowana rozmowa', isArchived(rozmowa, schowane) && !isArchived(rozmowa, puste));
+  check('archiwum: zapis i odczyt', isArchived(rozmowa, parseArchive(JSON.stringify(schowane))));
+  check('archiwum: przywrócenie', !isArchived(rozmowa, setArchived(schowane, rozmowa, false)));
+  const zOdpowiedzia = { ...rozmowa, wiadomosci: [...rozmowa.wiadomosci, { id: 9, created: 4, od: 'wlasciciel' as const, text: 'Nowa' }] };
+  check('archiwum: nowa odpowiedź przywraca rozmowę', !isArchived(zOdpowiedzia, schowane));
+  const zDopiskiem = { ...rozmowa, wiadomosci: [...rozmowa.wiadomosci, { id: 9, created: 4, od: 'autor' as const, text: 'Mój' }] };
+  check('archiwum: własny dopisek nie przywraca', isArchived(zDopiskiem, schowane));
+  check(
+    'archiwum: śmieci w zapisie pominięte',
+    Object.keys(parseArchive('{"5":2,"x":1,"0":1,"7":-1,"8":"a"}')).join(',') === '5' && Object.keys(parseArchive('[1]')).length === 0,
+  );
 }
 
 // ── Sentencje ───────────────────────────────────────────────────────────

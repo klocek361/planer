@@ -45,4 +45,6 @@ kategorie zostają prywatne. Budżet można przypiąć do wspólnego kalendarza,
 
 Przycisk **(!)** w lewym górnym rogu każdego ekranu pozwala wysłać pomysł
 albo zgłosić błąd. Odpowiedź pojawia się w tym samym panelu, pod formularzem —
-można na nią odpisać. Kropka na **(!)** oznacza nową odpowiedź.
+można na nią odpisać. Kropka na **(!)** oznacza nową odpowiedź. Niepotrzebną
+rozmowę chowa ikonka archiwum w jej rogu; **Pokaż zarchiwizowane** pokazuje ją z
+powrotem.

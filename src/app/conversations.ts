@@ -70,3 +70,44 @@ export function lastReplyId(conversations: Conversation[]): number {
 /** Czy jest odpowiedź nowsza niż ostatnio przeczytana. */
 export const hasUnreadReply = (conversations: Conversation[], lastSeen: number): boolean =>
   lastReplyId(conversations) > lastSeen;
+
+/**
+ * Archiwum rozmów — tylko na tym telefonie, serwer o nim nie wie. Numer sugestii →
+ * numer ostatniej wiadomości w chwili schowania. Rozmowa wraca sama, gdy autor
+ * aplikacji odpowie później (nowa odpowiedź ma być widoczna).
+ */
+export type ConversationArchive = Record<string, number>;
+
+/** Zapis z pamięci telefonu → archiwum; wszystko, co nie pasuje, pomija. */
+export function parseArchive(text: string): ConversationArchive {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return {};
+  }
+  const archive: ConversationArchive = {};
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return archive;
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (/^[1-9]\d*$/.test(key) && Number.isSafeInteger(value) && (value as number) >= 0) {
+      archive[key] = value as number;
+    }
+  }
+  return archive;
+}
+
+const lastMessageId = (c: Conversation): number => c.wiadomosci.reduce((max, m) => Math.max(max, m.id), 0);
+
+export function isArchived(c: Conversation, archive: ConversationArchive): boolean {
+  const mark = archive[String(c.id)];
+  if (mark === undefined) return false;
+  return !c.wiadomosci.some((m) => m.od === 'wlasciciel' && m.id > mark);
+}
+
+/** Chowa rozmowę albo ją przywraca. Zwraca nowe archiwum (stare zostaje bez zmian). */
+export function setArchived(archive: ConversationArchive, c: Conversation, archived: boolean): ConversationArchive {
+  const next = { ...archive };
+  if (archived) next[String(c.id)] = lastMessageId(c);
+  else delete next[String(c.id)];
+  return next;
+}

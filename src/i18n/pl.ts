@@ -356,6 +356,11 @@ export const pl = {
     ty: 'Ty',
     dopisz: 'Napisz odpowiedź…',
     wyslijKrotko: 'Wyślij',
+    archiwizuj: 'Przenieś rozmowę do archiwum',
+    przywroc: 'Przywróć rozmowę z archiwum',
+    pokazZarchiwizowane: (ile: number) => `Pokaż zarchiwizowane (${ile})`,
+    ukryjZarchiwizowane: 'Ukryj zarchiwizowane',
+    zarchiwizowana: 'w archiwum',
   },
 
   zakladkiEkran: {

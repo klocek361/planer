@@ -354,6 +354,11 @@ export const en: Dict = {
     ty: 'You',
     dopisz: 'Write a reply…',
     wyslijKrotko: 'Send',
+    archiwizuj: 'Archive conversation',
+    przywroc: 'Restore conversation from archive',
+    pokazZarchiwizowane: (ile: number) => `Show archived (${ile})`,
+    ukryjZarchiwizowane: 'Hide archived',
+    zarchiwizowana: 'archived',
   },
 
   zakladkiEkran: {
