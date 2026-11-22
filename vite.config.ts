@@ -60,6 +60,11 @@ const base = process.env.APP_BASE ?? '/';
 
 export default defineConfig({
   base,
+  build: {
+    // Czcionki zawsze jako osobne pliki. Małą Vite wkleiłby do CSS jako data:,
+    // a taką polityka bezpieczeństwa (font-src 'self') blokuje — i tak ma zostać.
+    assetsInlineLimit: (file) => (/\.(woff2?|ttf|otf)$/i.test(file) ? false : undefined),
+  },
   plugins: [
     react(),
     tailwindcss(),

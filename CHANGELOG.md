@@ -5,6 +5,13 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.9.1] — 2026-11-22
+
+### Poprawki
+- Czcionka JetBrains Mono (znaki wietnamskie) jest teraz osobnym plikiem.
+  Wcześniej trafiała do pliku stylów, a zabezpieczenia strony ją blokowały
+  — z błędem w konsoli przeglądarki.
+
 ## [1.9.0] — 2026-11-22
 
 ### Nowe
