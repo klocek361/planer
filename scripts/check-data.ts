@@ -1357,7 +1357,21 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   check('ostatnia odpowiedź to najwyższy numer od właściciela', lastReplyId(rozmowy) === 8);
   check('nowa odpowiedź, gdy przeczytana była starsza', hasUnreadReply(rozmowy, 7));
   check('brak nowej, gdy przeczytana ta sama', !hasUnreadReply(rozmowy, 8));
-  check('dopisek autora nie liczy się jako odpowiedź', lastReplyId([{ id: 1, created: 1, text: 'x', wiadomosci: [{ id: 4, created: 2, od: 'autor', text: 'y' }] }]) === 0);
+  check('dopisek autora nie liczy się jako odpowiedź', lastReplyId([{ id: 1, created: 1, text: 'x', zdjecia: [], wiadomosci: [{ id: 4, created: 2, od: 'autor', text: 'y', zdjecia: [] }] }]) === 0);
+  const zeZdjeciami = parseConversations({
+    rozmowy: [
+      {
+        id: 7,
+        created: 1,
+        text: 'Ze zdjęciem',
+        zdjecia: [{ id: 1, przeniesione: false }, { id: 'x' }, null],
+        wiadomosci: [{ id: 2, created: 2, od: 'autor', text: '', zdjecia: [{ id: 3, przeniesione: true }] }],
+      },
+    ],
+  });
+  check('rozmowy: zdjęcia sugestii, śmieci pominięte', zeZdjeciami[0]!.zdjecia.length === 1 && !zeZdjeciami[0]!.zdjecia[0]!.przeniesione);
+  check('rozmowy: wiadomość z samym zdjęciem, przeniesione', zeZdjeciami[0]!.wiadomosci[0]!.zdjecia[0]!.przeniesione);
+  check('rozmowy: brak pola zdjęć to pusta lista', parseConversations(odp)[0]!.zdjecia.length === 0);
 }
 
 // ── Archiwum rozmów (tylko na telefonie) ────────────────────────────────
@@ -1366,9 +1380,10 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     id: 5,
     created: 1,
     text: 'Sugestia',
+    zdjecia: [],
     wiadomosci: [
-      { id: 3, created: 2, od: 'wlasciciel' as const, text: 'Odpowiedź' },
-      { id: 4, created: 3, od: 'autor' as const, text: 'Dopisek' },
+      { id: 3, created: 2, od: 'wlasciciel' as const, text: 'Odpowiedź', zdjecia: [] },
+      { id: 4, created: 3, od: 'autor' as const, text: 'Dopisek', zdjecia: [] },
     ],
   };
   const puste = parseArchive('');
@@ -1377,9 +1392,9 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   check('archiwum: schowana rozmowa', isArchived(rozmowa, schowane) && !isArchived(rozmowa, puste));
   check('archiwum: zapis i odczyt', isArchived(rozmowa, parseArchive(JSON.stringify(schowane))));
   check('archiwum: przywrócenie', !isArchived(rozmowa, setArchived(schowane, rozmowa, false)));
-  const zOdpowiedzia = { ...rozmowa, wiadomosci: [...rozmowa.wiadomosci, { id: 9, created: 4, od: 'wlasciciel' as const, text: 'Nowa' }] };
+  const zOdpowiedzia = { ...rozmowa, wiadomosci: [...rozmowa.wiadomosci, { id: 9, created: 4, od: 'wlasciciel' as const, text: 'Nowa', zdjecia: [] }] };
   check('archiwum: nowa odpowiedź przywraca rozmowę', !isArchived(zOdpowiedzia, schowane));
-  const zDopiskiem = { ...rozmowa, wiadomosci: [...rozmowa.wiadomosci, { id: 9, created: 4, od: 'autor' as const, text: 'Mój' }] };
+  const zDopiskiem = { ...rozmowa, wiadomosci: [...rozmowa.wiadomosci, { id: 9, created: 4, od: 'autor' as const, text: 'Mój', zdjecia: [] }] };
   check('archiwum: własny dopisek nie przywraca', isArchived(zDopiskiem, schowane));
   check(
     'archiwum: śmieci w zapisie pominięte',

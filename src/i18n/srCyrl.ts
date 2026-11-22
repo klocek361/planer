@@ -360,6 +360,12 @@ export const srCyrl: Dict = {
     pokazZarchiwizowane: (ile: number) => `Прикажи архивиране (${ile})`,
     ukryjZarchiwizowane: 'Сакриј архивиране',
     zarchiwizowana: 'у архиви',
+    dodajZdjecie: 'Додај фотографију',
+    usunZdjecie: 'Уклони фотографију',
+    zdjecie: 'Фотографија',
+    zdjecieBlad: 'Фотографију није могуће припремити.',
+    zdjeciaLimit: (ile: number) => `Највише ${ile} фотографије.`,
+    zdjeciePrzeniesione: 'Фотографија предата аутору апликације.',
   },
 
   zakladkiEkran: {

@@ -356,6 +356,12 @@ export const srLatn: Dict = {
     pokazZarchiwizowane: (ile: number) => `Prikaži arhivirane (${ile})`,
     ukryjZarchiwizowane: 'Sakrij arhivirane',
     zarchiwizowana: 'u arhivi',
+    dodajZdjecie: 'Dodaj fotografiju',
+    usunZdjecie: 'Ukloni fotografiju',
+    zdjecie: 'Fotografija',
+    zdjecieBlad: 'Fotografiju nije moguće pripremiti.',
+    zdjeciaLimit: (ile: number) => `Najviše ${ile} fotografije.`,
+    zdjeciePrzeniesione: 'Fotografija predata autoru aplikacije.',
   },
 
   zakladkiEkran: {

@@ -73,3 +73,18 @@ CREATE TABLE IF NOT EXISTS suggestion_messages (
 );
 
 CREATE INDEX IF NOT EXISTS suggestion_messages_by_suggestion ON suggestion_messages (suggestion_id, id);
+
+-- Zdjęcia w rozmowach o sugestiach: JPEG albo PNG zapisany od nowa na telefonie
+-- (bez danych z aparatu), najwyżej 1 MB. message_id NULL — zdjęcie przy samej sugestii.
+-- Po przyjęciu przez właściciela zdjęcie trafia do jego lokalnego katalogu,
+-- a tu zostaje sam wpis bez danych (data NULL) — „przekazane”.
+CREATE TABLE IF NOT EXISTS suggestion_photos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  suggestion_id INTEGER NOT NULL,
+  message_id INTEGER,
+  created INTEGER NOT NULL,
+  type TEXT NOT NULL DEFAULT 'image/jpeg' CHECK (type IN ('image/jpeg', 'image/png')),
+  data BLOB
+);
+
+CREATE INDEX IF NOT EXISTS suggestion_photos_by_suggestion ON suggestion_photos (suggestion_id, id);

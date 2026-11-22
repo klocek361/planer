@@ -5,6 +5,16 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.10.0] — 2026-11-22
+
+### Nowe
+- **Zdjęcia w sugestiach i rozmowach:** do zgłoszenia i do każdej wiadomości
+  można dołączyć do 3 zdjęć (spinacz). Telefon zmniejsza je i zapisuje od
+  nowa — bez danych z aparatu, w tym miejsca zrobienia zdjęcia. Zrzuty
+  ekranu zostają w PNG. Dotknięcie miniatury powiększa zdjęcie.
+- Gdy autor aplikacji przyjmie zgłoszenie, zabiera zdjęcie do siebie —
+  w rozmowie zostaje informacja „Zdjęcie przekazane”.
+
 ## [1.9.1] — 2026-11-22
 
 ### Poprawki

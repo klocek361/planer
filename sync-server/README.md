@@ -48,7 +48,8 @@ VITE_SYNC_URL=http://localhost:8787 npm run dev
 | `POST` | `/z/:lookup` | odbiera zaproszenie — raz, bez tokenu, max 30 prób/h z adresu |
 | `POST` | `/sugestie` | zapisuje sugestię z aplikacji — bez tokenu, max 10/h z adresu; opcjonalnie z kluczem rozmowy |
 | `POST` | `/sugestie/rozmowy` | rozmowy o sugestiach wysłanych z danym kluczem `{ klucz }` |
-| `POST` | `/sugestie/:nr/wiadomosc` | dopisuje wiadomość autora sugestii `{ klucz, text }` — max 30/h z adresu, 200 na rozmowę |
+| `POST` | `/sugestie/:nr/wiadomosc` | dopisuje wiadomość autora sugestii `{ klucz, text, zdjecia? }` — max 30/h z adresu, 200 na rozmowę |
+| `POST` | `/sugestie/zdjecie/:id` | zdjęcie z rozmowy `{ klucz }` → `{ typ, dane }` (base64); 410, gdy już przekazane |
 
 Zapytania o przestrzeń wymagają `Authorization: Bearer <token>`; token telefon
 wylicza z klucza, serwer trzyma tylko jego skrót SHA-256. Limity: 16 KB na
@@ -74,7 +75,10 @@ npm run deploy
 
 Przycisk (!) w lewym górnym rogu aplikacji wysyła imię i treść sugestii.
 To jedyne dane na serwerze, które **nie są szyfrowane** — czyta je tylko
-właściciel serwera. Pobranie (w katalogu `sync-server/`, po `wrangler login`):
+właściciel serwera. Tak samo zdjęcia (`zdjecia`: do 3 JPEG-ów / PNG-ów w base64,
+każde do 1 MB, tylko z kluczem rozmowy) — telefon zapisuje je od nowa, bez danych
+z aparatu. Po przyjęciu sugestii właściciel zabiera zdjęcie do siebie, a na
+serwerze zostaje sam wpis bez danych. Pobranie (w katalogu `sync-server/`, po `wrangler login`):
 
 ```bash
 npm run sugestie        # tabela w terminalu, najnowsze na górze

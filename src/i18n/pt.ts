@@ -360,6 +360,12 @@ export const pt: Dict = {
     pokazZarchiwizowane: (ile: number) => `Mostrar arquivadas (${ile})`,
     ukryjZarchiwizowane: 'Ocultar arquivadas',
     zarchiwizowana: 'arquivada',
+    dodajZdjecie: 'Adicionar foto',
+    usunZdjecie: 'Remover foto',
+    zdjecie: 'Foto',
+    zdjecieBlad: 'Não foi possível preparar a foto.',
+    zdjeciaLimit: (ile: number) => `No máximo ${ile} fotos.`,
+    zdjeciePrzeniesione: 'Foto entregue ao autor da aplicação.',
   },
 
   zakladkiEkran: {

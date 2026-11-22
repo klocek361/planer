@@ -115,6 +115,8 @@ export async function sendSuggestion(suggestion: {
   version: string;
   screen: string;
   klucz: string;
+  /** JPEG-i / PNG-i w base64 (przygotowane przez preparePhoto). */
+  zdjecia?: string[];
 }): Promise<void> {
   await postJson('/sugestie', suggestion);
 }
@@ -124,7 +126,20 @@ export function fetchConversations(klucz: string): Promise<unknown> {
   return postJson('/sugestie/rozmowy', { klucz });
 }
 
-/** Dopisuje wiadomość do rozmowy o sugestii `nr`. */
-export async function sendConversationMessage(klucz: string, nr: number, text: string): Promise<void> {
-  await postJson(`/sugestie/${nr}/wiadomosc`, { klucz, text });
+/** Dopisuje wiadomość (tekst i/lub zdjęcia) do rozmowy o sugestii `nr`. */
+export async function sendConversationMessage(
+  klucz: string,
+  nr: number,
+  text: string,
+  zdjecia: string[] = [],
+): Promise<void> {
+  await postJson(`/sugestie/${nr}/wiadomosc`, { klucz, text, ...(zdjecia.length ? { zdjecia } : {}) });
+}
+
+/** Zdjęcie z rozmowy jako adres data: (pasuje do polityki img-src 'self' data:). */
+export async function fetchConversationPhoto(klucz: string, id: number): Promise<string> {
+  const data = (await postJson(`/sugestie/zdjecie/${id}`, { klucz })) as { typ?: unknown; dane?: unknown } | null;
+  const ok = data?.typ === 'image/jpeg' || data?.typ === 'image/png';
+  if (!ok || typeof data.dane !== 'string') throw new SyncError('serwer');
+  return `data:${data.typ as string};base64,${data.dane}`;
 }

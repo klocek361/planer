@@ -359,6 +359,12 @@ export const en: Dict = {
     pokazZarchiwizowane: (ile: number) => `Show archived (${ile})`,
     ukryjZarchiwizowane: 'Hide archived',
     zarchiwizowana: 'archived',
+    dodajZdjecie: 'Add photo',
+    usunZdjecie: 'Remove photo',
+    zdjecie: 'Photo',
+    zdjecieBlad: 'Could not prepare the photo.',
+    zdjeciaLimit: (ile: number) => `At most ${ile} photos.`,
+    zdjeciePrzeniesione: 'Photo handed over to the app author.',
   },
 
   zakladkiEkran: {

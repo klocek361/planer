@@ -361,6 +361,12 @@ export const pl = {
     pokazZarchiwizowane: (ile: number) => `Pokaż zarchiwizowane (${ile})`,
     ukryjZarchiwizowane: 'Ukryj zarchiwizowane',
     zarchiwizowana: 'w archiwum',
+    dodajZdjecie: 'Dodaj zdjęcie',
+    usunZdjecie: 'Usuń zdjęcie',
+    zdjecie: 'Zdjęcie',
+    zdjecieBlad: 'Nie udało się przygotować zdjęcia.',
+    zdjeciaLimit: (ile: number) => `Najwyżej ${ile} zdjęcia.`,
+    zdjeciePrzeniesione: 'Zdjęcie przekazane autorowi aplikacji.',
   },
 
   zakladkiEkran: {

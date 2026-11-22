@@ -16,7 +16,9 @@
  *   POST   /z/:lookup       — odbierz zaproszenie (raz; bez tokenu, z limitem prób)
  *   POST   /sugestie        — zapisz sugestię { name, text, version?, screen?, klucz? } (bez tokenu, z limitem)
  *   POST   /sugestie/rozmowy — rozmowy o sugestiach wysłanych z danym kluczem { klucz }
- *   POST   /sugestie/:nr/wiadomosc — dopisz wiadomość do rozmowy { klucz, text } (z limitem)
+ *   POST   /sugestie/:nr/wiadomosc — dopisz wiadomość do rozmowy { klucz, text, zdjecia? } (z limitem)
+ *   POST   /sugestie/zdjecie/:id — zdjęcie z rozmowy { klucz } → { typ, dane } (base64)
+ * Zdjęcia (`zdjecia`: do 3 JPEG-ów / PNG-ów w base64, każde ≤ 1 MB) tylko z kluczem rozmowy.
  * Zapytania o przestrzeń: nagłówek `Authorization: Bearer <token>`.
  */
 
@@ -45,6 +47,66 @@ const MAX_MESSAGES_PER_HOUR = 30;
 const MAX_THREAD = 200;
 /** Klucz rozmowy: 32 losowe bajty w base64url — jak token przestrzeni. */
 const THREAD_KEY = TOKEN;
+/** Zdjęcia: najwyżej tyle przy jednej wiadomości, każde najwyżej tyle bajtów. */
+const MAX_PHOTOS = 3;
+const MAX_PHOTO_BYTES = 1_000_000;
+
+type Photo = { bytes: Uint8Array; type: 'image/jpeg' | 'image/png' };
+
+/** Typ obrazu po pierwszych bajtach (nie po deklaracji telefonu); null — ani JPEG, ani PNG. */
+function photoType(b: Uint8Array): Photo['type'] | null {
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  return png.every((v, i) => b[i] === v) ? 'image/png' : null;
+}
+
+/**
+ * Zdjęcia z JSON-a → bajty. undefined → brak zdjęć; null → coś nie tak
+ * (za dużo, za duże, nie base64, ani JPEG, ani PNG). Telefon zapisuje każde
+ * zdjęcie od nowa przez płótno, więc inne formaty nie mają skąd się wziąć.
+ */
+function decodePhotos(value: unknown): Photo[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > MAX_PHOTOS) return null;
+  const photos: Photo[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || item.length > Math.ceil(MAX_PHOTO_BYTES / 3) * 4 + 4) return null;
+    let binary: string;
+    try {
+      binary = atob(item);
+    } catch {
+      return null;
+    }
+    if (binary.length === 0 || binary.length > MAX_PHOTO_BYTES) return null;
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const type = photoType(bytes);
+    if (!type) return null;
+    photos.push({ bytes, type });
+  }
+  return photos;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+function photoInserts(env: Env, suggestionId: number, messageId: number | null, photos: Photo[]) {
+  const now = Date.now();
+  return photos.map(({ bytes, type }) =>
+    env.DB.prepare(
+      'INSERT INTO suggestion_photos (suggestion_id, message_id, created, type, data) VALUES (?, ?, ?, ?, ?)',
+    ).bind(
+      suggestionId,
+      messageId,
+      now,
+      type,
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    ),
+  );
+}
 
 const MAX_BLOB = 16_000;
 const MAX_BATCH = 100;
@@ -167,6 +229,8 @@ export default {
       if (key !== undefined && (typeof key !== 'string' || !THREAD_KEY.test(key))) {
         return reply(request, env, 400);
       }
+      const photos = decodePhotos(body?.zdjecia);
+      if (!photos || (photos.length > 0 && typeof key !== 'string')) return reply(request, env, 400);
       if (await overLimit(env, request, 'sugestie', MAX_SUGGESTIONS_PER_HOUR)) return reply(request, env, 429);
 
       const short = (value: unknown) => (typeof value === 'string' ? value.slice(0, 40) : null);
@@ -176,9 +240,13 @@ export default {
         .bind(Date.now(), name, text, short(body?.version), short(body?.screen))
         .first<{ id: number }>();
       if (row && typeof key === 'string') {
-        await env.DB.prepare('INSERT INTO suggestion_threads (suggestion_id, key_hash) VALUES (?, ?)')
-          .bind(row.id, await sha256(key))
-          .run();
+        await env.DB.batch([
+          env.DB.prepare('INSERT INTO suggestion_threads (suggestion_id, key_hash) VALUES (?, ?)').bind(
+            row.id,
+            await sha256(key),
+          ),
+          ...photoInserts(env, row.id, null, photos),
+        ]);
       }
       return reply(request, env, 201, { ok: true, ...(row && typeof key === 'string' ? { id: row.id } : {}) });
     }
@@ -188,7 +256,7 @@ export default {
       const body = (await request.json().catch(() => null)) as { klucz?: unknown } | null;
       if (typeof body?.klucz !== 'string' || !THREAD_KEY.test(body.klucz)) return reply(request, env, 400);
       const hash = await sha256(body.klucz);
-      const [suggestions, messages] = await env.DB.batch([
+      const [suggestions, messages, photos] = await env.DB.batch([
         env.DB.prepare(
           `SELECT s.id, s.created, s.text FROM suggestions s
            JOIN suggestion_threads t ON t.suggestion_id = s.id
@@ -199,16 +267,34 @@ export default {
            JOIN suggestion_threads t ON t.suggestion_id = m.suggestion_id
            WHERE t.key_hash = ? ORDER BY m.id`,
         ).bind(hash),
+        env.DB.prepare(
+          `SELECT p.id, p.suggestion_id, p.message_id, p.data IS NULL AS moved FROM suggestion_photos p
+           JOIN suggestion_threads t ON t.suggestion_id = p.suggestion_id
+           WHERE t.key_hash = ? ORDER BY p.id`,
+        ).bind(hash),
       ]);
+      type Photo = { id: number; suggestion_id: number; message_id: number | null; moved: number };
+      const photosOf = new Map<string, { id: number; przeniesione: boolean }[]>();
+      for (const p of (photos?.results ?? []) as Photo[]) {
+        const key = p.message_id === null ? `s${p.suggestion_id}` : `m${p.message_id}`;
+        photosOf.set(key, [...(photosOf.get(key) ?? []), { id: p.id, przeniesione: Boolean(p.moved) }]);
+      }
       type Msg = { id: number; suggestion_id: number; created: number; author: string; text: string };
-      const bySuggestion = new Map<number, { id: number; created: number; od: string; text: string }[]>();
+      type Out = { id: number; created: number; od: string; text: string; zdjecia: { id: number; przeniesione: boolean }[] };
+      const bySuggestion = new Map<number, Out[]>();
       for (const m of (messages?.results ?? []) as Msg[]) {
         const list = bySuggestion.get(m.suggestion_id) ?? [];
-        list.push({ id: m.id, created: m.created, od: m.author, text: m.text });
+        list.push({ id: m.id, created: m.created, od: m.author, text: m.text, zdjecia: photosOf.get(`m${m.id}`) ?? [] });
         bySuggestion.set(m.suggestion_id, list);
       }
       const rozmowy = ((suggestions?.results ?? []) as { id: number; created: number; text: string }[]).map(
-        (s) => ({ id: s.id, created: s.created, text: s.text, wiadomosci: bySuggestion.get(s.id) ?? [] }),
+        (s) => ({
+          id: s.id,
+          created: s.created,
+          text: s.text,
+          zdjecia: photosOf.get(`s${s.id}`) ?? [],
+          wiadomosci: bySuggestion.get(s.id) ?? [],
+        }),
       );
       return reply(request, env, 200, { rozmowy });
     }
@@ -217,9 +303,20 @@ export default {
     if (request.method === 'POST' && parts[0] === 'sugestie' && parts[2] === 'wiadomosc' && parts.length === 3) {
       const nr = Number(parts[1]);
       if (!Number.isSafeInteger(nr) || nr <= 0) return reply(request, env, 404);
-      const body = (await request.json().catch(() => null)) as { klucz?: unknown; text?: unknown } | null;
+      const body = (await request.json().catch(() => null)) as {
+        klucz?: unknown;
+        text?: unknown;
+        zdjecia?: unknown;
+      } | null;
       const text = typeof body?.text === 'string' ? body.text.trim() : '';
-      if (typeof body?.klucz !== 'string' || !THREAD_KEY.test(body.klucz) || !text || text.length > MAX_TEXT) {
+      const photos = decodePhotos(body?.zdjecia);
+      if (
+        typeof body?.klucz !== 'string' ||
+        !THREAD_KEY.test(body.klucz) ||
+        !photos ||
+        (!text && photos.length === 0) ||
+        text.length > MAX_TEXT
+      ) {
         return reply(request, env, 400);
       }
       const thread = await env.DB.prepare('SELECT key_hash FROM suggestion_threads WHERE suggestion_id = ?')
@@ -231,12 +328,31 @@ export default {
         .bind(nr)
         .first<{ n: number }>();
       if ((count?.n ?? 0) >= MAX_THREAD) return reply(request, env, 429);
-      await env.DB.prepare(
-        "INSERT INTO suggestion_messages (suggestion_id, created, author, text) VALUES (?, ?, 'autor', ?)",
+      const message = await env.DB.prepare(
+        "INSERT INTO suggestion_messages (suggestion_id, created, author, text) VALUES (?, ?, 'autor', ?) RETURNING id",
       )
         .bind(nr, Date.now(), text)
-        .run();
+        .first<{ id: number }>();
+      if (message && photos.length) await env.DB.batch(photoInserts(env, nr, message.id, photos));
       return reply(request, env, 201, { ok: true });
+    }
+
+    // Zdjęcie z rozmowy — tylko z kluczem rozmowy, do której należy.
+    if (request.method === 'POST' && parts[0] === 'sugestie' && parts[1] === 'zdjecie' && parts.length === 3) {
+      const photoId = Number(parts[2]);
+      if (!Number.isSafeInteger(photoId) || photoId <= 0) return reply(request, env, 404);
+      const body = (await request.json().catch(() => null)) as { klucz?: unknown } | null;
+      if (typeof body?.klucz !== 'string' || !THREAD_KEY.test(body.klucz)) return reply(request, env, 400);
+      const photo = await env.DB.prepare(
+        `SELECT p.data, p.type, t.key_hash FROM suggestion_photos p
+         JOIN suggestion_threads t ON t.suggestion_id = p.suggestion_id WHERE p.id = ?`,
+      )
+        .bind(photoId)
+        .first<{ data: ArrayBuffer | number[] | null; type: string; key_hash: string }>();
+      if (!photo || !sameText(photo.key_hash, await sha256(body.klucz))) return reply(request, env, 404);
+      if (photo.data === null) return reply(request, env, 410);
+      const bytes = photo.data instanceof ArrayBuffer ? new Uint8Array(photo.data) : Uint8Array.from(photo.data);
+      return reply(request, env, 200, { typ: photo.type, dane: toBase64(bytes) });
     }
 
     if (parts[0] !== 's' || !parts[1] || !ID.test(parts[1])) return reply(request, env, 404);

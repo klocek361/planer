@@ -5,12 +5,19 @@
  * z kalendarzami ani innymi danymi z telefonu.
  */
 
+/** Zdjęcie w rozmowie. `przeniesione` — autor aplikacji je przyjął i nie ma go już na serwerze. */
+export interface ConversationPhoto {
+  id: number;
+  przeniesione: boolean;
+}
+
 export interface ConversationMessage {
   id: number;
   created: number;
   /** 'autor' — ten telefon, 'wlasciciel' — odpowiedź autora aplikacji. */
   od: 'autor' | 'wlasciciel';
   text: string;
+  zdjecia: ConversationPhoto[];
 }
 
 export interface Conversation {
@@ -19,7 +26,22 @@ export interface Conversation {
   created: number;
   /** Treść sugestii — pierwsza wiadomość rozmowy. */
   text: string;
+  /** Zdjęcia dołączone do samej sugestii. */
+  zdjecia: ConversationPhoto[];
   wiadomosci: ConversationMessage[];
+}
+
+/** Najwyżej tyle zdjęć przy jednej wiadomości (tak samo pilnuje serwer). */
+export const MAX_PHOTOS = 3;
+
+function parsePhotos(value: unknown): ConversationPhoto[] {
+  if (!Array.isArray(value)) return [];
+  const photos: ConversationPhoto[] = [];
+  for (const raw of value) {
+    const p = raw as Record<string, unknown> | null;
+    if (p && isId(p.id)) photos.push({ id: p.id, przeniesione: p.przeniesione === true });
+  }
+  return photos;
 }
 
 /** Klucz rozmowy: 32 losowe bajty w base64url (43 znaki), jak token przestrzeni. */
@@ -30,10 +52,10 @@ export function newThreadKey(): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+const isId = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) > 0;
+
 export const isThreadKey = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
-
-const isId = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) > 0;
 
 /** Odpowiedź serwera → rozmowy. Odrzuca wszystko, co nie ma oczekiwanego kształtu. */
 export function parseConversations(data: unknown): Conversation[] {
@@ -48,10 +70,10 @@ export function parseConversations(data: unknown): Conversation[] {
       const m = rawMessage as Record<string, unknown> | null;
       if (!m || !isId(m.id) || typeof m.text !== 'string' || typeof m.created !== 'number') continue;
       if (m.od !== 'autor' && m.od !== 'wlasciciel') continue;
-      wiadomosci.push({ id: m.id, created: m.created, od: m.od, text: m.text });
+      wiadomosci.push({ id: m.id, created: m.created, od: m.od, text: m.text, zdjecia: parsePhotos(m.zdjecia) });
     }
     wiadomosci.sort((a, b) => a.id - b.id);
-    result.push({ id: c.id, created: c.created, text: c.text, wiadomosci });
+    result.push({ id: c.id, created: c.created, text: c.text, zdjecia: parsePhotos(c.zdjecia), wiadomosci });
   }
   // Najnowsza aktywność na górze.
   const last = (c: Conversation) => c.wiadomosci.at(-1)?.created ?? c.created;
