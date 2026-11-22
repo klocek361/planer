@@ -37,6 +37,8 @@ export const en: Dict = {
     listyOpis: 'Shopping and other checklists',
     nawykiOpis: 'Daily ticking off',
     budzetOpis: 'Income, expenses and savings',
+    czat: 'Chat',
+    czatOpis: 'Conversations in shared calendars',
   },
 
   daty: {
@@ -277,6 +279,7 @@ export const en: Dict = {
       'brak-przestrzeni': 'This shared calendar no longer exists or your access was removed.',
       odmowa: 'The server refused access.',
       'zly-kod': 'This code is invalid, already used or expired.',
+      'brak-klucza': 'This person still has an older version of the app — the 1:1 chat starts once they update.',
       limit: 'Too many attempts. Try again in an hour.',
       siec: 'No connection. Changes will be sent when you are back online.',
       serwer: 'The server is not responding. Try again later.',
@@ -334,6 +337,21 @@ export const en: Dict = {
     doTerminu: (data: string) => 'by ' + data,
     domyslneWydatki: ['Food', 'Home', 'Transport', 'Health', 'Fun', 'Other'],
     domyslnePrzychody: ['Salary', 'Other'],
+  },
+
+  czat: {
+    brakKalendarza: 'Chat works in shared calendars. Create a shared calendar or join one with a code: Settings → Shared calendar.',
+    calyKalendarz: 'whole calendar chat',
+    brakWiadomosci: 'Nothing yet — say hello.',
+    ty: 'You',
+    napisz: 'Write a message…',
+    wyslij: 'Send',
+    starszaWersja: 'still has an older version of the app',
+    zdjeciaOstrzezenie: 'Note: photos are NOT encrypted — they reach the server as they are. The message text is encrypted.',
+    szyfrowane1na1: 'Encrypted chat — only the two of you can read it.',
+    szyfrowaneGrupa: 'Encrypted chat — all calendar members can read it.',
+    nieczytelna: 'This message is waiting for the other person’s key.',
+    blad: 'Could not send. Check your connection and try again.',
   },
 
   sugestie: {

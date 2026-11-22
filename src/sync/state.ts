@@ -11,6 +11,7 @@ import {
   normalizeInviteCode,
   randomId,
 } from './crypto';
+import { forgetChat } from './chat';
 import { cleanMemberName, syncSpace } from './engine';
 import { SyncError, type SyncTransport } from './transport';
 
@@ -51,6 +52,7 @@ async function forget(space: string): Promise<void> {
     await db.syncShadow.where('space').equals(space).delete();
     await db.syncState.delete(space);
   });
+  await forgetChat(space);
 }
 
 /**
@@ -233,6 +235,8 @@ export async function rotateKey(transport: SyncTransport, space: string): Promis
     },
   );
   await syncSpace(transport, secret.spaceId);
+  // Czat zostaje przy starym kalendarzu, który za chwilę znika z serwera.
+  await forgetChat(space);
 
   try {
     await transport.close(space, await deriveToken(old.key));

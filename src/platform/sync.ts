@@ -85,6 +85,46 @@ export function httpTransport(baseUrl: string = SYNC_URL): SyncTransport {
       if (typeof data?.blob !== 'string') throw new SyncError('zly-kod');
       return data.blob;
     },
+    async chatPush(spaceId, token, uid, blob) {
+      const data = (await call('POST', `/s/${spaceId}/czat`, token, { uid, blob })) as {
+        seq?: unknown;
+        created?: unknown;
+      } | null;
+      if (typeof data?.seq !== 'number' || typeof data.created !== 'number') throw new SyncError('serwer');
+      return { seq: data.seq, created: data.created };
+    },
+    async chatPull(spaceId, token, since) {
+      const data = (await call('GET', `/s/${spaceId}/czat?od=${since}`, token)) as {
+        messages?: unknown;
+        seq?: unknown;
+        more?: unknown;
+      } | null;
+      if (!Array.isArray(data?.messages) || typeof data.seq !== 'number') throw new SyncError('serwer');
+      const messages = (data.messages as Record<string, unknown>[]).filter(
+        (m) =>
+          typeof m?.seq === 'number' &&
+          typeof m.uid === 'string' &&
+          typeof m.blob === 'string' &&
+          typeof m.created === 'number',
+      ) as { seq: number; uid: string; blob: string; created: number }[];
+      return { messages, seq: data.seq, more: data.more === true };
+    },
+    async chatPhotoPut(spaceId, token, dane) {
+      const data = (await call('POST', `/s/${spaceId}/czat/zdjecie`, token, { dane })) as {
+        id?: unknown;
+        typ?: unknown;
+      } | null;
+      if (typeof data?.id !== 'string' || typeof data.typ !== 'string') throw new SyncError('serwer');
+      return { id: data.id, typ: data.typ };
+    },
+    async chatPhotoGet(spaceId, token, id) {
+      const data = (await call('GET', `/s/${spaceId}/czat/zdjecie/${id}`, token)) as {
+        typ?: unknown;
+        dane?: unknown;
+      } | null;
+      if (typeof data?.typ !== 'string' || typeof data.dane !== 'string') throw new SyncError('serwer');
+      return { typ: data.typ, dane: data.dane };
+    },
   };
 }
 

@@ -439,7 +439,7 @@ function ClipIcon() {
  * Wybór zdjęć do wiadomości (najwyżej MAX_PHOTOS): miniatury z „×” i przycisk dodania.
  * `iconOnly` — sam spinacz obok pola odpowiedzi; `compact` — same miniatury nad nim.
  */
-function PhotoPicker({
+export function PhotoPicker({
   photos,
   onChange,
   iconOnly = false,

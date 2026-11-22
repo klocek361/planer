@@ -11,6 +11,10 @@
  *   PUT    /s/:id/r         — zapisz rekordy { records: [{ uid, blob }] }
  *   GET    /s/:id/zmiany?od=N — zmiany o numerze większym niż N
  *   DELETE /s/:id           — zamknij przestrzeń i skasuj jej dane
+ *   POST   /s/:id/czat      — dopisz wiadomość czatu { uid, blob } → { seq }
+ *   GET    /s/:id/czat?od=N — wiadomości czatu o numerze większym niż N
+ *   POST   /s/:id/czat/zdjecie — zdjęcie czatu { dane } (JPEG/PNG, base64, NIE szyfrowane) → { id }
+ *   GET    /s/:id/czat/zdjecie/:pid — zdjęcie czatu → { typ, dane }
  *   PUT    /s/:id/zaproszenie — wystaw zaproszenie { lookup, blob } (24 h, zastępuje poprzednie)
  *   DELETE /s/:id/zaproszenie — unieważnij zaproszenie
  *   POST   /z/:lookup       — odbierz zaproszenie (raz; bez tokenu, z limitem prób)
@@ -112,6 +116,10 @@ const MAX_BLOB = 16_000;
 const MAX_BATCH = 100;
 const MAX_RECORDS = 5_000;
 const PAGE = 500;
+/** Czat: najwięcej wiadomości i zdjęć w jednym kalendarzu. */
+const MAX_CHAT = 50_000;
+const MAX_CHAT_PHOTOS = 3_000;
+const PHOTO_ID = /^[A-Za-z0-9_-]{22}$/;
 
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -430,6 +438,76 @@ export default {
       });
     }
 
+    // ── Czat ──────────────────────────────────────────────────────────────
+    if (action === 'czat' && parts.length === 3 && request.method === 'POST') {
+      const body = (await request.json().catch(() => null)) as { uid?: unknown; blob?: unknown } | null;
+      if (typeof body?.uid !== 'string' || !UID.test(body.uid)) return reply(request, env, 400);
+      if (typeof body.blob !== 'string' || body.blob.length === 0 || body.blob.length > MAX_BLOB) {
+        return reply(request, env, 413);
+      }
+      const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat WHERE space = ?')
+        .bind(id)
+        .first<{ n: number }>();
+      if ((count?.n ?? 0) >= MAX_CHAT) return reply(request, env, 429);
+      // Powtórka tej samej wiadomości (np. po zerwanym połączeniu) nie dubluje jej.
+      await env.DB.prepare(
+        `INSERT INTO chat (space, seq, uid, blob, created)
+         VALUES (?1, (SELECT coalesce(max(seq), 0) + 1 FROM chat WHERE space = ?1), ?2, ?3, ?4)
+         ON CONFLICT (space, uid) DO NOTHING`,
+      )
+        .bind(id, body.uid, body.blob, Date.now())
+        .run();
+      const row = await env.DB.prepare('SELECT seq, created FROM chat WHERE space = ? AND uid = ?')
+        .bind(id, body.uid)
+        .first<{ seq: number; created: number }>();
+      return reply(request, env, 200, { seq: row?.seq ?? 0, created: row?.created ?? Date.now() });
+    }
+
+    if (action === 'czat' && parts.length === 3 && request.method === 'GET') {
+      const since = Number(url.searchParams.get('od') ?? '0');
+      if (!Number.isSafeInteger(since) || since < 0) return reply(request, env, 400);
+      const { results } = await env.DB.prepare(
+        'SELECT seq, uid, blob, created FROM chat WHERE space = ? AND seq > ? ORDER BY seq LIMIT ?',
+      )
+        .bind(id, since, PAGE + 1)
+        .all<{ seq: number; uid: string; blob: string; created: number }>();
+      const page = results.slice(0, PAGE);
+      return reply(request, env, 200, {
+        messages: page,
+        seq: page.at(-1)?.seq ?? since,
+        more: results.length > PAGE,
+      });
+    }
+
+    if (action === 'czat' && parts[3] === 'zdjecie' && parts.length === 4 && request.method === 'POST') {
+      const body = (await request.json().catch(() => null)) as { dane?: unknown } | null;
+      const photos = decodePhotos(body?.dane === undefined ? undefined : [body.dane]);
+      if (!photos || photos.length !== 1) return reply(request, env, 400);
+      const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat_photos WHERE space = ?')
+        .bind(id)
+        .first<{ n: number }>();
+      if ((count?.n ?? 0) >= MAX_CHAT_PHOTOS) return reply(request, env, 429);
+      // 22 losowe znaki base64url (132 bity) — nie do odgadnięcia.
+      const photoId = [...crypto.getRandomValues(new Uint8Array(22))]
+        .map((b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'[b & 63])
+        .join('');
+      const { bytes, type } = photos[0]!;
+      await env.DB.prepare('INSERT INTO chat_photos (id, space, created, type, data) VALUES (?, ?, ?, ?, ?)')
+        .bind(photoId, id, Date.now(), type, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
+        .run();
+      return reply(request, env, 201, { id: photoId, typ: type });
+    }
+
+    if (action === 'czat' && parts[3] === 'zdjecie' && parts.length === 5 && request.method === 'GET') {
+      if (!PHOTO_ID.test(parts[4]!)) return reply(request, env, 404);
+      const photo = await env.DB.prepare('SELECT type, data FROM chat_photos WHERE id = ? AND space = ?')
+        .bind(parts[4], id)
+        .first<{ type: string; data: ArrayBuffer | number[] }>();
+      if (!photo) return reply(request, env, 404);
+      const bytes = photo.data instanceof ArrayBuffer ? new Uint8Array(photo.data) : Uint8Array.from(photo.data);
+      return reply(request, env, 200, { typ: photo.type, dane: toBase64(bytes) });
+    }
+
     if (action === 'zaproszenie' && request.method === 'PUT') {
       const body = (await request.json().catch(() => null)) as {
         lookup?: unknown;
@@ -459,6 +537,8 @@ export default {
       await env.DB.batch([
         env.DB.prepare('DELETE FROM invites WHERE space = ?').bind(id),
         env.DB.prepare('DELETE FROM records WHERE space = ?').bind(id),
+        env.DB.prepare('DELETE FROM chat WHERE space = ?').bind(id),
+        env.DB.prepare('DELETE FROM chat_photos WHERE space = ?').bind(id),
         env.DB.prepare('DELETE FROM spaces WHERE id = ?').bind(id),
       ]);
       return reply(request, env, 200, { ok: true });

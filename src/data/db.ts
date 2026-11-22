@@ -1,6 +1,10 @@
 import Dexie, { type Table } from 'dexie';
 import { DEFAULT_CATEGORY_COLORS } from '../theme/presets';
 import type {
+  ChatKey,
+  ChatMessage,
+  ChatPeer,
+  ChatRead,
   Category,
   Checklist,
   ChecklistItem,
@@ -34,6 +38,10 @@ export class PlanerDB extends Dexie {
   moneyCategories!: Table<MoneyCategory, number>;
   moneyEntries!: Table<MoneyEntry, number>;
   savingsGoals!: Table<SavingsGoal, number>;
+  chatMessages!: Table<ChatMessage, string>;
+  chatPeers!: Table<ChatPeer, string>;
+  chatKeys!: Table<ChatKey, string>;
+  chatRead!: Table<ChatRead, string>;
 
   /** Nazwa bazy do podmiany tylko w testach przejścia między wersjami. */
   constructor(name = 'planer-kaskowy') {
@@ -158,6 +166,16 @@ export class PlanerDB extends Dexie {
       moneyCategories: '++id, kind, order, uid',
       moneyEntries: '++id, date, kind, categoryId, goalId, uid',
       savingsGoals: '++id, order, uid',
+    });
+
+    // Wersja 10: czat we wspólnych kalendarzach — wiadomości, klucze publiczne
+    // członków, własne klucze do rozmów 1:1 i miejsca przeczytania. Nowe
+    // tabele, więc nic nie trzeba migrować.
+    this.version(10).stores({
+      chatMessages: '&uid, space, [space+rozmowa], seq',
+      chatPeers: '&id, space',
+      chatKeys: '&space',
+      chatRead: '&id',
     });
 
     // Uruchamiane raz, przy pierwszym otwarciu aplikacji na danym telefonie.

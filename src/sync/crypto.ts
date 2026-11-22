@@ -144,3 +144,61 @@ export async function decryptText(cipherKey: CryptoKey, blob: string): Promise<s
     return null;
   }
 }
+
+// ── Czat: klucze do rozmów 1:1 ──────────────────────────────────────────
+//
+// Każdy telefon ma w każdym wspólnym kalendarzu własną parę kluczy ECDH (P-256).
+// Klucz publiczny ogłasza na czacie kalendarza, prywatny zostaje w IndexedDB
+// jako nieeksportowalny CryptoKey. Dwie osoby wyprowadzają z niego wspólny
+// klucz pary (ECDH + HKDF) — nie zna go serwer ani pozostali członkowie.
+
+const CHAT_SALT = new TextEncoder().encode('planer-kaskowy-czat');
+
+export interface ChatKeyPair {
+  privateKey: CryptoKey;
+  /** Klucz publiczny: surowy punkt P-256 (65 bajtów), base64url. */
+  pub: string;
+}
+
+export async function newChatKeyPair(): Promise<ChatKeyPair> {
+  const pair = (await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, [
+    'deriveBits',
+  ])) as CryptoKeyPair;
+  const raw = await crypto.subtle.exportKey('raw', pair.publicKey);
+  return { privateKey: pair.privateKey, pub: toBase64Url(new Uint8Array(raw)) };
+}
+
+/** Surowy klucz publiczny P-256 w base64url: 65 bajtów → 87 znaków. */
+export const isChatPub = (value: unknown): value is string =>
+  typeof value === 'string' && /^[A-Za-z0-9_-]{87}$/.test(value);
+
+/**
+ * Klucz AES-GCM rozmowy dwóch członków. Kolejność osób nie ma znaczenia —
+ * obie strony dostają ten sam klucz. W `info` jest kalendarz i obie osoby, żeby
+ * ta sama para w innym kalendarzu miała inny klucz.
+ */
+export async function derivePairKey(
+  privateKey: CryptoKey,
+  peerPub: string,
+  space: string,
+  me: string,
+  peer: string,
+): Promise<CryptoKey> {
+  const peerKey = await crypto.subtle.importKey(
+    'raw',
+    fromBase64Url(peerPub),
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    [],
+  );
+  const shared = await crypto.subtle.deriveBits({ name: 'ECDH', public: peerKey }, privateKey, 256);
+  const base = await crypto.subtle.importKey('raw', shared, 'HKDF', false, ['deriveKey']);
+  const [a, b] = [me, peer].sort();
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: CHAT_SALT, info: new TextEncoder().encode(`${space}|${a}|${b}`) },
+    base,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}

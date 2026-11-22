@@ -21,6 +21,20 @@ export interface PullResult {
   more: boolean;
 }
 
+export interface ChatRecord {
+  seq: number;
+  uid: string;
+  blob: string;
+  /** Czas zapisu na serwerze (ms). */
+  created: number;
+}
+
+export interface ChatPullResult {
+  messages: ChatRecord[];
+  seq: number;
+  more: boolean;
+}
+
 export interface SyncTransport {
   create(spaceId: string, token: string): Promise<void>;
   push(spaceId: string, token: string, records: { uid: string; blob: string }[]): Promise<void>;
@@ -36,6 +50,14 @@ export interface SyncTransport {
   deleteInvite(spaceId: string, token: string): Promise<void>;
   /** Odbiera zaproszenie — serwer oddaje je raz i od razu kasuje. */
   takeInvite(lookup: string): Promise<string>;
+  /** Czat: dopisuje zaszyfrowaną wiadomość, zwraca jej numer i czas zapisu. */
+  chatPush(spaceId: string, token: string, uid: string, blob: string): Promise<{ seq: number; created: number }>;
+  /** Czat: wiadomości o numerze większym niż `since`. */
+  chatPull(spaceId: string, token: string, since: number): Promise<ChatPullResult>;
+  /** Czat: zdjęcie (JPEG/PNG w base64, NIE szyfrowane) → jego id. */
+  chatPhotoPut(spaceId: string, token: string, dane: string): Promise<{ id: string; typ: string }>;
+  /** Czat: zdjęcie → { typ, dane } (base64). */
+  chatPhotoGet(spaceId: string, token: string, id: string): Promise<{ typ: string; dane: string }>;
 }
 
 export type SyncErrorCode =
@@ -44,7 +66,9 @@ export type SyncErrorCode =
   | 'zly-kod'
   | 'limit'
   | 'siec'
-  | 'serwer';
+  | 'serwer'
+  /** Czat 1:1: druga osoba nie ogłosiła jeszcze klucza (starsza wersja aplikacji). */
+  | 'brak-klucza';
 
 export class SyncError extends Error {
   constructor(public readonly code: SyncErrorCode) {

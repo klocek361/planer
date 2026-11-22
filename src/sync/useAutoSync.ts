@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import Dexie from 'dexie';
 import { db } from '../data/db';
 import { httpTransport, syncAvailable } from '../platform/sync';
+import { syncAllChats } from './chat';
 import { syncAll } from './engine';
 import { SyncError } from './transport';
 
@@ -13,10 +14,13 @@ const DEBOUNCE_MS = 2_000;
 /** Synchronizacja wszystkich kalendarzy z zapisem błędu każdego do pokazania w ustawieniach. */
 export async function syncAndRecord(): Promise<void> {
   if (!syncAvailable() || (await db.syncState.count()) === 0) return;
-  await syncAll(httpTransport(), async (space, err) => {
+  const transport = httpTransport();
+  await syncAll(transport, async (space, err) => {
     const code = err instanceof SyncError ? err.code : 'serwer';
     await db.syncState.update(space, { lastError: code });
   });
+  // Czat przy każdej synchronizacji: ogłasza klucz i dociąga nowe wiadomości.
+  await syncAllChats(transport);
 }
 
 /**

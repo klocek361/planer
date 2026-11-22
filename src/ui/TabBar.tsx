@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
-import { BudgetIcon, CalendarIcon, HabitsIcon, ListsIcon, OverviewIcon, TasksIcon } from './icons';
+import { BudgetIcon, CalendarIcon, ChatIcon, HabitsIcon, ListsIcon, OverviewIcon, TasksIcon } from './icons';
+import { useChatUnread } from '../features/chat/ChatScreen';
 import type { TabId } from '../app/tabs';
 import { useT } from '../i18n';
 
@@ -10,6 +11,7 @@ const ICONS: Record<TabId, (p: { className?: string }) => ReactElement> = {
   listy: ListsIcon,
   nawyki: HabitsIcon,
   budzet: BudgetIcon,
+  czat: ChatIcon,
 };
 
 interface Props {
@@ -26,6 +28,7 @@ interface Props {
  */
 export function TabBar({ tabs, active, onChange }: Props) {
   const { t } = useT();
+  const unread = useChatUnread();
 
   return (
     <nav className="border-line bg-bg pb-safe shrink-0 border-t px-2">
@@ -43,7 +46,12 @@ export function TabBar({ tabs, active, onChange }: Props) {
                   isActive ? 'text-accent' : 'text-muted'
                 }`}
               >
-                <Icon className="h-6 w-6" />
+                <span className="relative">
+                  <Icon className="h-6 w-6" />
+                  {id === 'czat' && unread > 0 && (
+                    <span className="bg-accent absolute -top-0.5 -right-1 h-2.5 w-2.5 rounded-full" aria-hidden="true" />
+                  )}
+                </span>
                 <span className="text-[0.6875rem] leading-none font-medium">
                   {t.zakladki[id]}
                 </span>

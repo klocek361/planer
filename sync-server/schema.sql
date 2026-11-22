@@ -88,3 +88,29 @@ CREATE TABLE IF NOT EXISTS suggestion_photos (
 );
 
 CREATE INDEX IF NOT EXISTS suggestion_photos_by_suggestion ON suggestion_photos (suggestion_id, id);
+
+-- Czat we wspólnym kalendarzu: wiadomości dopisywane jak w dzienniku, każda
+-- zaszyfrowana na telefonie (kluczem kalendarza, a rozmowy 1:1 dodatkowo
+-- kluczem pary). Serwer widzi tylko bloki, numer i czas zapisu.
+CREATE TABLE IF NOT EXISTS chat (
+  space TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  uid TEXT NOT NULL,
+  blob TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  PRIMARY KEY (space, seq)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS chat_by_uid ON chat (space, uid);
+
+-- Zdjęcia w czacie — NIE są szyfrowane (użytkownik widzi ostrzeżenie).
+-- Dostęp tylko z tokenem kalendarza; id losowe, znane z wiadomości.
+CREATE TABLE IF NOT EXISTS chat_photos (
+  id TEXT PRIMARY KEY,
+  space TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('image/jpeg', 'image/png')),
+  data BLOB NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS chat_photos_by_space ON chat_photos (space);

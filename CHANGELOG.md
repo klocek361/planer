@@ -5,6 +5,21 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.11.0] — 2026-11-22
+
+### Nowe
+- **Zakładka Czat:** rozmowy z osobami ze wspólnych kalendarzy, jak
+  w komunikatorze — lista (rozmowa całego kalendarza i poszczególne osoby),
+  dotknięcie otwiera rozmowę. Kropka na zakładce i liczniki nowych wiadomości.
+- Rozmowy 1:1 szyfrowane kluczem pary — nie czyta ich serwer ani pozostali
+  członkowie kalendarza. Rozmowa całego kalendarza — kluczem kalendarza.
+- Zdjęcia w czacie (do 3 na wiadomość) — **nieszyfrowane**, z ostrzeżeniem
+  przy dodawaniu.
+
+### Zgodność
+- Nowa wersja bazy na telefonie (10, tabele czatu). Cofnięcie strony do
+  wersji sprzed 1.11.0 nie jest możliwe (Planer push je zablokuje).
+
 ## [1.10.0] — 2026-11-22
 
 ### Nowe

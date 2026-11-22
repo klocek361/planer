@@ -39,6 +39,8 @@ export const pl = {
     listyOpis: 'Zakupy i inne listy do odhaczania',
     nawykiOpis: 'Codzienne odhaczanie',
     budzetOpis: 'Przychody, wydatki i skarbonki',
+    czat: 'Czat',
+    czatOpis: 'Rozmowy we wspólnych kalendarzach',
   },
 
   daty: {
@@ -279,6 +281,7 @@ export const pl = {
       'brak-przestrzeni': 'Ten wspólny kalendarz już nie istnieje albo odebrano Ci dostęp.',
       odmowa: 'Serwer odmówił dostępu.',
       'zly-kod': 'Ten kod jest nieprawidłowy, już użyty albo wygasł.',
+      'brak-klucza': 'Ta osoba ma jeszcze starszą wersję aplikacji — rozmowa 1:1 ruszy, gdy ją zaktualizuje.',
       limit: 'Za dużo prób. Spróbuj za godzinę.',
       siec: 'Brak połączenia. Zmiany wyślą się, gdy wróci internet.',
       serwer: 'Serwer chwilowo nie odpowiada. Spróbuj później.',
@@ -336,6 +339,21 @@ export const pl = {
     doTerminu: (data: string) => 'do ' + data,
     domyslneWydatki: ['Jedzenie', 'Mieszkanie', 'Transport', 'Zdrowie', 'Rozrywka', 'Inne'],
     domyslnePrzychody: ['Pensja', 'Inne'],
+  },
+
+  czat: {
+    brakKalendarza: 'Czat działa we wspólnych kalendarzach. Załóż wspólny kalendarz albo dołącz do niego kodem: Ustawienia → Wspólny kalendarz.',
+    calyKalendarz: 'rozmowa całego kalendarza',
+    brakWiadomosci: 'Jeszcze nic — napisz pierwszy.',
+    ty: 'Ty',
+    napisz: 'Napisz wiadomość…',
+    wyslij: 'Wyślij',
+    starszaWersja: 'ma jeszcze starszą wersję aplikacji',
+    zdjeciaOstrzezenie: 'Uwaga: zdjęcia NIE są szyfrowane — trafiają na serwer w zwykłej postaci. Tekst wiadomości jest szyfrowany.',
+    szyfrowane1na1: 'Rozmowa szyfrowana — czytacie ją tylko wy dwoje.',
+    szyfrowaneGrupa: 'Rozmowa szyfrowana — czytają ją wszyscy członkowie kalendarza.',
+    nieczytelna: 'Wiadomość czeka na klucz drugiej osoby.',
+    blad: 'Nie udało się wysłać. Sprawdź internet i spróbuj ponownie.',
   },
 
   sugestie: {

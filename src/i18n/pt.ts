@@ -37,6 +37,8 @@ export const pt: Dict = {
     listyOpis: 'Compras e outras listas para marcar',
     nawykiOpis: 'Marcação diária',
     budzetOpis: 'Receitas, despesas e poupanças',
+    czat: 'Chat',
+    czatOpis: 'Conversas nos calendários partilhados',
   },
 
   daty: {
@@ -278,6 +280,7 @@ export const pt: Dict = {
       'brak-przestrzeni': 'Este calendário partilhado já não existe ou o seu acesso foi retirado.',
       odmowa: 'O servidor recusou o acesso.',
       'zly-kod': 'Este código é inválido, já foi usado ou expirou.',
+      'brak-klucza': 'Esta pessoa ainda tem uma versão anterior da aplicação — a conversa 1:1 começa quando a atualizar.',
       limit: 'Demasiadas tentativas. Tente daqui a uma hora.',
       siec: 'Sem ligação. As alterações serão enviadas quando voltar a internet.',
       serwer: 'O servidor não responde. Tente mais tarde.',
@@ -335,6 +338,21 @@ export const pt: Dict = {
     doTerminu: (data: string) => 'até ' + data,
     domyslneWydatki: ['Comida', 'Casa', 'Transporte', 'Saúde', 'Lazer', 'Outros'],
     domyslnePrzychody: ['Salário', 'Outros'],
+  },
+
+  czat: {
+    brakKalendarza: 'O chat funciona nos calendários partilhados. Crie um calendário partilhado ou junte-se com um código: Definições → Calendário partilhado.',
+    calyKalendarz: 'conversa de todo o calendário',
+    brakWiadomosci: 'Ainda nada — escreva primeiro.',
+    ty: 'Eu',
+    napisz: 'Escreva uma mensagem…',
+    wyslij: 'Enviar',
+    starszaWersja: 'ainda tem uma versão anterior da aplicação',
+    zdjeciaOstrzezenie: 'Atenção: as fotos NÃO são cifradas — chegam ao servidor tal como estão. O texto da mensagem é cifrado.',
+    szyfrowane1na1: 'Conversa cifrada — só vocês os dois a podem ler.',
+    szyfrowaneGrupa: 'Conversa cifrada — todos os membros do calendário a podem ler.',
+    nieczytelna: 'A mensagem aguarda a chave da outra pessoa.',
+    blad: 'Não foi possível enviar. Verifique a ligação e tente de novo.',
   },
 
   sugestie: {

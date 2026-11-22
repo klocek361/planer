@@ -48,7 +48,7 @@ w `sync-server/`.
 | `src/ui/` | Wspólne elementy: przyciski, panele, próbnik koloru |
 | `src/platform/` | Rzeczy zależne od systemu — **jedyne miejsce do podmiany** przy przejściu na Capacitora (App Store, Android) |
 | `src/lib/` | Rachunki na datach |
-| `src/sync/` | Wspólne kalendarze: szyfrowanie, synchronizacja, kody zaproszeń |
+| `src/sync/` | Wspólne kalendarze: szyfrowanie, synchronizacja, kody zaproszeń; czat (`chat.ts`: osobny kanał, klucze par ECDH P-256 + HKDF, zdjęcia nieszyfrowane) |
 | `sync-server/` | Serwer wspólnego kalendarza (Cloudflare Worker + D1) |
 
 Cały wygląd żyje jako zmienne CSS ustawiane z jednego obiektu motywu, więc

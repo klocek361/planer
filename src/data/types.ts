@@ -192,6 +192,8 @@ export interface SyncState {
   lastError?: string;
   /** Identyfikator tego telefonu na liście członków tego kalendarza. */
   memberId: string;
+  /** Numer ostatniej pobranej wiadomości czatu. */
+  chatSeq?: number;
   /** Aktywny kod zaproszenia wystawiony z tego telefonu (jednorazowy, 24 h). */
   inviteCode?: string;
   /** Do kiedy kod działa (ms). */
@@ -206,6 +208,56 @@ export interface SyncState {
 }
 
 /** Członek wspólnego kalendarza — każdy, kto dołączył kodem, i jego założyciel. */
+/** Zdjęcie w czacie — leży na serwerze bez szyfrowania, w wiadomości tylko jego id. */
+export interface ChatPhoto {
+  id: string;
+  typ: string;
+}
+
+/**
+ * Wiadomość czatu we wspólnym kalendarzu. `rozmowa`: 'g' — cały kalendarz,
+ * inaczej `uid` drugiej osoby (rozmowa 1:1, szyfrowana kluczem pary).
+ */
+export interface ChatMessage {
+  uid: string;
+  space: string;
+  seq: number;
+  rozmowa: string;
+  /** Członek, który napisał. */
+  od: string;
+  tekst: string;
+  zdjecia: ChatPhoto[];
+  /** Czas zapisu na serwerze (ms). */
+  created: number;
+  /** Wiadomość 1:1, której jeszcze nie da się odczytać (brak klucza drugiej osoby). */
+  szyfr?: string;
+}
+
+/** Klucz publiczny członka do rozmów 1:1 (ECDH P-256, surowy, base64url). */
+export interface ChatPeer {
+  /** `${space}:${member}` */
+  id: string;
+  space: string;
+  member: string;
+  pub: string;
+}
+
+/** Własna para kluczy do rozmów 1:1 w danym kalendarzu. Prywatny nie wychodzi z telefonu. */
+export interface ChatKey {
+  space: string;
+  memberId: string;
+  privateKey: CryptoKey;
+  pub: string;
+  /** Klucz publiczny ogłoszony na czacie (żeby inni mogli pisać 1:1). */
+  announced?: boolean;
+}
+
+/** Do którego numeru wiadomości rozmowa jest przeczytana. `id`: `${space}:${rozmowa}`. */
+export interface ChatRead {
+  id: string;
+  seq: number;
+}
+
 export interface Member {
   uid: string;
   /** Kalendarz, do którego należy wpis. */

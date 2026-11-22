@@ -20,6 +20,16 @@ export function CalendarIcon({ className }: IconProps) {
   );
 }
 
+/** Dymek rozmowy — zakładka Czat. */
+export function ChatIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h0A1.5 1.5 0 0 1 4 14.5z" />
+      <path d="M8 8h8M8 11.5h5" />
+    </svg>
+  );
+}
+
 export function TasksIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

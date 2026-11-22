@@ -41,6 +41,20 @@ kategorie zostają prywatne. Budżet można przypiąć do wspólnego kalendarza,
 - Wspólne dane trafiają na serwer wyłącznie zaszyfrowane; klucz mają tylko
   telefony członków.
 
+## Czat
+
+Zakładka **Czat** — rozmowy z osobami, z którymi dzielisz wspólny kalendarz.
+Na liście najpierw rozmowa całego kalendarza, pod nią poszczególne osoby;
+dotknij, żeby pisać. Kropka na zakładce oznacza nowe wiadomości.
+
+- Rozmowa 1:1 jest szyfrowana kluczem, który znacie tylko wy dwoje — nie
+  odczyta jej serwer ani pozostali członkowie kalendarza. Rozmowę całego
+  kalendarza czytają wszyscy jego członkowie.
+- Do wiadomości możesz dołączyć do 3 zdjęć. **Zdjęcia nie są szyfrowane** —
+  aplikacja przypomina o tym przy dodawaniu.
+- Do rozmowy 1:1 obie osoby potrzebują aktualnej wersji aplikacji.
+- Czatu nie ma w kopii zapasowej; po wyjściu z kalendarza znika z telefonu.
+
 ## Sugestie
 
 Przycisk **(!)** w lewym górnym rogu każdego ekranu pozwala wysłać pomysł

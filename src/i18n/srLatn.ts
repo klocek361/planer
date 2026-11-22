@@ -34,6 +34,8 @@ export const srLatn: Dict = {
     listyOpis: 'Kupovina i druge liste za štikliranje',
     nawykiOpis: 'Svakodnevno štikliranje',
     budzetOpis: 'Prihodi, troškovi i štednja',
+    czat: 'Čet',
+    czatOpis: 'Razgovori u zajedničkim kalendarima',
   },
 
   daty: {
@@ -274,6 +276,7 @@ export const srLatn: Dict = {
       'brak-przestrzeni': 'Ovaj zajednički kalendar više ne postoji ili ti je pristup oduzet.',
       odmowa: 'Server je odbio pristup.',
       'zly-kod': 'Ovaj kod nije ispravan, već je iskorišćen ili je istekao.',
+      'brak-klucza': 'Ova osoba još ima stariju verziju aplikacije — razgovor 1:1 počinje kad je ažurira.',
       limit: 'Previše pokušaja. Pokušaj za sat vremena.',
       siec: 'Nema veze. Izmene će se poslati kad se internet vrati.',
       serwer: 'Server trenutno ne odgovara. Pokušaj kasnije.',
@@ -331,6 +334,21 @@ export const srLatn: Dict = {
     doTerminu: (data: string) => 'do ' + data,
     domyslneWydatki: ['Hrana', 'Stan', 'Prevoz', 'Zdravlje', 'Zabava', 'Ostalo'],
     domyslnePrzychody: ['Plata', 'Ostalo'],
+  },
+
+  czat: {
+    brakKalendarza: 'Čet radi u zajedničkim kalendarima. Napravi zajednički kalendar ili se pridruži kodom: Podešavanja → Zajednički kalendar.',
+    calyKalendarz: 'razgovor celog kalendara',
+    brakWiadomosci: 'Još ništa — napiši prvi.',
+    ty: 'Ti',
+    napisz: 'Napiši poruku…',
+    wyslij: 'Pošalji',
+    starszaWersja: 'još ima stariju verziju aplikacije',
+    zdjeciaOstrzezenie: 'Pažnja: fotografije NISU šifrovane — stižu na server kakve jesu. Tekst poruke je šifrovan.',
+    szyfrowane1na1: 'Šifrovan razgovor — čitate ga samo vas dvoje.',
+    szyfrowaneGrupa: 'Šifrovan razgovor — čitaju ga svi članovi kalendara.',
+    nieczytelna: 'Poruka čeka ključ druge osobe.',
+    blad: 'Slanje nije uspelo. Proveri internet i pokušaj ponovo.',
   },
 
   sugestie: {

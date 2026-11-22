@@ -49,6 +49,10 @@ VITE_SYNC_URL=http://localhost:8787 npm run dev
 | `POST` | `/sugestie` | zapisuje sugestię z aplikacji — bez tokenu, max 10/h z adresu; opcjonalnie z kluczem rozmowy |
 | `POST` | `/sugestie/rozmowy` | rozmowy o sugestiach wysłanych z danym kluczem `{ klucz }` |
 | `POST` | `/sugestie/:nr/wiadomosc` | dopisuje wiadomość autora sugestii `{ klucz, text, zdjecia? }` — max 30/h z adresu, 200 na rozmowę |
+| `POST` | `/s/:id/czat` | dopisuje zaszyfrowaną wiadomość czatu `{ uid, blob }` → `{ seq, created }` (max 50 000 na kalendarz) |
+| `GET` | `/s/:id/czat?od=N` | wiadomości czatu o numerze większym niż N (po 500) |
+| `POST` | `/s/:id/czat/zdjecie` | zdjęcie czatu `{ dane }` (JPEG/PNG ≤ 1 MB, **nieszyfrowane**) → `{ id, typ }` |
+| `GET` | `/s/:id/czat/zdjecie/:pid` | zdjęcie czatu → `{ typ, dane }` |
 | `POST` | `/sugestie/zdjecie/:id` | zdjęcie z rozmowy `{ klucz }` → `{ typ, dane }` (base64); 410, gdy już przekazane |
 
 Zapytania o przestrzeń wymagają `Authorization: Bearer <token>`; token telefon

@@ -26,6 +26,8 @@ import {
 import { addEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
 import { addTask, buildTaskTree, deleteTask, toggleTask } from '../src/data/tasks';
 import { SyncError, type SyncTransport } from '../src/sync/transport';
+import { GROUP, buildSections, forgetChat, markChatRead, parseOuter, sendChat, syncChat } from '../src/sync/chat';
+import { decryptText, deriveCipherKey, randomId } from '../src/sync/crypto';
 import { SYNC_FORMAT, syncAll, syncSpace } from '../src/sync/engine';
 import {
   createInvite,
@@ -1431,6 +1433,8 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   type Przestrzen = { token: string; seq: number; rekordy: Map<string, { seq: number; blob: string }> };
   const serwer = new Map<string, Przestrzen>();
   const zaproszenia = new Map<string, { space: string; blob: string }>();
+  const czat = new Map<string, { seq: number; uid: string; blob: string; created: number }[]>();
+  const zdjeciaCzatu = new Map<string, { space: string; typ: string; dane: string }>();
   const przestrzen = (id: string, token: string) => {
     const s = serwer.get(id);
     if (!s) throw new SyncError('brak-przestrzeni');
@@ -1477,6 +1481,33 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
       zaproszenia.delete(lookup);
       return z.blob;
     },
+    async chatPush(id, token, uid, blob) {
+      przestrzen(id, token);
+      const lista = czat.get(id) ?? [];
+      const byla = lista.find((m) => m.uid === uid);
+      if (byla) return { seq: byla.seq, created: byla.created };
+      const wpis = { seq: lista.length + 1, uid, blob, created: Date.now() };
+      czat.set(id, [...lista, wpis]);
+      return { seq: wpis.seq, created: wpis.created };
+    },
+    async chatPull(id, token, since) {
+      przestrzen(id, token);
+      const nowe = (czat.get(id) ?? []).filter((m) => m.seq > since);
+      const strona = nowe.slice(0, 2); // małe strony — test dopytywania
+      return { messages: strona, seq: strona.at(-1)?.seq ?? since, more: nowe.length > strona.length };
+    },
+    async chatPhotoPut(id, token, dane) {
+      przestrzen(id, token);
+      const zid = randomId().slice(0, 22).padEnd(22, 'x');
+      zdjeciaCzatu.set(zid, { space: id, typ: 'image/png', dane });
+      return { id: zid, typ: 'image/png' };
+    },
+    async chatPhotoGet(id, token, zid) {
+      przestrzen(id, token);
+      const z = zdjeciaCzatu.get(zid);
+      if (!z || z.space !== id) throw new SyncError('brak-przestrzeni');
+      return { typ: z.typ, dane: z.dane };
+    },
   };
   const kodBledu = async (dzialanie: () => Promise<unknown>) => {
     try {
@@ -1504,6 +1535,10 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     db.moneyCategories,
     db.moneyEntries,
     db.savingsGoals,
+    db.chatMessages,
+    db.chatPeers,
+    db.chatKeys,
+    db.chatRead,
   ] as const;
   const telefony: Record<string, unknown[][]> = {};
   let aktywny = 'A';
@@ -1740,6 +1775,73 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   check('usunięty kalendarz znika u innych', (await db.categories.count()) === 0 && (await db.events.count()) === 0);
   check('razem z kalendarzem znikają wspólne zadania i nawyki', (await db.tasks.count()) === 0 && (await db.habits.count()) === 0);
   check('razem z kalendarzem znika wspólny budżet', (await db.moneyEntries.count()) === 0 && (await db.budgetSettings.get('budzet'))?.categoryId === undefined);
+
+  // ── Czat: grupa kalendarza, rozmowy 1:1 z kluczem pary, zdjęcia ──
+  {
+    await przelacz('E');
+    const kal = await createSpace(transport, 'Czat', 'Ela');
+    const kodF = await createInvite(transport, kal);
+    await przelacz('F');
+    await joinWithCode(transport, kodF, 'Filip');
+    await przelacz('E');
+    const kodG = await createInvite(transport, kal);
+    await przelacz('G');
+    await joinWithCode(transport, kodG, 'Gosia');
+    const uid = async () => (await db.syncState.get(kal))!.memberId;
+    const gosia = await uid();
+    await syncChat(transport, kal); // G ogłasza klucz
+    await przelacz('F');
+    const filip = await uid();
+    await syncSpace(transport, kal);
+    check('czat: klucz pary nie działa, zanim druga osoba go ogłosi', (await kodBledu(() => sendChat(transport, kal, 'x'.repeat(22), 'hej'))) === 'brak-klucza');
+    await syncChat(transport, kal); // F ogłasza klucz, widzi klucz G
+    await przelacz('E');
+    const ela = await uid();
+    await syncSpace(transport, kal);
+    await syncChat(transport, kal);
+    await sendChat(transport, kal, GROUP, 'Cześć wszystkim!');
+    await sendChat(transport, kal, filip, 'Tajne do Filipa', ['iVBORw0KGgo=']);
+    check('czat: grupa i 1:1 zapisane u nadawcy', (await db.chatMessages.count()) === 2);
+    check('czat: pusta wiadomość odrzucona', (await kodBledu(() => sendChat(transport, kal, GROUP, '   '))) === 'odmowa');
+
+    await przelacz('F');
+    await syncChat(transport, kal);
+    const uFilipa = await db.chatMessages.where('space').equals(kal).toArray();
+    const tajna = uFilipa.find((m) => m.rozmowa === ela);
+    check('czat: odbiorca widzi grupę i swoją rozmowę 1:1', uFilipa.some((m) => m.rozmowa === GROUP && m.tekst === 'Cześć wszystkim!') && tajna?.tekst === 'Tajne do Filipa' && !tajna.szyfr);
+    check('czat: zdjęcie dochodzi jako id', tajna?.zdjecia.length === 1 && tajna.zdjecia[0]!.typ === 'image/png');
+    await sendChat(transport, kal, ela, 'Odpowiedź Filipa');
+
+    await przelacz('G');
+    await syncChat(transport, kal);
+    const uGosi = await db.chatMessages.where('space').equals(kal).toArray();
+    check('czat: trzecia osoba widzi grupę, ale nie cudzych rozmów 1:1', uGosi.length === 1 && uGosi[0]!.rozmowa === GROUP);
+    // Nawet z kluczem kalendarza Gosia widzi tylko szyfrogram rozmowy E↔F.
+    const klucz = await deriveCipherKey((await db.syncState.get(kal))!.key);
+    const wnetrza = await Promise.all((czat.get(kal) ?? []).map(async (m) => parseOuter((await decryptText(klucz, m.blob)) ?? '')));
+    const para = wnetrza.filter((w) => w?.t === 'p');
+    check('czat: w rozmowie 1:1 serwer i inni widzą tylko szyfrogram', para.length === 2 && para.every((w) => w?.t === 'p' && !w.c.includes('Tajne')));
+
+    await przelacz('E');
+    await syncChat(transport, kal);
+    const sekcje = buildSections(
+      [{ id: kal, nazwa: 'Czat', memberId: ela }],
+      await db.members.toArray(),
+      new Set((await db.chatPeers.toArray()).map((p) => p.id)),
+      await db.chatMessages.toArray(),
+      new Map((await db.chatRead.toArray()).map((r) => [r.id, r.seq])),
+    );
+    const watki = sekcje[0]!.watki;
+    check('czat: lista — najpierw grupa, potem osoby', watki[0]!.grupa && watki.length === 3);
+    check('czat: najnowsza rozmowa wyżej, z nieprzeczytaną', watki[1]!.rozmowa === filip && watki[1]!.nieprzeczytane === 1 && watki[2]!.rozmowa === gosia);
+    await markChatRead(kal, filip);
+    check('czat: po przeczytaniu brak nieprzeczytanych', buildSections([{ id: kal, nazwa: 'Czat', memberId: ela }], await db.members.toArray(), new Set(), await db.chatMessages.toArray(), new Map((await db.chatRead.toArray()).map((r) => [r.id, r.seq])))[0]!.watki.find((w) => w.rozmowa === filip)!.nieprzeczytane === 0);
+    const przed = (czat.get(kal) ?? []).length;
+    await syncChat(transport, kal);
+    check('czat: ponowna synchronizacja niczego nie dubluje', (czat.get(kal) ?? []).length === przed && (await db.chatMessages.count()) === 3);
+    await forgetChat(kal);
+    check('czat: po wyjściu z kalendarza czat znika z telefonu', (await db.chatMessages.count()) === 0 && (await db.chatKeys.count()) === 0);
+  }
 
   for (const t of tabele) await t.clear();
 }
