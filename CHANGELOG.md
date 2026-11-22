@@ -16,6 +16,10 @@ Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 - **Budżet:** wydatki według kategorii są ułożone od najwyższej sumy
   w miesiącu do najniższej.
 
+### Poprawki
+- Gdy ktoś usuwał wspólny kalendarz z przypiętym budżetem, u pozostałych
+  członków czasem zostawały wpisy tego budżetu. Teraz znikają zawsze.
+
 ## [1.6.1] — 2026-11-08
 
 ### Poprawki

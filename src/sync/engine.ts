@@ -458,8 +458,10 @@ function parsePayload(text: string): Payload | null {
 function applyOrder(p: Payload): number {
   if (p.k === 'c') return p.del ? 3 : 0;
   // Odpięcie budżetu też na końcu — wcześniej wpisy budżetu wyglądałyby na
-  // lokalnie zmienione i ich usunięcia zostałyby pominięte.
-  if (p.k === 'u') return p.del ? 3 : 0;
+  // lokalnie zmienione i ich usunięcia zostałyby pominięte. I dopiero po
+  // usunięciu kategorii kalendarza: ta sprząta wspólny budżet tylko wtedy,
+  // gdy jest jeszcze do niej przypięty.
+  if (p.k === 'u') return p.del ? 4 : 0;
   if (p.k === 'm') return 0;
   if (p.k === 'h' || p.k === 'l' || p.k === 'k' || p.k === 's') return 1;
   if (p.k === 't') return p.parent ? 2 : 1;
