@@ -24,7 +24,7 @@ import {
   updateCategory,
 } from '../src/data/categories';
 import { addEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
-import { addTask, buildTaskTree, deleteTask, toggleTask } from '../src/data/tasks';
+import { addSubtasks, addTask, buildTaskTree, deleteTask, splitLines, toggleTask } from '../src/data/tasks';
 import { SyncError, type SyncTransport } from '../src/sync/transport';
 import { GROUP, buildSections, forgetChat, markChatRead, parseOuter, sendChat, syncChat } from '../src/sync/chat';
 import { decryptText, deriveCipherKey, randomId } from '../src/sync/crypto';
@@ -1402,6 +1402,36 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     'archiwum: śmieci w zapisie pominięte',
     Object.keys(parseArchive('{"5":2,"x":1,"0":1,"7":-1,"8":"a"}')).join(',') === '5' && Object.keys(parseArchive('[1]')).length === 0,
   );
+}
+
+// ── Podzadania wpisywane od razu pod zadaniem ───────────────────────────
+{
+  await db.tasks.clear();
+  check(
+    'wklejone linie: bez pustych i znaczków wypunktowania',
+    splitLines('- mleko\n\n• chleb\r\n1. jajka\n[ ] masło\n  ser  ').join('|') === 'mleko|chleb|jajka|masło|ser',
+  );
+  const [rodzic] = await addTask({ title: 'Zakupy', starred: true, categoryId: 3 }, undefined, [' mleko ', '', 'chleb', '  ']);
+  const dzieci = await db.tasks.where('parentId').equals(rodzic!).sortBy('order');
+  check('podzadania zapisane razem z zadaniem, puste pominięte', dzieci.map((d) => d.title).join('|') === 'mleko|chleb');
+  check('podzadania dziedziczą kategorię, bez gwiazdki i terminu', dzieci.every((d) => d.categoryId === 3 && !d.starred && !d.dueDate && !d.done));
+  check('kolejność jak przy wpisywaniu', buildTaskTree(await db.tasks.toArray())[0]!.subtasks.map((d) => d.title).join('|') === 'mleko|chleb');
+
+  await addSubtasks(rodzic!, ['masło', ' ']);
+  check('przy edycji dopisują się kolejne', (await db.tasks.where('parentId').equals(rodzic!).count()) === 3);
+  await addSubtasks(dzieci[0]!.id!, ['wnuk']);
+  check('podzadanie nie dostaje własnych podzadań', (await db.tasks.where('parentId').equals(dzieci[0]!.id!).count()) === 0);
+  await addSubtasks(rodzic!, Array.from({ length: 40 }, (_, i) => `p${i}`));
+  check('najwyżej 30 podzadań naraz', (await db.tasks.where('parentId').equals(rodzic!).count()) === 33);
+
+  const seria = await addTask({ title: 'Sprzątanie', starred: false, dueDate: '2026-12-01' }, { freq: 'tydzien', count: 3 }, ['kurze', 'podłoga']);
+  check('seria: każde powtórzenie ma swój komplet podzadań', seria.length === 3 && (await Promise.all(seria.map((id) => db.tasks.where('parentId').equals(id).count()))).every((n) => n === 2));
+
+  await deleteTask(rodzic!);
+  check('usunięcie zadania kasuje dopisane podzadania', (await db.tasks.where('parentId').equals(rodzic!).count()) === 0);
+  const [zwykle] = await addTask({ title: 'Bez podzadań', starred: false });
+  check('zadanie bez podzadań jak dawniej', (await db.tasks.where('parentId').equals(zwykle!).count()) === 0);
+  await db.tasks.clear();
 }
 
 // ── Sentencje ───────────────────────────────────────────────────────────

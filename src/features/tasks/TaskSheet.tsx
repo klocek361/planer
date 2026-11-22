@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../data/db';
 import {
+  MAX_NEW_SUBTASKS,
+  addSubtasks,
   addTask,
   deleteTask,
+  splitLines,
   deleteTaskSeries,
   taskSeriesDates,
   updateTask,
@@ -47,11 +52,10 @@ export function TaskSheet({
   onClose,
 }: Props) {
   const { t } = useT();
-  // „Dodaj podzadanie” przełącza otwarty panel na nowe podzadanie edytowanego
-  // zadania — bez zamykania i szukania małego plusa na liście.
-  const [subFor, setSubFor] = useState<number | undefined>(undefined);
-  const task = subFor !== undefined ? null : taskProp;
-  const parentId = subFor ?? parentProp;
+  const task = taskProp;
+  const parentId = parentProp;
+  // Podzadania wpisywane od razu pod zadaniem — zawsze z jednym pustym polem na końcu.
+  const [subtasks, setSubtasks] = useState<string[]>(['']);
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [starred, setStarred] = useState(false);
@@ -65,10 +69,6 @@ export function TaskSheet({
   const [scope, setScope] = useState<Scope>('to');
 
   useEffect(() => {
-    setSubFor(undefined);
-  }, [open, taskProp]);
-
-  useEffect(() => {
     if (!open) return;
     setTitle(task?.title ?? '');
     setNote(task?.note ?? '');
@@ -80,7 +80,16 @@ export function TaskSheet({
     setRepeat('brak');
     setCount(DEFAULT_COUNT);
     setScope('to');
+    setSubtasks(['']);
   }, [open, task, defaultDueDate]);
+
+  // Sekcja podzadań: tylko przy zadaniu nadrzędnym (nowym albo edytowanym).
+  const withSubtasks = parentId === undefined && (task === null || task.parentId === undefined);
+  const existingSubtasks = useLiveQuery(
+    () => (task?.id !== undefined ? db.tasks.where('parentId').equals(task.id).sortBy('order') : []),
+    [task?.id],
+    [],
+  );
 
   const repeatLabel: Record<RepeatChoice, string> = {
     brak: t.kalendarz.raz,
@@ -127,24 +136,21 @@ export function TaskSheet({
       } else {
         await updateTask(task.id, draft);
       }
+      if (withSubtasks) await addSubtasks(task.id, subtasks);
     } else {
       await addTask(
         { ...draft, parentId },
         repeat === 'brak' ? undefined : { freq: repeat, count: Math.max(2, count) },
+        withSubtasks ? subtasks : [],
       );
     }
+    setSubtasks(['']);
   };
 
   const save = async () => {
     if (!canSave) return;
     await saveDraft();
     onClose();
-  };
-
-  const addSubtask = async () => {
-    if (!taskProp?.id) return;
-    if (canSave) await saveDraft();
-    setSubFor(taskProp.id);
   };
 
   const remove = async () => {
@@ -173,6 +179,10 @@ export function TaskSheet({
             className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
           />
         </label>
+
+        {withSubtasks && (
+          <SubtaskInputs rows={subtasks} onChange={setSubtasks} existing={existingSubtasks.map((s) => s.title)} />
+        )}
 
         <label className="flex flex-col gap-2">
           <span className="text-muted text-xs font-medium">{t.zadania.notatka}</span>
@@ -359,10 +369,6 @@ export function TaskSheet({
 
         <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId} />
 
-        {task?.id !== undefined && task.parentId === undefined && (
-          <Button onClick={addSubtask}>+ {t.zadania.dodajPodzadanie}</Button>
-        )}
-
         <div className="flex gap-2">
           <Button variant="primary" className="flex-1" disabled={!canSave} onClick={save}>
             {t.wspolne.zapisz}
@@ -403,5 +409,109 @@ export function TaskSheet({
         />
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * Podzadania wpisywane pod zadaniem: pole za polem, zawsze jedno puste na końcu.
+ * Enter przechodzi do następnego, wklejone linie rozbijają się na osobne podzadania.
+ */
+function SubtaskInputs({
+  rows,
+  onChange,
+  existing,
+}: {
+  rows: string[];
+  onChange: (rows: string[]) => void;
+  existing: string[];
+}) {
+  const { t } = useT();
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const focusNext = useRef<number | null>(null);
+
+  // Po dodaniu wiersza (Enter, wklejenie) kursor ląduje w nowym polu.
+  useEffect(() => {
+    if (focusNext.current === null) return;
+    inputs.current[focusNext.current]?.focus();
+    focusNext.current = null;
+  });
+
+  const withTrailingEmpty = (list: string[]) => {
+    const filled = list.slice(0, MAX_NEW_SUBTASKS);
+    return filled.length < MAX_NEW_SUBTASKS && filled.at(-1) !== '' ? [...filled, ''] : filled;
+  };
+
+  const setRow = (i: number, value: string) => {
+    const next = rows.slice();
+    next[i] = value;
+    onChange(withTrailingEmpty(next));
+  };
+
+  const removeRow = (i: number) => onChange(withTrailingEmpty(rows.filter((_, j) => j !== i)));
+
+  const paste = (i: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    if (!/\r?\n/.test(text)) return; // jedna linia — zwykłe wklejenie
+    e.preventDefault();
+    const lines = splitLines(text);
+    const before = rows.slice(0, i);
+    const current = rows[i]?.trim() ? [rows[i]!] : [];
+    const after = rows.slice(i + 1).filter((r) => r.trim());
+    focusNext.current = Math.min(before.length + current.length + lines.length, MAX_NEW_SUBTASKS - 1);
+    onChange(withTrailingEmpty([...before, ...current, ...lines, ...after]));
+  };
+
+  const enter = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!rows[i]?.trim()) return;
+    focusNext.current = i + 1;
+    if (i + 1 >= rows.length) onChange(withTrailingEmpty(rows));
+    else inputs.current[i + 1]?.focus();
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-muted text-xs font-medium">{t.zadania.podzadania}</span>
+      {existing.length > 0 && (
+        <ul className="text-muted flex flex-col gap-1 pl-1 text-sm">
+          {existing.map((title, i) => (
+            <li key={i} className="truncate">
+              • {title}
+            </li>
+          ))}
+        </ul>
+      )}
+      {rows.map((value, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="border-line h-4 w-4 shrink-0 rounded-full border" aria-hidden="true" />
+          <input
+            ref={(el) => {
+              inputs.current[i] = el;
+            }}
+            value={value}
+            onChange={(e) => setRow(i, e.target.value)}
+            onKeyDown={(e) => enter(i, e)}
+            onPaste={(e) => paste(i, e)}
+            placeholder={i === 0 && existing.length === 0 ? t.zadania.podzadaniePrzyklad : ''}
+            aria-label={t.zadania.podzadania}
+            enterKeyHint="next"
+            maxLength={200}
+            className="bg-surface rounded-app text-ink min-w-0 flex-1 px-3 py-2 text-base"
+          />
+          {value.trim() !== '' && (
+            <button
+              type="button"
+              onClick={() => removeRow(i)}
+              aria-label={t.zadania.usunPodzadanie}
+              className="text-muted active:text-ink -m-1 p-1 text-lg leading-none"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      ))}
+      <p className="text-muted text-xs">{t.zadania.podzadaniaOpis}</p>
+    </div>
   );
 }

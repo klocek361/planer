@@ -47,39 +47,93 @@ function dlugoscWDniach(draft: TaskDraft): number {
   );
 }
 
+/** Najwięcej podzadań dopisywanych naraz — jedno zadanie to nie lista zakupów. */
+export const MAX_NEW_SUBTASKS = 30;
+
 /**
- * Dodaje zadanie, a przy podanej regule — całą serię naraz.
- * Powtarzać da się tylko zadanie z terminem: bez daty nie ma czego przesuwać.
+ * Wklejony tekst → osobne podzadania: linia po linii, bez pustych linii i bez
+ * znaczków wypunktowania („- ”, „• ”, „1. ”, „[ ] ”), które przychodzą z notatek.
  */
-export async function addTask(draft: TaskDraft, repeat?: Repeat): Promise<void> {
-  const count = await db.tasks.count();
-  const createdAt = Date.now();
-  const wspolne = { ...draft, title: draft.title.trim(), done: false };
+export function splitLines(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:[-–—•*·]|\d+[.)]|\[[ xX]?\])\s+/, '').trim())
+    .filter((line) => line.length > 0);
+}
 
-  if (!repeat || repeat.count < 2 || !draft.dueDate) {
-    await db.tasks.add({ ...wspolne, order: count, createdAt });
-    return;
-  }
+/** Nazwy podzadań do zapisu: przycięte, bez pustych, najwyżej MAX_NEW_SUBTASKS. */
+function cleanTitles(titles: string[]): string[] {
+  return titles.map((title) => title.trim()).filter((title) => title.length > 0).slice(0, MAX_NEW_SUBTASKS);
+}
 
-  const seriesId = createdAt;
-  const dlugosc = dlugoscWDniach(draft);
+/** Podzadania dziedziczą kategorię rodzica — we wspólnej kategorii synchronizują się razem z nim. */
+function subtaskRows(parentId: number, categoryId: number | undefined, titles: string[], order: number, createdAt: number) {
+  return titles.map((title, i) => ({
+    title,
+    done: false,
+    starred: false,
+    parentId,
+    ...(categoryId !== undefined ? { categoryId } : {}),
+    order: order + i,
+    createdAt,
+  }));
+}
 
-  await db.tasks.bulkAdd(
-    taskSeriesDates(draft.dueDate, repeat).map((dueDate, i) => {
-      // Zadanie wielodniowe zachowuje swoją długość w każdym powtórzeniu.
-      const start = fromKey(dueDate);
-      start.setDate(start.getDate() - dlugosc);
-      return {
-        ...wspolne,
-        startDate: draft.startDate ? toKey(start) : undefined,
-        dueDate,
-        seriesId,
-        repeat,
-        order: count + i,
-        createdAt,
-      };
-    }),
-  );
+/**
+ * Dodaje zadanie, a przy podanej regule — całą serię naraz. `subtasks` — nazwy
+ * podzadań wpisane od razu pod zadaniem; każde powtórzenie serii dostaje swój
+ * komplet (tak jak usunięcie serii kasuje podzadania każdego powtórzenia).
+ * Powtarzać da się tylko zadanie z terminem: bez daty nie ma czego przesuwać.
+ * Zwraca identyfikatory dodanych zadań nadrzędnych.
+ */
+export async function addTask(draft: TaskDraft, repeat?: Repeat, subtasks: string[] = []): Promise<number[]> {
+  const titles = draft.parentId === undefined ? cleanTitles(subtasks) : [];
+  return db.transaction('rw', db.tasks, async () => {
+    const count = await db.tasks.count();
+    const createdAt = Date.now();
+    const wspolne = { ...draft, title: draft.title.trim(), done: false };
+
+    let rows;
+    if (!repeat || repeat.count < 2 || !draft.dueDate) {
+      rows = [{ ...wspolne, order: count, createdAt }];
+    } else {
+      const seriesId = createdAt;
+      const dlugosc = dlugoscWDniach(draft);
+      rows = taskSeriesDates(draft.dueDate, repeat).map((dueDate, i) => {
+        // Zadanie wielodniowe zachowuje swoją długość w każdym powtórzeniu.
+        const start = fromKey(dueDate);
+        start.setDate(start.getDate() - dlugosc);
+        return {
+          ...wspolne,
+          startDate: draft.startDate ? toKey(start) : undefined,
+          dueDate,
+          seriesId,
+          repeat,
+          order: count + i,
+          createdAt,
+        };
+      });
+    }
+    const ids = (await db.tasks.bulkAdd(rows, { allKeys: true })) as number[];
+    let order = count + rows.length;
+    for (const id of ids) {
+      if (!titles.length) break;
+      await db.tasks.bulkAdd(subtaskRows(id, draft.categoryId, titles, order, createdAt));
+      order += titles.length;
+    }
+    return ids;
+  });
+}
+
+/** Dopisuje kilka podzadań do istniejącego zadania nadrzędnego (przy edycji). */
+export async function addSubtasks(parentId: number, subtasks: string[]): Promise<void> {
+  const titles = cleanTitles(subtasks);
+  if (!titles.length) return;
+  await db.transaction('rw', db.tasks, async () => {
+    const parent = await db.tasks.get(parentId);
+    if (!parent || parent.parentId !== undefined) return; // podzadanie nie ma własnych podzadań
+    await db.tasks.bulkAdd(subtaskRows(parentId, parent.categoryId, titles, await db.tasks.count(), Date.now()));
+  });
 }
 
 /** Zmiana obejmująca całą serię; terminy zostają nietknięte. */

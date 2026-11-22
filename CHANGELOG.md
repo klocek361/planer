@@ -5,6 +5,19 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.12.0] — 2026-11-22
+
+### Nowe
+- **Podzadania od razu pod zadaniem:** w formularzu zadania, pod nazwą,
+  wpisuje się kolejne podzadania — Enter przechodzi do następnego, a kilka
+  linii wklejonych naraz (np. z notatek) zamienia się w osobne podzadania.
+  Przy edycji widać istniejące i można dopisać następne. Zadanie
+  powtarzane dostaje podzadania w każdym powtórzeniu.
+
+### Zmiany
+- Zamiast przycisku „Dodaj podzadanie” i osobnego formularza dla każdego
+  podzadania — pola w formularzu zadania.
+
 ## [1.11.0] — 2026-11-22
 
 ### Nowe
