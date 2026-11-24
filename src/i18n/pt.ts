@@ -420,6 +420,7 @@ export const pt: Dict = {
       'Nota do dia nos calendários partilhados — em Tarefas, na vista Dias, por cima das tarefas do dia. Todos os membros a veem.',
       'Subcategorias nos calendários partilhados, cada uma com a sua cor. Criam-se nas definições do calendário e escolhem-se nas tarefas e eventos.',
       'As horas no chat aparecem sempre no formato de 24 horas.',
+      'Nos calendários partilhados, uma nota apagada, o «5 min» desmarcado ou quem pagou removido de um registo do orçamento desaparecem agora também para os outros.',
     ],
     ok: 'Ótimo',
   },

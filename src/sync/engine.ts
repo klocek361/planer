@@ -694,18 +694,21 @@ const seriesNumber = (value: unknown) => {
   return Number.isSafeInteger(n) ? n : undefined;
 };
 
-/** Wstawia albo podmienia rekord znaleziony po `uid`, zachowując lokalne id. */
+/**
+ * Wstawia albo podmienia rekord znaleziony po `uid`, zachowując lokalne id.
+ * Podmienia w całości, a nie łata: pole, którego w rekordzie z serwera nie ma
+ * (usunięta notatka, odznaczone „5 minut”), ma zniknąć i tutaj. Wszystkie pola
+ * tych tabel jadą w treści rekordu, więc nic lokalnego przy tym nie ginie.
+ */
 async function upsertByUid<T extends { id?: number }>(
   table: { where(index: string): { equals(v: string): { first(): Promise<T | undefined> } } } & {
-    update(id: number, changes: Partial<T>): Promise<number>;
-    add(item: T): Promise<number>;
+    put(item: T): Promise<number>;
   },
   uid: string,
   value: T,
 ): Promise<void> {
   const existing = await table.where('uid').equals(uid).first();
-  if (existing?.id !== undefined) await table.update(existing.id, { ...value, id: existing.id });
-  else await table.add(value);
+  await table.put(existing?.id !== undefined ? { ...value, id: existing.id } : value);
 }
 
 /** Nakłada jeden rekord z serwera; rekord, którego nie da się zrozumieć, pomija. */

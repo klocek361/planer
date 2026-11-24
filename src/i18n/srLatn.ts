@@ -416,6 +416,7 @@ export const srLatn: Dict = {
       'Beleška dana u zajedničkom kalendaru — u Zadacima, u prikazu Dani, iznad zadataka dana. Vide je svi članovi.',
       'Potkategorije zajedničkih kalendara, svaka u svojoj boji. Prave se u podešavanjima kalendara, a biraju uz zadatak i događaj.',
       'Vreme u četu je uvek u 24-časovnom zapisu.',
+      'U zajedničkom kalendaru obrisana beleška, isključeno „5 min” ili obrisan platilac u budžetu sada nestaju i kod ostalih.',
     ],
     ok: 'U redu',
   },

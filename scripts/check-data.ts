@@ -45,6 +45,7 @@ import {
 import { normalizeInviteCode } from '../src/sync/crypto';
 import {
   addEntry,
+  updateEntry,
   addGoal,
   addMoneyCategory,
   goalSaved,
@@ -1933,6 +1934,49 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     await przelacz('I');
     await syncSpace(transport, kal);
     check('usunięty kalendarz zabiera podkategorie i notatki u innych', (await db.subcategories.count()) === 0 && (await db.dayNotes.count()) === 0);
+  }
+
+  // ── Usunięcie pola (notatka, „5 minut”) dochodzi do innych ──
+  {
+    await przelacz('J');
+    const kal = await createSpace(transport, 'Pola', 'Jan');
+    const katJ = (await db.categories.where('space').equals(kal).first())!;
+    await addTask({ title: 'Z notatką', note: 'stara notatka', quick: true, starred: false, categoryId: katJ.id });
+    await addEvent({ title: 'Spotkanie', date: '2026-11-28', allDay: true, note: 'sala 2', categoryId: katJ.id });
+    await saveBudgetSettings({ categoryId: katJ.id, currency: 'PLN' });
+    const jan = (await db.syncState.get(kal))!.memberId;
+    await addEntry({ kind: 'wydatek', amount: 1250, date: '2026-11-28', note: 'karma', paidBy: jan });
+    await syncSpace(transport, kal);
+    const kodK = await createInvite(transport, kal);
+    await przelacz('K');
+    await joinWithCode(transport, kodK, 'Kuba');
+    const zadanieK = (await db.tasks.filter((z) => z.title === 'Z notatką').first())!;
+    check('pola: druga osoba dostaje notatkę i „5 minut”', zadanieK.note === 'stara notatka' && zadanieK.quick === true);
+    const wpisK = (await db.moneyEntries.filter((e) => e.amount === 1250).first())!;
+    check('pola: druga osoba dostaje wpis budżetu z notatką i płacącym', wpisK.note === 'karma' && !!wpisK.paidBy);
+    await przelacz('J');
+    const zadanieJ = (await db.tasks.filter((z) => z.title === 'Z notatką').first())!;
+    await updateTask(zadanieJ.id!, { note: undefined, quick: undefined });
+    const spotkanieJ = (await db.events.filter((e) => e.title === 'Spotkanie').first())!;
+    await updateEvent(spotkanieJ.id!, { note: undefined });
+    const wpisJ = (await db.moneyEntries.filter((e) => e.amount === 1250).first())!;
+    await updateEntry(wpisJ.id!, { kind: 'wydatek', amount: 1250, date: '2026-11-28' });
+    await syncSpace(transport, kal);
+    await przelacz('K');
+    await syncSpace(transport, kal);
+    const poK = (await db.tasks.get(zadanieK.id!))!;
+    check('pola: usunięta notatka zadania znika u drugiej osoby', poK.note === undefined);
+    check('pola: odznaczone „5 minut” znika u drugiej osoby', poK.quick === undefined);
+    check('pola: usunięta notatka wydarzenia znika u drugiej osoby', (await db.events.filter((e) => e.title === 'Spotkanie').first())?.note === undefined);
+    const wpisPoK = (await db.moneyEntries.get(wpisK.id!))!;
+    check('pola: usunięta notatka i płacący we wpisie budżetu znikają u drugiej osoby', wpisPoK.note === undefined && wpisPoK.paidBy === undefined);
+    await syncSpace(transport, kal);
+    await przelacz('J');
+    await syncSpace(transport, kal);
+    const poJ = (await db.tasks.get(zadanieJ.id!))!;
+    check('pola: usunięta notatka nie wraca do autora zmiany', poJ.note === undefined && poJ.quick === undefined);
+    await db.budgetSettings.clear();
+    await db.moneyEntries.clear();
   }
 
   // ── Czat: grupa kalendarza, rozmowy 1:1 z kluczem pary, zdjęcia ──

@@ -22,6 +22,11 @@ Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 ### Poprawki
 - Godziny w czacie zawsze w zapisie 24-godzinnym i w języku aplikacji —
   wcześniej zależały od ustawień telefonu.
+- Wspólne kalendarze: usunięcie pola — notatki zadania, „5 minut”, notatki
+  lub płacącego we wpisie budżetu, terminu skarbonki, celu kategorii —
+  nie docierało do innych telefonów; zostawała u nich stara wartość
+  i wracała do wszystkich przy ich następnej edycji. Rekord z serwera
+  zastępuje teraz lokalny w całości.
 
 ### Zgodność
 - Nowa wersja bazy na telefonie (11) i kopii zapasowej (5); starsze kopie

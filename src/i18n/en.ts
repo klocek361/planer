@@ -419,6 +419,7 @@ export const en: Dict = {
       'Note of the day in shared calendars — in Tasks, Days view, above the day’s tasks. All members can see it.',
       'Subcategories in shared calendars, each with its own colour. Create them in the calendar settings and pick them for tasks and events.',
       'Chat times are always shown in 24-hour format.',
+      'In shared calendars, a removed note, an unticked “5 min” or a removed payer in a budget entry now disappears for everyone else too.',
     ],
     ok: 'Great',
   },

@@ -421,6 +421,7 @@ export const pl = {
       'Notatka dnia we wspólnym kalendarzu — w Zadaniach, w widoku Dni, nad zadaniami dnia. Widzą ją wszyscy członkowie.',
       'Podkategorie wspólnych kalendarzy, każda w swoim kolorze. Zakłada się je w ustawieniach kalendarza, a wybiera przy zadaniu i wydarzeniu.',
       'Godziny w czacie zawsze w zapisie 24-godzinnym.',
+      'We wspólnym kalendarzu usunięta notatka, odznaczone „5 minut” czy usunięty płacący we wpisie budżetu znikają teraz także u innych.',
     ],
     ok: 'Super',
   },
