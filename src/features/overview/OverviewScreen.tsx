@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { randomQuote } from '../../app/quotes';
 import { db } from '../../data/db';
 import { entriesBetween, indexEntries, setHabitValue } from '../../data/habits';
+import { withSubcategory } from '../../data/subcategories';
 import { compareTasks, taskDays, toggleTask, updateTask } from '../../data/tasks';
 import type { Category, EventItem, Habit, Task } from '../../data/types';
 import { compareEvents, lastDays, longDayLabel, toKey, weekdayWithDay } from '../../lib/dates';
@@ -11,6 +12,7 @@ import { useVisibleSections } from '../../app/sectionsStore';
 import { SectionsSheet } from '../../ui/SectionsSheet';
 import { tap } from '../../platform/haptics';
 import { FONT_STACKS } from '../../theme/catalog';
+import { useSubcategoryMap } from '../../ui/CategoryChip';
 import { SettingsButton } from '../../ui/SettingsButton';
 import { SoftCard, SoftScreen } from '../../ui/SoftScreen';
 import { BoltIcon, MoreIcon } from '../../ui/icons';
@@ -97,6 +99,11 @@ export function OverviewScreen({ onOpenSettings }: Props) {
     () => new Map(categoryList.filter((c) => c.id).map((c) => [c.id!, c.color])),
     [categoryList],
   );
+  const subcategories = useSubcategoryMap();
+  const taskLook = (task: Task) => {
+    const category = task.categoryId ? categoryById.get(task.categoryId) : undefined;
+    return withSubcategory(task, { name: category?.name, color: category?.color }, subcategories);
+  };
 
   // Przegląd pokazuje tylko zadania główne — podzadania rozwijają się
   // w zakładce Zadania. Filtr „⚡ 5 min” zostawia same szybkie.
@@ -199,8 +206,8 @@ export function OverviewScreen({ onOpenSettings }: Props) {
   const taskRow = (task: Task, hideDueDate: boolean, hideCategory: boolean) => (
     <TaskRow
       task={task}
-      categoryName={task.categoryId ? categoryById.get(task.categoryId)?.name : undefined}
-      categoryColor={task.categoryId ? categoryColors.get(task.categoryId) : undefined}
+      categoryName={taskLook(task).name}
+      categoryColor={taskLook(task).color}
       hideDueDate={hideDueDate}
       hideCategory={hideCategory}
       onToggle={() => {
@@ -219,7 +226,7 @@ export function OverviewScreen({ onOpenSettings }: Props) {
           {opts.dated && (
             <span className="text-muted block text-[0.6875rem]">{weekdayWithDay(event.date)}</span>
           )}
-          <EventRow event={event} color={eventColor(event, categoryColors)} onClick={() => undefined} />
+          <EventRow event={event} color={eventColor(event, categoryColors, subcategories)} onClick={() => undefined} />
         </li>
       ))}
       {bucket.habits.map((habit) => (

@@ -8,6 +8,7 @@ import type {
   Category,
   Checklist,
   ChecklistItem,
+  DayNote,
   EventItem,
   Habit,
   BudgetSettings,
@@ -17,6 +18,7 @@ import type {
   MoneyEntry,
   SavingsGoal,
   Note,
+  Subcategory,
   SyncShadow,
   SyncState,
   Task,
@@ -42,6 +44,8 @@ export class PlanerDB extends Dexie {
   chatPeers!: Table<ChatPeer, string>;
   chatKeys!: Table<ChatKey, string>;
   chatRead!: Table<ChatRead, string>;
+  subcategories!: Table<Subcategory, number>;
+  dayNotes!: Table<DayNote, number>;
 
   /** Nazwa bazy do podmiany tylko w testach przejścia między wersjami. */
   constructor(name = 'planer-kaskowy') {
@@ -176,6 +180,14 @@ export class PlanerDB extends Dexie {
       chatPeers: '&id, space',
       chatKeys: '&space',
       chatRead: '&id',
+    });
+
+    // Wersja 11: podkategorie wspólnych kalendarzy i notatki dnia. Nowe
+    // tabele, a zadania i wydarzenia dostają pole bez indeksu — nic nie
+    // trzeba migrować.
+    this.version(11).stores({
+      subcategories: '++id, categoryId, order, uid',
+      dayNotes: '++id, categoryId, date, [categoryId+date]',
     });
 
     // Uruchamiane raz, przy pierwszym otwarciu aplikacji na danym telefonie.

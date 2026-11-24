@@ -11,6 +11,7 @@ import {
   sanitizeThemeList,
   validCategory,
   validChecklist,
+  validDayNote,
   validChecklistItem,
   validEvent,
   validBudgetSettings,
@@ -20,6 +21,7 @@ import {
   validMoneyEntry,
   validNote,
   validSavingsGoal,
+  validSubcategory,
   validTask,
 } from './validate';
 import type { Theme } from '../theme/types';
@@ -29,6 +31,7 @@ import type {
   Category,
   Checklist,
   ChecklistItem,
+  DayNote,
   EventItem,
   Habit,
   HabitEntry,
@@ -36,6 +39,7 @@ import type {
   MoneyEntry,
   Note,
   SavingsGoal,
+  Subcategory,
   Task,
 } from './types';
 import { currentDict } from '../i18n';
@@ -47,9 +51,9 @@ import { resetSyncProgress } from '../sync/state';
  */
 
 const FORMAT = 'planer-kaskowy';
-// Wersja 3 dokłada listy, wersja 4 budżet. Starsze pliki dalej się
-// wczytują — brakujące sekcje wchodzą jako puste.
-const FORMAT_VERSION = 4;
+// Wersja 3 dokłada listy, wersja 4 budżet, wersja 5 podkategorie i notatki
+// dnia. Starsze pliki dalej się wczytują — brakujące sekcje wchodzą jako puste.
+const FORMAT_VERSION = 5;
 
 export interface BackupFile {
   aplikacja: string;
@@ -74,6 +78,8 @@ export interface BackupFile {
     moneyCategories: MoneyCategory[];
     moneyEntries: MoneyEntry[];
     savingsGoals: SavingsGoal[];
+    subcategories: Subcategory[];
+    dayNotes: DayNote[];
   };
   motyw: {
     aktualny: Theme;
@@ -95,12 +101,15 @@ export async function buildBackup(): Promise<BackupFile> {
       db.lists.toArray(),
       db.listItems.toArray(),
     ]);
-  const [budgetSettings, moneyCategories, moneyEntries, savingsGoals] = await Promise.all([
-    db.budgetSettings.toArray(),
-    db.moneyCategories.toArray(),
-    db.moneyEntries.toArray(),
-    db.savingsGoals.toArray(),
-  ]);
+  const [budgetSettings, moneyCategories, moneyEntries, savingsGoals, subcategories, dayNotes] =
+    await Promise.all([
+      db.budgetSettings.toArray(),
+      db.moneyCategories.toArray(),
+      db.moneyEntries.toArray(),
+      db.savingsGoals.toArray(),
+      db.subcategories.toArray(),
+      db.dayNotes.toArray(),
+    ]);
 
   const { theme, saved } = useThemeStore.getState();
   const { order, hidden, calendarTasks } = useLayoutStore.getState();
@@ -124,6 +133,8 @@ export async function buildBackup(): Promise<BackupFile> {
       moneyCategories,
       moneyEntries,
       savingsGoals,
+      subcategories,
+      dayNotes,
     },
     motyw: { aktualny: theme, zapisane: saved },
     uklad: { order, hidden, calendarTasks },
@@ -226,6 +237,9 @@ export function parseBackup(json: string): ParsedBackup {
   const moneyCategories = keepValid((dane.moneyCategories ?? []) as unknown[], validMoneyCategory);
   const moneyEntries = keepValid((dane.moneyEntries ?? []) as unknown[], validMoneyEntry);
   const savingsGoals = keepValid((dane.savingsGoals ?? []) as unknown[], validSavingsGoal);
+  // Kopie sprzed podkategorii i notatek dnia nie mają tych sekcji.
+  const subcategories = keepValid((dane.subcategories ?? []) as unknown[], validSubcategory);
+  const dayNotes = keepValid((dane.dayNotes ?? []) as unknown[], validDayNote);
 
   const skipped =
     categories.skipped +
@@ -239,7 +253,9 @@ export function parseBackup(json: string): ParsedBackup {
     budgetSettings.skipped +
     moneyCategories.skipped +
     moneyEntries.skipped +
-    savingsGoals.skipped;
+    savingsGoals.skipped +
+    subcategories.skipped +
+    dayNotes.skipped;
 
   const motyw =
     typeof candidate.motyw === 'object' && candidate.motyw !== null
@@ -267,6 +283,11 @@ export function parseBackup(json: string): ParsedBackup {
         moneyCategories: moneyCategories.kept,
         moneyEntries: moneyEntries.kept,
         savingsGoals: savingsGoals.kept,
+        subcategories: subcategories.kept,
+        // Jedna notatka na kalendarz i dzień — powtórka z uszkodzonego pliku odpada.
+        dayNotes: dayNotes.kept.filter(
+          (n, i, all) => all.findIndex((m) => m.categoryId === n.categoryId && m.date === n.date) === i,
+        ),
       },
       motyw: {
         aktualny: sanitizeTheme(motyw.aktualny),
@@ -305,6 +326,8 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
       db.moneyCategories,
       db.moneyEntries,
       db.savingsGoals,
+      db.subcategories,
+      db.dayNotes,
     ],
     async () => {
       await Promise.all([
@@ -320,6 +343,8 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
         db.notes.clear(),
         db.lists.clear(),
         db.listItems.clear(),
+        db.subcategories.clear(),
+        db.dayNotes.clear(),
       ]);
       await Promise.all([
         db.categories.bulkAdd(backup.dane.categories),
@@ -334,6 +359,8 @@ export async function restoreBackup(backup: BackupFile): Promise<void> {
         db.moneyCategories.bulkAdd(backup.dane.moneyCategories),
         db.moneyEntries.bulkAdd(backup.dane.moneyEntries),
         db.savingsGoals.bulkAdd(backup.dane.savingsGoals),
+        db.subcategories.bulkAdd(backup.dane.subcategories ?? []),
+        db.dayNotes.bulkAdd(backup.dane.dayNotes ?? []),
       ]);
     },
   );

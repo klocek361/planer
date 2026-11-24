@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../data/db';
 import type { ChatMessage, ChatPhoto } from '../../data/types';
 import { useT } from '../../i18n';
+import { dateTimeLabel } from '../../lib/dates';
 import { useBackDismiss } from '../../platform/back';
 import type { PreparedPhoto } from '../../platform/photos';
 import { httpTransport, syncAvailable } from '../../platform/sync';
@@ -62,8 +63,7 @@ export function useChatUnread(): number {
   return sections.reduce((sum, s) => sum + s.watki.reduce((n, w) => n + w.nieprzeczytane, 0), 0);
 }
 
-const time = (ms: number) =>
-  new Date(ms).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const time = dateTimeLabel;
 
 /** Zakładka Czat: lista rozmów we wspólnych kalendarzach, wejście w rozmowę. */
 export function ChatScreen({ onOpenSettings }: { onOpenSettings: () => void }) {

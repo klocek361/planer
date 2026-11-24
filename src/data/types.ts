@@ -25,6 +25,38 @@ export interface Category {
   space?: string;
 }
 
+/**
+ * Podkategoria wspólnego kalendarza, np. „Koty” w kalendarzu „Dom”. Zakładana
+ * w ustawieniach kalendarza, wybierana przy zadaniu i wydarzeniu. Ma własny
+ * kolor, który zastępuje kolor kalendarza przy wpisach.
+ */
+export interface Subcategory {
+  id?: number;
+  /** Kategoria (wspólny kalendarz), do której należy. */
+  categoryId: number;
+  name: string;
+  /** Kolor w zapisie HEX. */
+  color: string;
+  order: number;
+  /** Globalny identyfikator (patrz `Category.uid`). */
+  uid?: string;
+}
+
+/**
+ * Notatka dnia we wspólnym kalendarzu — krótka wiadomość dla pozostałych,
+ * np. „koty nakarmione”. Jedna na kalendarz i dzień; pusty tekst ją usuwa.
+ */
+export interface DayNote {
+  id?: number;
+  categoryId: number;
+  /** 'RRRR-MM-DD' */
+  date: string;
+  text: string;
+  /** Członek, który ostatnio ją zmienił (`Member.uid`). */
+  by?: string;
+  updatedAt: number;
+}
+
 /** Co ile powtarza się wydarzenie z serii. */
 export type RepeatFreq = 'dzien' | 'tydzien' | 'dwa-tygodnie' | 'miesiac';
 
@@ -50,6 +82,8 @@ export interface EventItem {
   startTime?: string;
   endTime?: string;
   categoryId?: number;
+  /** Podkategoria wspólnego kalendarza — tylko z kategorii `categoryId`. */
+  subcategoryId?: number;
   note?: string;
   /**
    * Wspólny znacznik wszystkich terminów jednej serii. Każde powtórzenie jest
@@ -87,6 +121,8 @@ export interface Task {
   /** 'RRRR-MM-DD' — termin, czyli ostatni dzień na wykonanie. */
   dueDate?: string;
   categoryId?: number;
+  /** Podkategoria wspólnego kalendarza — tylko z kategorii `categoryId`. */
+  subcategoryId?: number;
   /** Ustawione dla podzadania — wskazuje zadanie nadrzędne. */
   parentId?: number;
   /**
@@ -288,7 +324,9 @@ export interface SyncShadow {
     | 'budzet'
     | 'kategoria-pieniedzy'
     | 'wpis'
-    | 'skarbonka';
+    | 'skarbonka'
+    | 'podkategoria'
+    | 'notatka-dnia';
   /** Treść rekordu w postaci wysyłanej na serwer (przed szyfrowaniem). */
   json: string;
 }

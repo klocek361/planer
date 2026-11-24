@@ -29,6 +29,9 @@ Variables); pusta zmienna oznacza aplikację w pełni lokalną.
 
 Wersje: numer w `src/app/version.ts` i `package.json`, opis w `CHANGELOG.md`,
 tag `vX.Y.Z` dla każdej wydanej wersji.
+Przy każdym wydaniu podmień też listę `nowosci.zmiany` we wszystkich słownikach
+`src/i18n/` — to ją widać w oknie „Nowa wersja” po aktualizacji (krótko, dla
+korzystających, bez szczegółów technicznych).
 
 ## Serwer wspólnego kalendarza
 

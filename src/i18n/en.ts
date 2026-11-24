@@ -389,6 +389,40 @@ export const en: Dict = {
     zdjeciePrzeniesione: 'Photo handed over to the app author.',
   },
 
+  podkategorie: {
+    tytul: 'Subcategories',
+    wybor: 'Subcategory',
+    zadna: 'None',
+    dodaj: 'Add subcategory',
+    opis: 'Pick a subcategory for tasks and events in this calendar. All members see it.',
+    nowa: 'New subcategory',
+    edytuj: 'Edit subcategory',
+    nazwaPrzyklad: 'e.g. Cats',
+    usun: 'Delete subcategory',
+    pytanie: (nazwa: string) => `Delete subcategory ${nazwa}?`,
+    opisUsuniecia: 'Tasks and events stay in the calendar, just without the subcategory.',
+  },
+
+  notatkaDnia: {
+    dodaj: 'Note of the day for others',
+    tytul: 'Note of the day',
+    tresc: 'Note',
+    przyklad: 'e.g. cats fed, litter box cleaned',
+    widza: (kalendarz: string) => `Everyone in ${kalendarz} can see it.`,
+    usun: 'Delete note',
+  },
+
+  nowosci: {
+    tytul: (wersja: string) => `New version v${wersja}`,
+    usprawnienia: 'Improvements:',
+    zmiany: [
+      'Note of the day in shared calendars — in Tasks, Days view, above the day’s tasks. All members can see it.',
+      'Subcategories in shared calendars, each with its own colour. Create them in the calendar settings and pick them for tasks and events.',
+      'Chat times are always shown in 24-hour format.',
+    ],
+    ok: 'Great',
+  },
+
   zakladkiEkran: {
     wylaczona: 'Off',
     wyzej: (nazwa) => `Move ${nazwa} up`,

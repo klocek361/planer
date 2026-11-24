@@ -62,6 +62,14 @@ export function shortDateLabel(key: string): string {
   return format(fromKey(key), 'd MMM', { locale: activeLocale });
 }
 
+/**
+ * Dzień i godzina, np. '25 lis, 00:29' — w języku aplikacji i zawsze
+ * w zapisie 24-godzinnym, niezależnie od ustawień telefonu.
+ */
+export function dateTimeLabel(ms: number): string {
+  return format(new Date(ms), 'd MMM, HH:mm', { locale: activeLocale });
+}
+
 /** Data w skrócie z kropką, np. '21.08' — używana przy terminach zadań. */
 export function dotDateLabel(key: string): string {
   return format(fromKey(key), 'dd.MM');

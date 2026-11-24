@@ -16,7 +16,7 @@ import { MAX_REPEAT_COUNT, type Category, type RepeatFreq, type Task } from '../
 import { dotDateLabel } from '../../lib/dates';
 import { useT } from '../../i18n';
 import { Button } from '../../ui/Button';
-import { CategoryPicker } from '../../ui/CategoryChip';
+import { CategoryPicker, SubcategoryPicker } from '../../ui/CategoryChip';
 import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
 import { BoltIcon, StarIcon, TrashIcon } from '../../ui/icons';
@@ -63,6 +63,7 @@ export function TaskSheet({
   const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
+  const [subcategoryId, setSubcategoryId] = useState<number | undefined>(undefined);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [repeat, setRepeat] = useState<RepeatChoice>('brak');
   const [count, setCount] = useState(DEFAULT_COUNT);
@@ -77,6 +78,7 @@ export function TaskSheet({
     setStartDate(task?.startDate ?? '');
     setDueDate(task?.dueDate ?? defaultDueDate ?? '');
     setCategoryId(task?.categoryId);
+    setSubcategoryId(task?.subcategoryId);
     setRepeat('brak');
     setCount(DEFAULT_COUNT);
     setScope('to');
@@ -125,6 +127,7 @@ export function TaskSheet({
       startDate: dueDate && startDate ? startDate : undefined,
       dueDate: dueDate || undefined,
       categoryId,
+      subcategoryId: categoryId !== undefined ? subcategoryId : undefined,
     };
 
     if (task?.id) {
@@ -367,7 +370,15 @@ export function TaskSheet({
           </div>
         )}
 
-        <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId} />
+        <CategoryPicker
+          categories={categories}
+          value={categoryId}
+          onChange={(id) => {
+            setCategoryId(id);
+            setSubcategoryId(undefined);
+          }}
+        />
+        <SubcategoryPicker categoryId={categoryId} value={subcategoryId} onChange={setSubcategoryId} />
 
         <div className="flex gap-2">
           <Button variant="primary" className="flex-1" disabled={!canSave} onClick={save}>

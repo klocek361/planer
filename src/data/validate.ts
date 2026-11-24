@@ -16,11 +16,13 @@ import type {
   Category,
   Checklist,
   ChecklistItem,
+  DayNote,
   EventItem,
   Habit,
   HabitEntry,
   Note,
   Repeat,
+  Subcategory,
   Task,
 } from './types';
 
@@ -100,6 +102,8 @@ export function validEvent(input: unknown): EventItem | null {
     startTime: r.startTime as string | undefined,
     endTime: r.endTime as string | undefined,
     categoryId: r.categoryId as number | undefined,
+    // Podkategoria bez kategorii nic nie znaczy.
+    ...(isNumber(r.subcategoryId) && r.categoryId !== undefined ? { subcategoryId: r.subcategoryId } : {}),
     note: r.note as string | undefined,
     seriesId: r.seriesId as number | undefined,
     repeat: validRepeat(r.repeat),
@@ -140,6 +144,7 @@ export function validTask(input: unknown): Task | null {
     startDate,
     dueDate: due,
     categoryId: r.categoryId as number | undefined,
+    ...(isNumber(r.subcategoryId) && r.categoryId !== undefined ? { subcategoryId: r.subcategoryId } : {}),
     parentId: r.parentId as number | undefined,
     seriesId: r.seriesId as number | undefined,
     repeat: validRepeat(r.repeat),
@@ -231,6 +236,40 @@ export function validNote(input: unknown): Note | null {
     title: r.title,
     content: r.content,
     createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  };
+}
+
+/** Najdłuższa nazwa podkategorii i notatka dnia. */
+export const MAX_SUBCATEGORY_NAME = 40;
+export const MAX_DAY_NOTE = 300;
+
+export function validSubcategory(input: unknown): Subcategory | null {
+  const r = record(input);
+  if (!r) return null;
+  if (!isText(r.name) || !isHex(r.color) || !isNumber(r.order) || !isNumber(r.categoryId)) return null;
+  if (!isOptionalId(r.id)) return null;
+  return {
+    id: r.id as number | undefined,
+    categoryId: r.categoryId,
+    name: r.name.trim().slice(0, MAX_SUBCATEGORY_NAME),
+    color: r.color,
+    order: r.order,
+    ...(isUid(r.uid) ? { uid: r.uid } : {}),
+  };
+}
+
+export function validDayNote(input: unknown): DayNote | null {
+  const r = record(input);
+  if (!r) return null;
+  if (!isText(r.text) || !isNumber(r.categoryId) || !isDateKey(r.date) || !isNumber(r.updatedAt)) return null;
+  if (!isOptionalId(r.id) || !(r.by === undefined || isUid(r.by))) return null;
+  return {
+    id: r.id as number | undefined,
+    categoryId: r.categoryId,
+    date: r.date,
+    text: r.text.trim().slice(0, MAX_DAY_NOTE),
+    ...(r.by !== undefined ? { by: r.by as string } : {}),
     updatedAt: r.updatedAt,
   };
 }

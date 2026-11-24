@@ -3,6 +3,7 @@ import type { CalendarTasks } from '../../app/tabs';
 import type { EventItem, Task } from '../../data/types';
 import { compareEvents, weekdayInitials, type GridDay } from '../../lib/dates';
 import { useT } from '../../i18n';
+import { useSubcategoryMap } from '../../ui/CategoryChip';
 import { EventChip, eventColor } from './EventChip';
 
 /** Ile wpisów mieści się w komórce, zanim pojawi się licznik reszty. */
@@ -34,6 +35,7 @@ export function MonthGrid({
   onSelect,
 }: Props) {
   const { lang } = useT();
+  const subcategories = useSubcategoryMap();
   const showNames = taskMode === 'nazwy';
   // `lang` w zależnościach, żeby zmiana języka przeliczyła litery dni.
   const naglowki = useMemo(() => weekdayInitials(), [lang]);
@@ -104,7 +106,7 @@ export function MonthGrid({
                   <EventChip
                     key={event.id}
                     event={event}
-                    color={eventColor(event, categoryColors)}
+                    color={eventColor(event, categoryColors, subcategories)}
                   />
                 ))}
 

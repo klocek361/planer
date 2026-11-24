@@ -1,11 +1,17 @@
-import type { EventItem } from '../../data/types';
+import { subcategoryOf } from '../../data/subcategories';
+import type { EventItem, Subcategory } from '../../data/types';
 import { isDarkColor } from '../../theme/color';
 import { useT } from '../../i18n';
 import { RepeatIcon } from '../../ui/icons';
 
 /** Kolor kategorii albo neutralna szarość, gdy wydarzenie nie ma przypisania. */
-export function eventColor(event: EventItem, colors: Map<number, string>): string {
-  return (event.categoryId ? colors.get(event.categoryId) : undefined) ?? 'var(--c-text-muted)';
+export function eventColor(
+  event: EventItem,
+  colors: Map<number, string>,
+  subcategories?: Map<number, Subcategory>,
+): string {
+  const sub = subcategories ? subcategoryOf(event, subcategories) : undefined;
+  return sub?.color ?? (event.categoryId ? colors.get(event.categoryId) : undefined) ?? 'var(--c-text-muted)';
 }
 
 /**

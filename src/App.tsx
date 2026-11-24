@@ -12,6 +12,7 @@ import { useAutoSync } from './sync/useAutoSync';
 import { useBackDismiss } from './platform/back';
 import { TabBar } from './ui/TabBar';
 import { FeedbackSheet, useFeedbackStore } from './ui/Feedback';
+import { WhatsNew } from './ui/WhatsNew';
 import { useLayoutStore } from './app/layoutStore';
 import { visibleTabs, type TabId } from './app/tabs';
 
@@ -61,6 +62,7 @@ export function App() {
         </>
       )}
       <FeedbackSheet />
+      <WhatsNew />
     </div>
   );
 }

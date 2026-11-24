@@ -391,6 +391,40 @@ export const pl = {
     zdjeciePrzeniesione: 'Zdjęcie przekazane autorowi aplikacji.',
   },
 
+  podkategorie: {
+    tytul: 'Podkategorie',
+    wybor: 'Podkategoria',
+    zadna: 'Brak',
+    dodaj: 'Dodaj podkategorię',
+    opis: 'Podkategorię wybiera się przy zadaniu i wydarzeniu z tego kalendarza. Widzą ją wszyscy członkowie.',
+    nowa: 'Nowa podkategoria',
+    edytuj: 'Edytuj podkategorię',
+    nazwaPrzyklad: 'np. Koty',
+    usun: 'Usuń podkategorię',
+    pytanie: (nazwa: string) => `Usunąć podkategorię ${nazwa}?`,
+    opisUsuniecia: 'Zadania i wydarzenia zostają w kalendarzu, tylko bez podkategorii.',
+  },
+
+  notatkaDnia: {
+    dodaj: 'Notatka dnia dla innych',
+    tytul: 'Notatka dnia',
+    tresc: 'Notatka',
+    przyklad: 'np. koty nakarmione, kuweta posprzątana',
+    widza: (kalendarz: string) => `Widzą ją wszyscy w kalendarzu ${kalendarz}.`,
+    usun: 'Usuń notatkę',
+  },
+
+  nowosci: {
+    tytul: (wersja: string) => `Nowa wersja v${wersja}`,
+    usprawnienia: 'Usprawnienia:',
+    zmiany: [
+      'Notatka dnia we wspólnym kalendarzu — w Zadaniach, w widoku Dni, nad zadaniami dnia. Widzą ją wszyscy członkowie.',
+      'Podkategorie wspólnych kalendarzy, każda w swoim kolorze. Zakłada się je w ustawieniach kalendarza, a wybiera przy zadaniu i wydarzeniu.',
+      'Godziny w czacie zawsze w zapisie 24-godzinnym.',
+    ],
+    ok: 'Super',
+  },
+
   zakladkiEkran: {
     wylaczona: 'Wyłączona',
     wyzej: (nazwa: string) => `Przesuń ${nazwa} wyżej`,

@@ -386,6 +386,40 @@ export const srLatn: Dict = {
     zdjeciePrzeniesione: 'Fotografija predata autoru aplikacije.',
   },
 
+  podkategorie: {
+    tytul: 'Potkategorije',
+    wybor: 'Potkategorija',
+    zadna: 'Bez',
+    dodaj: 'Dodaj potkategoriju',
+    opis: 'Potkategorija se bira uz zadatak i događaj iz ovog kalendara. Vide je svi članovi.',
+    nowa: 'Nova potkategorija',
+    edytuj: 'Izmeni potkategoriju',
+    nazwaPrzyklad: 'npr. Mačke',
+    usun: 'Obriši potkategoriju',
+    pytanie: (nazwa: string) => `Obrisati potkategoriju ${nazwa}?`,
+    opisUsuniecia: 'Zadaci i događaji ostaju u kalendaru, samo bez potkategorije.',
+  },
+
+  notatkaDnia: {
+    dodaj: 'Beleška dana za ostale',
+    tytul: 'Beleška dana',
+    tresc: 'Beleška',
+    przyklad: 'npr. mačke nahranjene, pesak očišćen',
+    widza: (kalendarz: string) => `Vide je svi u kalendaru ${kalendarz}.`,
+    usun: 'Obriši belešku',
+  },
+
+  nowosci: {
+    tytul: (wersja: string) => `Nova verzija v${wersja}`,
+    usprawnienia: 'Poboljšanja:',
+    zmiany: [
+      'Beleška dana u zajedničkom kalendaru — u Zadacima, u prikazu Dani, iznad zadataka dana. Vide je svi članovi.',
+      'Potkategorije zajedničkih kalendara, svaka u svojoj boji. Prave se u podešavanjima kalendara, a biraju uz zadatak i događaj.',
+      'Vreme u četu je uvek u 24-časovnom zapisu.',
+    ],
+    ok: 'U redu',
+  },
+
   zakladkiEkran: {
     wylaczona: 'Isključena',
     wyzej: (nazwa) => `Pomeri ${nazwa} naviše`,

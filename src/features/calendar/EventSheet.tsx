@@ -11,7 +11,7 @@ import { MAX_REPEAT_COUNT, type Category, type EventItem, type RepeatFreq } from
 import { useT } from '../../i18n';
 import { dotDateLabel, fromKey, fullDateLabel } from '../../lib/dates';
 import { Button } from '../../ui/Button';
-import { CategoryPicker } from '../../ui/CategoryChip';
+import { CategoryPicker, SubcategoryPicker } from '../../ui/CategoryChip';
 import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
 import { TrashIcon } from '../../ui/icons';
@@ -53,6 +53,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
   const [startTime, setStartTime] = useState(DEFAULT_START);
   const [endTime, setEndTime] = useState(DEFAULT_END);
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
+  const [subcategoryId, setSubcategoryId] = useState<number | undefined>(undefined);
   const [note, setNote] = useState('');
   const [repeat, setRepeat] = useState<RepeatChoice>('brak');
   const [count, setCount] = useState(DEFAULT_COUNT);
@@ -67,6 +68,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
     setStartTime(event?.startTime ?? DEFAULT_START);
     setEndTime(event?.endTime ?? DEFAULT_END);
     setCategoryId(event?.categoryId);
+    setSubcategoryId(event?.subcategoryId);
     setNote(event?.note ?? '');
     setRepeat('brak');
     setCount(DEFAULT_COUNT);
@@ -97,6 +99,7 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
       startTime: allDay ? undefined : startTime,
       endTime: allDay || !endTime ? undefined : endTime,
       categoryId,
+      subcategoryId: categoryId !== undefined ? subcategoryId : undefined,
       note: note.trim() || undefined,
     };
 
@@ -145,7 +148,15 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
           />
         </label>
 
-        <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId} />
+        <CategoryPicker
+          categories={categories}
+          value={categoryId}
+          onChange={(id) => {
+            setCategoryId(id);
+            setSubcategoryId(undefined);
+          }}
+        />
+        <SubcategoryPicker categoryId={categoryId} value={subcategoryId} onChange={setSubcategoryId} />
 
         <label className="bg-surface rounded-app flex items-center justify-between px-3 py-2.5">
           <span className="text-ink text-sm font-medium">{t.kalendarz.calodniowe}</span>

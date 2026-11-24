@@ -13,6 +13,7 @@ export interface TaskDraft {
   startDate?: string;
   dueDate?: string;
   categoryId?: number;
+  subcategoryId?: number;
   parentId?: number;
 }
 

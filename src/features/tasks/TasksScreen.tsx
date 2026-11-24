@@ -26,6 +26,9 @@ import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
 import { SettingsButton } from '../../ui/SettingsButton';
 import { BoltIcon, MoreIcon, PlusIcon } from '../../ui/icons';
+import { withSubcategory } from '../../data/subcategories';
+import { useSubcategoryMap } from '../../ui/CategoryChip';
+import { DayNotes } from './DayNotes';
 import { TaskRow } from './TaskRow';
 import { TaskSheet } from './TaskSheet';
 
@@ -76,6 +79,13 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
     for (const category of categories ?? []) if (category.id) map.set(category.id, category);
     return map;
   }, [categories]);
+
+  const subcategories = useSubcategoryMap();
+  // Nazwa i kolor przy zadaniu: kategoria, a z podkategorią — „Dom · Koty” w jej kolorze.
+  const look = (task: Task) => {
+    const category = task.categoryId ? categoryById.get(task.categoryId) : undefined;
+    return withSubcategory(task, { name: category?.name, color: category?.color }, subcategories);
+  };
 
   const tree = useMemo(() => buildTaskTree(tasks ?? []), [tasks]);
   const isQuickNode = ({ task, subtasks }: TaskNode) =>
@@ -151,8 +161,8 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
         <li key={task.id} className="flex flex-col">
           <TaskRow
             task={task}
-            categoryName={task.categoryId ? categoryById.get(task.categoryId)?.name : undefined}
-            categoryColor={task.categoryId ? categoryById.get(task.categoryId)?.color : undefined}
+            categoryName={look(task).name}
+            categoryColor={look(task).color}
             hideCategory={options?.hideCategory}
             hideDueDate={options?.hideDueDate}
             onToggle={() => toggle(task)}
@@ -164,12 +174,8 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
             <TaskRow
               key={subtask.id}
               task={subtask}
-              categoryName={
-                subtask.categoryId ? categoryById.get(subtask.categoryId)?.name : undefined
-              }
-              categoryColor={
-                subtask.categoryId ? categoryById.get(subtask.categoryId)?.color : undefined
-              }
+              categoryName={look(subtask).name}
+              categoryColor={look(subtask).color}
               hideCategory={options?.hideCategory}
               hideDueDate={options?.hideDueDate}
               nested
@@ -333,6 +339,7 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
             }
             count={dayNodes.length}
           />
+          {special === null && <DayNotes date={selectedDay} />}
           {renderNodes(dayNodes, { hideDueDate: special === null })}
           {dayNodes.length === 0 && (
             <p className="text-muted py-6 text-center text-sm">

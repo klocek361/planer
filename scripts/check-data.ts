@@ -24,11 +24,15 @@ import {
   updateCategory,
 } from '../src/data/categories';
 import { addEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
-import { addSubtasks, addTask, buildTaskTree, deleteTask, splitLines, toggleTask } from '../src/data/tasks';
+import { addSubtasks, addTask, buildTaskTree, deleteTask, splitLines, toggleTask, updateTask } from '../src/data/tasks';
 import { SyncError, type SyncTransport } from '../src/sync/transport';
 import { GROUP, buildSections, forgetChat, markChatRead, parseOuter, sendChat, syncChat } from '../src/sync/chat';
 import { decryptText, deriveCipherKey, randomId } from '../src/sync/crypto';
 import { SYNC_FORMAT, syncAll, syncSpace } from '../src/sync/engine';
+import { addSubcategory, deleteSubcategory, updateSubcategory, withSubcategory } from '../src/data/subcategories';
+import { saveDayNote } from '../src/data/dayNotes';
+import { compareVersions, shouldShowWhatsNew } from '../src/app/whatsNew';
+import { dateTimeLabel } from '../src/lib/dates';
 import {
   createInvite,
   createSpace,
@@ -1246,7 +1250,7 @@ check('numer wersji ma poprawny kształt', /^\d+\.\d+\.\d+$/.test(APP_VERSION));
 
 const kopiaZWersja = await buildBackup();
 check('kopia zapisuje wersję aplikacji', kopiaZWersja.wersjaAplikacji === APP_VERSION);
-check('kopia zapisuje wersję formatu', kopiaZWersja.wersja === 4);
+check('kopia zapisuje wersję formatu', kopiaZWersja.wersja === 5);
 
 const odczytana = parseBackup(JSON.stringify(kopiaZWersja));
 check(
@@ -1458,6 +1462,51 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   await db.savingsGoals.clear();
 }
 
+// ── Podkategorie i notatki dnia w kopii zapasowej ──────────────────────
+{
+  await db.subcategories.clear();
+  await db.dayNotes.clear();
+  const kat = await db.categories.add({ name: 'Wspólny dom', color: '#7E8E62', order: 99, uid: 'kategoriadomu1', space: 'przestrzen00000000000001' });
+  const sub = await addSubcategory(kat, 'Koty', '#AA3300');
+  await addTask({ title: 'Z podkategorią', starred: false, categoryId: kat, subcategoryId: sub });
+  await saveDayNote(kat, '2026-11-25', 'notatka do kopii');
+  const kopia = await buildBackup();
+  check('kopia zawiera podkategorie i notatki dnia', kopia.dane.subcategories.length === 1 && kopia.dane.dayNotes.length === 1);
+  const wczytana = parseBackup(JSON.stringify(kopia));
+  check('kopia z podkategoriami wczytuje się bez strat', wczytana.skipped === 0 && wczytana.backup.dane.subcategories[0]?.name === 'Koty' && wczytana.backup.dane.tasks.some((z) => z.subcategoryId === sub));
+  await restoreBackup(wczytana.backup);
+  check('przywrócona kopia ma podkategorię przy zadaniu i notatkę', (await db.tasks.filter((z) => z.subcategoryId === sub).count()) === 1 && (await db.dayNotes.toArray())[0]?.text === 'notatka do kopii');
+  const stara = { ...kopia, wersja: 4, dane: { ...kopia.dane } } as Record<string, unknown> & { dane: Record<string, unknown> };
+  delete stara.dane.subcategories;
+  delete stara.dane.dayNotes;
+  const zeStarej = parseBackup(JSON.stringify(stara));
+  check('kopia sprzed podkategorii wczytuje się z pustymi sekcjami', zeStarej.backup.dane.subcategories.length === 0 && zeStarej.backup.dane.dayNotes.length === 0);
+  const podwojna = JSON.parse(JSON.stringify(kopia)) as typeof kopia;
+  podwojna.dane.dayNotes.push({ ...podwojna.dane.dayNotes[0]!, id: 999, text: 'druga' });
+  check('dwie notatki na ten sam dzień w kopii — zostaje jedna', parseBackup(JSON.stringify(podwojna)).backup.dane.dayNotes.length === 1);
+  await deleteCategory(kat);
+  check('usunięta kategoria odpina podkategorię od zadania', (await db.tasks.filter((z) => z.title === 'Z podkategorią').first())?.subcategoryId === undefined && (await db.subcategories.count()) === 0);
+  await db.tasks.filter((z) => z.title === 'Z podkategorią').delete();
+}
+
+// ── Okno nowości i godziny w czacie ─────────────────────────────────────
+{
+  check('wersje porównywane liczbowo (1.10.0 > 1.9.1)', compareVersions('1.10.0', '1.9.1') > 0 && compareVersions('1.13.0', '1.13.0') === 0);
+  check('nowości: po aktualizacji — tak', shouldShowWhatsNew('1.13.0', '1.12.0', true));
+  check('nowości: ta sama wersja — nie', !shouldShowWhatsNew('1.13.0', '1.13.0', true));
+  check('nowości: po cofnięciu do starszej — nie', !shouldShowWhatsNew('1.12.0', '1.13.0', true));
+  check('nowości: świeża instalacja bez danych — nie', !shouldShowWhatsNew('1.13.0', '', false));
+  check('nowości: pierwsza wersja z oknem u kogoś z danymi — tak', shouldShowWhatsNew('1.13.0', '', true));
+  const listy = [slownikPl, srLatn, srCyrl, slownikEn, slownikPt].map((d) => d.nowosci.zmiany.length);
+  check('lista zmian jest w każdym języku i ma tyle samo punktów', listy.every((n) => n > 0 && n === listy[0]));
+  const polnoc = new Date(2026, 10, 25, 0, 29).getTime();
+  const popoludnie = new Date(2026, 10, 25, 15, 5).getTime();
+  setDateLocale(enGB);
+  check('godzina w czacie po angielsku też 24-godzinna', dateTimeLabel(polnoc) === '25 Nov, 00:29' && dateTimeLabel(popoludnie) === '25 Nov, 15:05');
+  setDateLocale(plDate);
+  check('godzina w czacie po polsku', dateTimeLabel(popoludnie) === '25 lis, 15:05');
+}
+
 // ── Wspólne kalendarze: kilka telefonów, kody zaproszeń, serwer w pamięci ──
 {
   type Przestrzen = { token: string; seq: number; rekordy: Map<string, { seq: number; blob: string }> };
@@ -1569,6 +1618,8 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     db.chatPeers,
     db.chatKeys,
     db.chatRead,
+    db.subcategories,
+    db.dayNotes,
   ] as const;
   const telefony: Record<string, unknown[][]> = {};
   let aktywny = 'A';
@@ -1805,6 +1856,84 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   check('usunięty kalendarz znika u innych', (await db.categories.count()) === 0 && (await db.events.count()) === 0);
   check('razem z kalendarzem znikają wspólne zadania i nawyki', (await db.tasks.count()) === 0 && (await db.habits.count()) === 0);
   check('razem z kalendarzem znika wspólny budżet', (await db.moneyEntries.count()) === 0 && (await db.budgetSettings.get('budzet'))?.categoryId === undefined);
+
+  // ── Podkategorie i notatki dnia ──
+  {
+    await przelacz('H');
+    const kal = await createSpace(transport, 'Dom', 'Hania');
+    const domH = (await db.categories.where('space').equals(kal).first())!;
+    const kotyH = await addSubcategory(domH.id!, '  Koty  ', '#AA3300');
+    await addSubcategory(domH.id!, 'Rachunki', '#0033AA');
+    check('podkategoria: nazwa przycięta, kolejność po kolei', (await db.subcategories.get(kotyH))?.name === 'Koty' && (await db.subcategories.where('categoryId').equals(domH.id!).sortBy('order')).map((p) => p.name).join() === 'Koty,Rachunki');
+    await addTask({ title: 'Kuweta', starred: false, categoryId: domH.id, subcategoryId: kotyH });
+    await addEvent({ title: 'Weterynarz', date: '2026-11-26', allDay: true, categoryId: domH.id, subcategoryId: kotyH });
+    await saveDayNote(domH.id!, '2026-11-25', '  koty nakarmione  ');
+    await saveDayNote(domH.id!, '2026-11-26', '   ');
+    check('notatka dnia: zapisana przycięta, pusta nie powstaje', (await db.dayNotes.count()) === 1 && (await db.dayNotes.toArray())[0]!.text === 'koty nakarmione');
+    await syncSpace(transport, kal);
+    const blokiH = [...serwer.get(kal)!.rekordy.values()].map((r) => r.blob).join('');
+    check('serwer nie widzi podkategorii ani notatek', !/Koty|Rachunki|nakarmione/.test(blokiH));
+    check('format synchronizacji podbity do 4', SYNC_FORMAT === 4);
+
+    const kodI = await createInvite(transport, kal);
+    await przelacz('I');
+    await joinWithCode(transport, kodI, 'Igor');
+    const domI = (await db.categories.where('space').equals(kal).first())!;
+    const subsI = await db.subcategories.where('categoryId').equals(domI.id!).sortBy('order');
+    check('podkategorie dochodzą do drugiej osoby z kolorem', subsI.map((p) => `${p.name}${p.color}`).join() === 'Koty#AA3300,Rachunki#0033AA');
+    const kotyI = subsI[0]!;
+    const kuwetaI = (await db.tasks.filter((z) => z.title === 'Kuweta').first())!;
+    const wetI = (await db.events.filter((e) => e.title === 'Weterynarz').first())!;
+    check('zadanie i wydarzenie przychodzą z podkategorią', kuwetaI.subcategoryId === kotyI.id && wetI.subcategoryId === kotyI.id);
+    check('przy zadaniu widać „Dom · Koty” w kolorze podkategorii', withSubcategory(kuwetaI, { name: 'Dom', color: domI.color }, new Map([[kotyI.id!, kotyI]])).name === 'Dom · Koty' && withSubcategory(kuwetaI, { name: 'Dom' }, new Map([[kotyI.id!, kotyI]])).color === '#AA3300');
+    const notatkiI = await db.dayNotes.toArray();
+    const hania = (await db.members.toArray()).find((m) => m.name === 'Hania');
+    check('notatka dnia dochodzi z autorem', notatkiI.length === 1 && notatkiI[0]!.text === 'koty nakarmione' && notatkiI[0]!.by === hania?.uid && notatkiI[0]!.date === '2026-11-25');
+
+    // Igor dopisuje do tej samej notatki, zmienia kolor podkategorii
+    await saveDayNote(domI.id!, '2026-11-25', 'koty nakarmione, kuweta posprzątana');
+    await updateSubcategory(kotyI.id!, { color: '#00AA00' });
+    await syncSpace(transport, kal);
+    await przelacz('H');
+    await syncSpace(transport, kal);
+    const notatkiH = await db.dayNotes.toArray();
+    const igor = (await db.members.toArray()).find((m) => m.name === 'Igor');
+    check('ta sama notatka dnia zmieniona u drugiej osoby, bez duplikatu', notatkiH.length === 1 && notatkiH[0]!.text.endsWith('kuweta posprzątana') && notatkiH[0]!.by === igor?.uid);
+    check('zmiana koloru podkategorii dochodzi', (await db.subcategories.get(kotyH))?.color === '#00AA00');
+
+    // Hania zdejmuje podkategorię z zadania — u Igora też znika
+    const kuwetaH = (await db.tasks.filter((z) => z.title === 'Kuweta').first())!;
+    await updateTask(kuwetaH.id!, { subcategoryId: undefined });
+    await syncSpace(transport, kal);
+    await przelacz('I');
+    await syncSpace(transport, kal);
+    check('odpięcie podkategorii od zadania dochodzi', (await db.tasks.get(kuwetaI.id!))?.subcategoryId === undefined);
+
+    // Igor usuwa podkategorię Koty i notatkę — u Hani wydarzenie zostaje bez niej
+    await deleteSubcategory(kotyI.id!);
+    check('usunięta podkategoria odpina się lokalnie', (await db.events.get(wetI.id!))?.subcategoryId === undefined && (await db.events.count()) === 1);
+    await saveDayNote(domI.id!, '2026-11-25', '');
+    await syncSpace(transport, kal);
+    await przelacz('H');
+    await syncSpace(transport, kal);
+    const wetH = (await db.events.filter((e) => e.title === 'Weterynarz').first())!;
+    check('usunięta podkategoria znika u innych, wydarzenie zostaje', !(await db.subcategories.get(kotyH)) && !!wetH && wetH.subcategoryId === undefined);
+    check('usunięta notatka dnia znika u innych', (await db.dayNotes.count()) === 0);
+
+    // Usunięcie całego kalendarza zabiera podkategorie i notatki
+    await saveDayNote(domH.id!, '2026-11-27', 'do zobaczenia');
+    await syncSpace(transport, kal);
+    await przelacz('I');
+    await syncSpace(transport, kal);
+    check('druga notatka dochodzi przed usunięciem kalendarza', (await db.dayNotes.count()) === 1);
+    await przelacz('H');
+    await deleteCategory(domH.id!);
+    check('usunięcie kategorii zabiera jej podkategorie i notatki', (await db.subcategories.count()) === 0 && (await db.dayNotes.count()) === 0);
+    await syncSpace(transport, kal);
+    await przelacz('I');
+    await syncSpace(transport, kal);
+    check('usunięty kalendarz zabiera podkategorie i notatki u innych', (await db.subcategories.count()) === 0 && (await db.dayNotes.count()) === 0);
+  }
 
   // ── Czat: grupa kalendarza, rozmowy 1:1 z kluczem pary, zdjęcia ──
   {

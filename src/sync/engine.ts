@@ -2,12 +2,14 @@ import { db } from '../data/db';
 import type {
   Category,
   Checklist,
+  DayNote,
   EventItem,
   Habit,
   Member,
   MoneyCategory,
   MoneyEntry,
   SavingsGoal,
+  Subcategory,
   SyncShadow,
   Task,
 } from '../data/types';
@@ -16,11 +18,13 @@ import {
   validCategory,
   validChecklist,
   validChecklistItem,
+  validDayNote,
   validEvent,
   validHabit,
   validMoneyCategory,
   validMoneyEntry,
   validSavingsGoal,
+  validSubcategory,
   validTask,
 } from '../data/validate';
 import { decryptText, deriveCipherKey, deriveToken, encryptText, randomId } from './crypto';
@@ -44,7 +48,7 @@ import { PUSH_BATCH, type SyncTransport } from './transport';
  */
 
 /** Rodzaj rekordu: jedna litera w treści wysyłanej na serwer. */
-type Letter = 'c' | 'e' | 'm' | 't' | 'h' | 'd' | 'l' | 'i' | 'u' | 'k' | 's' | 'x';
+type Letter = 'c' | 'e' | 'm' | 't' | 'h' | 'd' | 'l' | 'i' | 'u' | 'k' | 's' | 'x' | 'p' | 'n';
 
 const KIND_BY_LETTER = {
   c: 'kategoria',
@@ -59,6 +63,8 @@ const KIND_BY_LETTER = {
   k: 'kategoria-pieniedzy',
   s: 'skarbonka',
   x: 'wpis',
+  p: 'podkategoria',
+  n: 'notatka-dnia',
 } as const satisfies Record<Letter, SyncShadow['kind']>;
 
 const LETTER_BY_KIND = Object.fromEntries(
@@ -73,9 +79,10 @@ type Payload = { k: Letter; uid: string; del?: true } & Record<string, unknown>;
 /**
  * Wersja formatu rekordów. Podbijamy ją przy każdym nowym rodzaju rekordu:
  * 1 — wydarzenia, kategoria, członkowie; 2 — także zadania, nawyki, listy;
- * 3 — także budżet (ustawienia, kategorie pieniędzy, wpisy, skarbonki).
+ * 3 — także budżet (ustawienia, kategorie pieniędzy, wpisy, skarbonki);
+ * 4 — także podkategorie i notatki dnia.
  */
-export const SYNC_FORMAT = 3;
+export const SYNC_FORMAT = 4;
 
 /** Stały identyfikator rekordu z ustawieniami budżetu — budżet jest jeden. */
 const BUDGET_UID = 'ustawieniabudzetu';
@@ -114,6 +121,19 @@ function parseEntryUid(uid: string): { habitUid: string; date: string } | null {
   };
 }
 
+// ── Notatki dnia ──────────────────────────────────────────────────────────
+// Tak samo jak odhaczenie: jedna na kalendarz i dzień, `uid` z kategorii
+// i daty — dwie osoby piszące tego samego dnia zmieniają jeden rekord.
+
+function dayNoteUid(categoryUid: string, date: string): string {
+  return `${categoryUid}n${date.replace(/-/g, '')}`;
+}
+
+function parseDayNoteUid(uid: string): { categoryUid: string; date: string } | null {
+  const match = /^([A-Za-z0-9_-]{8,54})n(\d{4})(\d{2})(\d{2})$/.exec(uid);
+  return match ? { categoryUid: match[1]!, date: `${match[2]}-${match[3]}-${match[4]}` } : null;
+}
+
 // ── Przynależność do kalendarza ──────────────────────────────────────────
 
 /** `uid` kategorii, jeśli należy do kalendarza; w przeciwnym razie null. */
@@ -142,6 +162,20 @@ async function taskLinks(
   return cat ? { cat } : null;
 }
 
+/** `uid` podkategorii wpisu — tylko gdy należy do kategorii tego wpisu. */
+async function subcategoryUid(item: { categoryId?: number; subcategoryId?: number }): Promise<string | undefined> {
+  if (item.subcategoryId === undefined || item.categoryId === undefined) return undefined;
+  const sub = await db.subcategories.get(item.subcategoryId);
+  return sub?.categoryId === item.categoryId ? sub.uid : undefined;
+}
+
+/** Lokalne id podkategorii o podanym `uid` w podanej kategorii albo undefined. */
+async function localSubcategoryId(categoryId: number | undefined, uid: unknown): Promise<number | undefined> {
+  if (typeof uid !== 'string' || categoryId === undefined) return undefined;
+  const sub = await db.subcategories.where('uid').equals(uid).first();
+  return sub?.categoryId === categoryId ? sub.id : undefined;
+}
+
 /** `uid` wspólnej kategorii, do której przypięty jest budżet — albo null. */
 async function budgetCategoryUid(space: string): Promise<string | null> {
   const settings = await db.budgetSettings.get('budzet');
@@ -155,11 +189,12 @@ const categoryJson = (c: Category) => canonical({ k: 'c', uid: c.uid, name: c.na
 const memberJson = (m: Member) =>
   canonical({ k: 'm', uid: m.uid, name: m.name, joinedAt: m.joinedAt, by: m.by });
 
-const eventJson = (e: EventItem, cat: string) =>
+const eventJson = (e: EventItem, cat: string, sub?: string) =>
   canonical({
     k: 'e',
     uid: e.uid,
     cat,
+    sub,
     title: e.title,
     date: e.date,
     allDay: e.allDay,
@@ -171,11 +206,12 @@ const eventJson = (e: EventItem, cat: string) =>
     createdAt: e.createdAt,
   });
 
-const taskJson = (t: Task, links: { cat?: string; parent?: string }) =>
+const taskJson = (t: Task, links: { cat?: string; parent?: string }, sub?: string) =>
   canonical({
     k: 't',
     uid: t.uid,
     cat: links.cat,
+    sub,
     parent: links.parent,
     title: t.title,
     note: t.note,
@@ -226,6 +262,19 @@ const itemJson = (
     createdAt: i.createdAt,
   });
 
+const subcategoryJson = (p: Subcategory, cat: string) =>
+  canonical({ k: 'p', uid: p.uid, cat, name: p.name, color: p.color, order: p.order });
+
+const dayNoteJson = (n: DayNote, categoryUid: string) =>
+  canonical({
+    k: 'n',
+    uid: dayNoteUid(categoryUid, n.date),
+    date: n.date,
+    text: n.text,
+    by: n.by,
+    updatedAt: n.updatedAt,
+  });
+
 const moneyCategoryJson = (c: MoneyCategory) =>
   canonical({ k: 'k', uid: c.uid, kind: c.kind, name: c.name, color: c.color, goal: c.goal, order: c.order });
 
@@ -271,12 +320,25 @@ async function localJson(space: string, letter: Letter, uid: string): Promise<st
     case 'e': {
       const e = await db.events.where('uid').equals(uid).first();
       const cat = e ? await sharedCategoryUid(space, e.categoryId) : null;
-      return e && cat ? eventJson(e, cat) : null;
+      return e && cat ? eventJson(e, cat, await subcategoryUid(e)) : null;
     }
     case 't': {
       const t = await db.tasks.where('uid').equals(uid).first();
       const links = t ? await taskLinks(space, t) : null;
-      return t && links ? taskJson(t, links) : null;
+      return t && links ? taskJson(t, links, links.cat ? await subcategoryUid(t) : undefined) : null;
+    }
+    case 'p': {
+      const p = await db.subcategories.where('uid').equals(uid).first();
+      const cat = p ? await sharedCategoryUid(space, p.categoryId) : null;
+      return p && cat ? subcategoryJson(p, cat) : null;
+    }
+    case 'n': {
+      const parsed = parseDayNoteUid(uid);
+      if (!parsed) return null;
+      const categoryId = await localCategoryId(space, parsed.categoryUid);
+      if (categoryId === undefined) return null;
+      const note = await db.dayNotes.where('[categoryId+date]').equals([categoryId, parsed.date]).first();
+      return note ? dayNoteJson(note, parsed.categoryUid) : null;
     }
     case 'h': {
       const h = await db.habits.where('uid').equals(uid).first();
@@ -338,20 +400,38 @@ async function localSet(space: string): Promise<Map<string, SyncShadow>> {
   for (const m of await db.members.where('space').equals(space).toArray()) put('m', m.uid, memberJson(m));
   if (catIds.length === 0) return out;
 
+  const subs = (await db.subcategories.where('categoryId').anyOf(catIds).toArray()).filter((p) => p.uid);
+  for (const p of subs) put('p', p.uid!, subcategoryJson(p, catUid.get(p.categoryId)!));
+  const subById = new Map(subs.map((p) => [p.id!, p]));
+  // Podkategoria liczy się tylko wtedy, gdy należy do kategorii wpisu.
+  const subOf = (item: { categoryId?: number; subcategoryId?: number }) => {
+    const sub = item.subcategoryId !== undefined ? subById.get(item.subcategoryId) : undefined;
+    return sub && sub.categoryId === item.categoryId ? sub.uid : undefined;
+  };
+
+  for (const n of await db.dayNotes.where('categoryId').anyOf(catIds).toArray()) {
+    const cat = catUid.get(n.categoryId)!;
+    put('n', dayNoteUid(cat, n.date), dayNoteJson(n, cat));
+  }
+
   for (const e of await db.events.where('categoryId').anyOf(catIds).toArray()) {
-    if (e.uid) put('e', e.uid, eventJson(e, catUid.get(e.categoryId!)!));
+    if (e.uid) put('e', e.uid, eventJson(e, catUid.get(e.categoryId!)!, subOf(e)));
   }
 
   const parents = (await db.tasks.where('categoryId').anyOf(catIds).toArray()).filter(
     (t) => t.uid && t.parentId === undefined,
   );
-  for (const t of parents) put('t', t.uid!, taskJson(t, { cat: catUid.get(t.categoryId!)! }));
+  for (const t of parents) put('t', t.uid!, taskJson(t, { cat: catUid.get(t.categoryId!)! }, subOf(t)));
   if (parents.length > 0) {
     const parentUid = new Map(parents.map((t) => [t.id!, t.uid!]));
     for (const t of await db.tasks.where('parentId').anyOf([...parentUid.keys()]).toArray()) {
       if (!t.uid) continue;
       const cat = t.categoryId !== undefined ? catUid.get(t.categoryId) : undefined;
-      put('t', t.uid, taskJson(t, { parent: parentUid.get(t.parentId!)!, ...(cat ? { cat } : {}) }));
+      put(
+        't',
+        t.uid,
+        taskJson(t, { parent: parentUid.get(t.parentId!)!, ...(cat ? { cat } : {}) }, cat ? subOf(t) : undefined),
+      );
     }
   }
 
@@ -398,6 +478,7 @@ async function ensureUids(space: string): Promise<void> {
       db.moneyCategories,
       db.moneyEntries,
       db.savingsGoals,
+      db.subcategories,
     ],
     async () => {
       const categories = await db.categories.where('space').equals(space).toArray();
@@ -412,6 +493,9 @@ async function ensureUids(space: string): Promise<void> {
         for (const row of rows) if (!row.uid) await update(row.id!, randomId());
       };
 
+      await give(await db.subcategories.where('categoryId').anyOf(ids).toArray(), (id, uid) =>
+        db.subcategories.update(id, { uid }),
+      );
       await give(await db.events.where('categoryId').anyOf(ids).toArray(), (id, uid) =>
         db.events.update(id, { uid }),
       );
@@ -457,6 +541,10 @@ function parsePayload(text: string): Payload | null {
  */
 function applyOrder(p: Payload): number {
   if (p.k === 'c') return p.del ? 3 : 0;
+  // Podkategoria — po kategorii, przed zadaniami i wydarzeniami, które ją
+  // wskazują. Usunięcie na końcu: wcześniej odpięte wpisy wyglądałyby na
+  // lokalnie zmienione i ich zmiany z serwera zostałyby pominięte.
+  if (p.k === 'p') return p.del ? 3 : 0.5;
   // Odpięcie budżetu też na końcu — wcześniej wpisy budżetu wyglądałyby na
   // lokalnie zmienione i ich usunięcia zostałyby pominięte. I dopiero po
   // usunięciu kategorii kalendarza: ta sprząta wspólny budżet tylko wtedy,
@@ -481,6 +569,8 @@ async function dropSharedCategory(category: Category): Promise<void> {
   const lists = await db.lists.where('categoryId').equals(id).and((l) => !!l.uid).toArray();
   await db.listItems.where('listId').anyOf(lists.map((l) => l.id!)).delete();
   await db.lists.bulkDelete(lists.map((l) => l.id!));
+  await db.dayNotes.where('categoryId').equals(id).delete();
+  await db.subcategories.where('categoryId').equals(id).delete();
 
   // Budżet przypięty do tej kategorii: wspólne wpisy znikają, budżet się odpina.
   const settings = await db.budgetSettings.get('budzet');
@@ -491,8 +581,8 @@ async function dropSharedCategory(category: Category): Promise<void> {
     await db.budgetSettings.put({ id: 'budzet', currency: settings.currency });
   }
 
-  await db.events.where('categoryId').equals(id).modify({ categoryId: undefined });
-  await db.tasks.where('categoryId').equals(id).modify({ categoryId: undefined });
+  await db.events.where('categoryId').equals(id).modify({ categoryId: undefined, subcategoryId: undefined });
+  await db.tasks.where('categoryId').equals(id).modify({ categoryId: undefined, subcategoryId: undefined });
   await db.habits.where('categoryId').equals(id).modify({ categoryId: undefined });
   await db.lists.where('categoryId').equals(id).modify({ categoryId: undefined });
   await db.categories.delete(id);
@@ -573,6 +663,22 @@ async function applyDelete(space: string, p: Payload): Promise<void> {
     case 'x':
       await db.moneyEntries.where('uid').equals(p.uid).delete();
       return;
+    case 'p': {
+      const sub = await db.subcategories.where('uid').equals(p.uid).first();
+      if (!sub) return;
+      await db.tasks.filter((t) => t.subcategoryId === sub.id).modify({ subcategoryId: undefined });
+      await db.events.filter((e) => e.subcategoryId === sub.id).modify({ subcategoryId: undefined });
+      await db.subcategories.delete(sub.id!);
+      return;
+    }
+    case 'n': {
+      const parsed = parseDayNoteUid(p.uid);
+      const categoryId = parsed ? await localCategoryId(space, parsed.categoryUid) : undefined;
+      if (parsed && categoryId !== undefined) {
+        await db.dayNotes.where('[categoryId+date]').equals([categoryId, parsed.date]).delete();
+      }
+      return;
+    }
   }
 }
 
@@ -638,7 +744,9 @@ async function applyUpsert(space: string, p: Payload): Promise<void> {
       const categoryId = await localCategoryId(space, p.cat);
       if (categoryId === undefined) return;
       const valid = validEvent({ ...p, categoryId, seriesId: seriesNumber(p.series), id: undefined });
-      if (valid) await upsertByUid(db.events, p.uid, { ...valid, uid: p.uid });
+      // Podkategoria zawsze wprost — także pusta, żeby odpięcie u innych zdjęło ją i tu.
+      const subcategoryId = await localSubcategoryId(categoryId, p.sub);
+      if (valid) await upsertByUid(db.events, p.uid, { ...valid, subcategoryId, uid: p.uid });
       return;
     }
     case 't': {
@@ -657,7 +765,25 @@ async function applyUpsert(space: string, p: Payload): Promise<void> {
         seriesId: seriesNumber(p.series),
         id: undefined,
       });
-      if (valid) await upsertByUid(db.tasks, p.uid, { ...valid, uid: p.uid });
+      const subcategoryId = await localSubcategoryId(categoryId, p.sub);
+      if (valid) await upsertByUid(db.tasks, p.uid, { ...valid, subcategoryId, uid: p.uid });
+      return;
+    }
+    case 'p': {
+      const categoryId = await localCategoryId(space, p.cat);
+      if (categoryId === undefined) return;
+      const valid = validSubcategory({ ...p, categoryId, id: undefined });
+      if (valid) await upsertByUid(db.subcategories, p.uid, { ...valid, uid: p.uid });
+      return;
+    }
+    case 'n': {
+      const parsed = parseDayNoteUid(p.uid);
+      const categoryId = parsed ? await localCategoryId(space, parsed.categoryUid) : undefined;
+      if (!parsed || categoryId === undefined) return;
+      const valid = validDayNote({ ...p, categoryId, date: parsed.date, id: undefined });
+      if (!valid) return;
+      const existing = await db.dayNotes.where('[categoryId+date]').equals([categoryId, parsed.date]).first();
+      await db.dayNotes.put(existing?.id !== undefined ? { ...valid, id: existing.id } : valid);
       return;
     }
     case 'h': {
@@ -834,6 +960,8 @@ async function runSync(transport: SyncTransport, space: string): Promise<void> {
       db.moneyCategories,
       db.moneyEntries,
       db.savingsGoals,
+      db.subcategories,
+      db.dayNotes,
     ],
     async () => {
       for (const payload of incoming) await applyRemote(space, payload);

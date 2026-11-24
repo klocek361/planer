@@ -390,6 +390,40 @@ export const pt: Dict = {
     zdjeciePrzeniesione: 'Foto entregue ao autor da aplicação.',
   },
 
+  podkategorie: {
+    tytul: 'Subcategorias',
+    wybor: 'Subcategoria',
+    zadna: 'Nenhuma',
+    dodaj: 'Adicionar subcategoria',
+    opis: 'A subcategoria escolhe-se nas tarefas e eventos deste calendário. Todos os membros a veem.',
+    nowa: 'Nova subcategoria',
+    edytuj: 'Editar subcategoria',
+    nazwaPrzyklad: 'ex. Gatos',
+    usun: 'Apagar subcategoria',
+    pytanie: (nazwa: string) => `Apagar a subcategoria ${nazwa}?`,
+    opisUsuniecia: 'As tarefas e os eventos ficam no calendário, só sem subcategoria.',
+  },
+
+  notatkaDnia: {
+    dodaj: 'Nota do dia para os outros',
+    tytul: 'Nota do dia',
+    tresc: 'Nota',
+    przyklad: 'ex. gatos alimentados, caixa de areia limpa',
+    widza: (kalendarz: string) => `Todos no calendário ${kalendarz} a veem.`,
+    usun: 'Apagar nota',
+  },
+
+  nowosci: {
+    tytul: (wersja: string) => `Nova versão v${wersja}`,
+    usprawnienia: 'Melhorias:',
+    zmiany: [
+      'Nota do dia nos calendários partilhados — em Tarefas, na vista Dias, por cima das tarefas do dia. Todos os membros a veem.',
+      'Subcategorias nos calendários partilhados, cada uma com a sua cor. Criam-se nas definições do calendário e escolhem-se nas tarefas e eventos.',
+      'As horas no chat aparecem sempre no formato de 24 horas.',
+    ],
+    ok: 'Ótimo',
+  },
+
   zakladkiEkran: {
     wylaczona: 'Desativado',
     wyzej: (nazwa) => `Mover ${nazwa} para cima`,

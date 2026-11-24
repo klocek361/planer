@@ -3,6 +3,8 @@ import { compareEvents, fromKey, fullDateLabel } from '../../lib/dates';
 import { useT } from '../../i18n';
 import { PlusIcon } from '../../ui/icons';
 import { TaskRow } from '../tasks/TaskRow';
+import { withSubcategory } from '../../data/subcategories';
+import { useSubcategoryMap } from '../../ui/CategoryChip';
 import { EventRow, eventColor } from './EventChip';
 
 interface Props {
@@ -41,7 +43,16 @@ export function DayPanel({
   onEditTask,
 }: Props) {
   const { t } = useT();
+  const subcategories = useSubcategoryMap();
   const sorted = events.slice().sort(compareEvents);
+  const look = (task: Task) =>
+    withSubcategory(
+      task,
+      task.categoryId
+        ? { name: categoryNames.get(task.categoryId), color: categoryColors.get(task.categoryId) }
+        : {},
+      subcategories,
+    );
 
   return (
     <div className="flex flex-col pt-3">
@@ -54,7 +65,7 @@ export function DayPanel({
           <li key={`w-${event.id}`}>
             <EventRow
               event={event}
-              color={eventColor(event, categoryColors)}
+              color={eventColor(event, categoryColors, subcategories)}
               onClick={() => onEdit(event)}
             />
           </li>
@@ -64,8 +75,8 @@ export function DayPanel({
           <li key={`z-${task.id}`}>
             <TaskRow
               task={task}
-              categoryName={task.categoryId ? categoryNames.get(task.categoryId) : undefined}
-              categoryColor={task.categoryId ? categoryColors.get(task.categoryId) : undefined}
+              categoryName={look(task).name}
+              categoryColor={look(task).color}
               // Termin stoi już w nagłówku panelu, więc przy zadaniu tylko dubluje.
               hideDueDate
               onToggle={() => onToggleTask(task)}

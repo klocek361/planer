@@ -5,6 +5,33 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.13.0] — 2026-11-25
+
+### Nowe
+- **Notatka dnia we wspólnym kalendarzu:** w Zadaniach, w widoku Dni, nad
+  zadaniami wybranego dnia — krótka wiadomość dla pozostałych, np. „koty
+  nakarmione”. Jedna na kalendarz i dzień, widzą ją i mogą zmienić wszyscy
+  członkowie; przy notatce widać, kto ją ostatnio zmienił.
+- **Podkategorie wspólnych kalendarzy:** zakłada się je w ustawieniach
+  kalendarza (nazwa i kolor), a wybiera przy zadaniu i wydarzeniu z tego
+  kalendarza. Wpis pokazuje się jako „Kalendarz · Podkategoria” w kolorze
+  podkategorii. Usunięcie podkategorii zostawia wpisy w kalendarzu.
+- **Okno „Nowa wersja”** przy pierwszym uruchomieniu po aktualizacji,
+  z listą usprawnień. Przy świeżej instalacji się nie pokazuje.
+
+### Poprawki
+- Godziny w czacie zawsze w zapisie 24-godzinnym i w języku aplikacji —
+  wcześniej zależały od ustawień telefonu.
+
+### Zgodność
+- Nowa wersja bazy na telefonie (11) i kopii zapasowej (5); starsze kopie
+  wczytują się bez zmian.
+- Wspólne kalendarze: nowy format rekordów (4) — po aktualizacji telefon
+  raz pobiera kalendarz od nowa. Starsza wersja aplikacji nie widzi
+  podkategorii ani notatek dnia, a edytując zadanie lub wydarzenie, zdejmuje
+  z niego podkategorię — warto, żeby wszyscy w kalendarzu zaktualizowali.
+- Serwer bez zmian.
+
 ## [1.12.0] — 2026-11-22
 
 ### Nowe
