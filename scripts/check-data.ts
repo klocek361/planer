@@ -90,7 +90,7 @@ import {
 import { rangeInfo } from '../src/lib/dates';
 import { isUid, sanitizeTheme, validChecklist, validChecklistItem, validEvent, validHabit, validTask } from '../src/data/validate';
 import { DEV_PUBLIC_KEY, importDevCode, setDevPublicKeyForTests, signTheme, verifyTheme } from '../src/dev/devMode';
-import { clearForcedTheme, setForcedTheme } from '../src/dev/forceTheme';
+import { clearForcedTheme, forcedThemeId, refreshForcedThemes, setForcedTheme } from '../src/dev/forceTheme';
 import { setThemeApplier, themeUid } from '../src/dev/themeRecord';
 import { themeJson } from '../src/sync/engine';
 import { DEV_PRESETS } from '../src/theme/presets';
@@ -1606,6 +1606,39 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     check(`zestaw „${preset.name}” jest czytelny`, contrastRatio(preset.colors.text, preset.colors.bg) >= READABLE_CONTRAST);
   }
   check('faktura serduszek przechodzi przez sito motywu', sanitizeTheme(DEV_PRESETS[0]).texture === 'hearts');
+}
+
+// ── Narzucony wygląd: wybrany zestaw albo bieżący wygląd ───────────────
+{
+  const para = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
+  const jwk = await crypto.subtle.exportKey('jwk', para.privateKey);
+  setDevPublicKeyForTests({ x: jwk.x!, y: jwk.y! });
+  const klucz = (await importDevCode(jwk.d!))!;
+  await db.syncState.clear();
+  await db.syncState.bulkAdd([
+    { id: 'kalStaly', key: 'k', lastSeq: 0, memberId: 'm' },
+    { id: 'kalObecny', key: 'k', lastSeq: 0, memberId: 'm' },
+  ]);
+  await setForcedTheme(klucz, 'kalStaly', DEV_PRESETS[0]!, true);
+  await setForcedTheme(klucz, 'kalObecny', PRESETS[0]!);
+  const staly = (await db.syncState.get('kalStaly'))!;
+  check('wybrany zestaw zapamiętany jako stały', staly.motywStaly === true && forcedThemeId(staly.motyw) === 'serduszka');
+  check('bieżący wygląd bez znacznika stałego', (await db.syncState.get('kalObecny'))?.motywStaly === undefined);
+  const zmiana = await refreshForcedThemes(klucz, PRESETS[1]!);
+  check(
+    'zmiana wyglądu dewelopera podmienia tylko „mój obecny wygląd”',
+    zmiana &&
+      forcedThemeId((await db.syncState.get('kalStaly'))!.motyw) === 'serduszka' &&
+      forcedThemeId((await db.syncState.get('kalObecny'))!.motyw) === PRESETS[1]!.id,
+  );
+  check('ten sam wygląd — nic do podpisania', !(await refreshForcedThemes(klucz, PRESETS[1]!)));
+  await setForcedTheme(klucz, 'kalStaly', PRESETS[2]!);
+  check('przejście z zestawu na bieżący wygląd zdejmuje znacznik', (await db.syncState.get('kalStaly'))?.motywStaly === undefined);
+  await clearForcedTheme('kalObecny');
+  const wyl = (await db.syncState.get('kalObecny'))!;
+  check('wyłączenie czyści motyw i znacznik', wyl.motyw === undefined && wyl.motywStaly === undefined && forcedThemeId(wyl.motyw) === null);
+  await db.syncState.clear();
+  setDevPublicKeyForTests(null);
 }
 
 // ── Wspólne kalendarze: kilka telefonów, kody zaproszeń, serwer w pamięci ──

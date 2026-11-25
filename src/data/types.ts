@@ -259,6 +259,11 @@ export interface SyncState {
    * synchronizacji w postaci tekstu (patrz `src/dev/themeRecord.ts`).
    */
   motyw?: string;
+  /**
+   * Tylko u dewelopera: narzucony jest wybrany zestaw, a nie bieżący wygląd —
+   * zmiana wyglądu u dewelopera go wtedy nie podmienia.
+   */
+  motywStaly?: boolean;
 }
 
 /** Członek wspólnego kalendarza — każdy, kto dołączył kodem, i jego założyciel. */

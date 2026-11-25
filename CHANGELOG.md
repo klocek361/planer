@@ -5,6 +5,19 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.15.0] — 2026-11-25
+
+### Nowe
+- **Opcje deweloperskie — wybór narzucanego wyglądu:** w ustawieniach
+  wspólnego kalendarza zamiast przełącznika lista: „Nie narzucaj”,
+  „Mój obecny wygląd” (zmienia się razem z wyglądem dewelopera) albo
+  konkretny zestaw — gotowy, „Serduszka” lub zapisany. Wybrany zestaw
+  zostaje, gdy deweloper zmienia swój wygląd.
+
+### Zgodność
+- Baza, kopia zapasowa i format synchronizacji bez zmian; cofnięcie do
+  1.14.0 jest możliwe. Serwer bez zmian.
+
 ## [1.14.0] — 2026-11-25
 
 ### Nowe

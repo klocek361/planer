@@ -65,8 +65,10 @@ Ustawienia → **Opcje deweloperskie**. Kod to klucz prywatny ECDSA P-256
 (`DEV_PUBLIC_KEY`). Kodu nie ma w repozytorium ani w kopii zapasowej — na
 telefonie trzyma go osobna baza `planer-dev` jako nieeksportowalny `CryptoKey`.
 
-Po włączeniu: zestaw i tło „Serduszka” w Wyglądzie oraz przełącznik
-„Narzuć mój wygląd członkom” w ustawieniach wspólnego kalendarza. Narzucony
+Po włączeniu: zestaw i tło „Serduszka” w Wyglądzie oraz wybór „Wygląd
+narzucany członkom” w ustawieniach wspólnego kalendarza: bieżący wygląd
+(podpisywany od nowa po każdej zmianie, `useDevTheme`) albo wybrany zestaw
+(`syncState.motywStaly` — zostaje bez zmian). Narzucony
 motyw to rekord synchronizacji `w` (`motyw<id kalendarza>`, od `SYNC_FORMAT`
 5) z podpisem nad `id kalendarza + chwila + motyw`; telefon nakłada go tylko
 z ważnym podpisem i tylko raz na wersję (`syncState.motyw`). Członek może

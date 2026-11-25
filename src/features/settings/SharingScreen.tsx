@@ -26,7 +26,9 @@ import { ChevronRightIcon } from '../../ui/icons';
 import { Screen } from '../../ui/Screen';
 import { SubcategoriesSection } from '../../ui/SubcategoriesSection';
 import { useDevStore } from '../../dev/devMode';
-import { clearForcedTheme, setForcedTheme } from '../../dev/forceTheme';
+import { clearForcedTheme, forcedThemeId, setForcedTheme } from '../../dev/forceTheme';
+import { DEV_PRESETS, PRESETS } from '../../theme/presets';
+import type { Theme } from '../../theme/types';
 import { useThemeStore } from '../../theme/store';
 
 type View = { k: 'lista' } | { k: 'nowy' } | { k: 'dolacz' } | { k: 'kalendarz'; id: string };
@@ -411,7 +413,7 @@ function CalendarView({
 
       {category?.id !== undefined && <SubcategoriesSection categoryId={category.id} shared />}
 
-      <ForcedThemeToggle space={id} forced={!!state.motyw} />
+      <ForcedThemePicker space={id} motyw={state.motyw} fixed={!!state.motywStaly} />
 
       <div className="flex flex-col gap-2 pt-6">
         <TextField
@@ -532,43 +534,72 @@ function CalendarView({
 }
 
 /**
- * Tylko w trybie deweloperskim: narzuca obecny motyw wszystkim członkom
- * kalendarza. Zmiana wyglądu u dewelopera rozchodzi się potem sama
- * (`useDevTheme`); członek może u siebie zmienić motyw, dopóki deweloper
- * nie zmieni swojego.
+ * Tylko w trybie deweloperskim: wygląd narzucany wszystkim członkom
+ * kalendarza. „Mój obecny wygląd” podąża za każdą zmianą u dewelopera
+ * (`useDevTheme`); wybrany zestaw zostaje, dopóki deweloper go nie zmieni.
+ * Członek może u siebie zmienić wygląd, dopóki narzucony się nie zmieni.
  */
-function ForcedThemeToggle({ space, forced }: { space: string; forced: boolean }) {
+function ForcedThemePicker({ space, motyw, fixed }: { space: string; motyw?: string; fixed: boolean }) {
   const { t } = useT();
   const key = useDevStore((s) => s.key);
+  const saved = useThemeStore((s) => s.saved);
   const [busy, setBusy] = useState(false);
   if (!key) return null;
 
-  const toggle = async (on: boolean) => {
+  const forcedId = fixed ? forcedThemeId(motyw) : null;
+  const choice = !motyw ? 'brak' : fixed ? `zestaw:${forcedId}` : 'obecny';
+  const themes: Theme[] = [...PRESETS, ...DEV_PRESETS, ...saved];
+
+  const pick = async (next: 'brak' | 'obecny' | Theme) => {
     setBusy(true);
     try {
-      if (on) await setForcedTheme(key, space, useThemeStore.getState().theme);
-      else await clearForcedTheme(space);
+      if (next === 'brak') await clearForcedTheme(space);
+      else if (next === 'obecny') await setForcedTheme(key, space, useThemeStore.getState().theme);
+      else await setForcedTheme(key, space, next, true);
       await syncAndRecord();
     } finally {
       setBusy(false);
     }
   };
 
+  const chip = (active: boolean) =>
+    `rounded-app flex items-center gap-2 px-3 py-2 text-sm disabled:opacity-60 ${
+      active ? 'bg-selected text-selected-ink' : 'bg-surface text-ink'
+    }`;
+
   return (
     <div className="flex flex-col gap-2 pt-6">
-      <label className="bg-surface rounded-app flex items-center justify-between gap-3 px-4 py-3">
-        <span className="min-w-0">
-          <span className="text-ink block text-sm font-medium">{t.deweloper.narzucMotyw}</span>
-          <span className="text-muted block text-xs">{t.deweloper.narzucMotywOpis}</span>
-        </span>
-        <input
-          type="checkbox"
-          checked={forced}
-          disabled={busy}
-          onChange={(e) => void toggle(e.target.checked)}
-          className="accent-accent h-5 w-5 shrink-0"
-        />
-      </label>
+      <p className="text-muted text-xs font-medium">{t.deweloper.narzucMotyw}</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={busy} aria-pressed={choice === 'brak'} onClick={() => void pick('brak')} className={chip(choice === 'brak')}>
+          {t.deweloper.nieNarzucaj}
+        </button>
+        <button type="button" disabled={busy} aria-pressed={choice === 'obecny'} onClick={() => void pick('obecny')} className={chip(choice === 'obecny')}>
+          {t.deweloper.obecnyWyglad}
+        </button>
+        {themes.map((theme) => {
+          const active = choice === `zestaw:${theme.id}`;
+          return (
+            <button
+              key={theme.id}
+              type="button"
+              disabled={busy}
+              aria-pressed={active}
+              onClick={() => void pick(theme)}
+              className="rounded-app flex items-center gap-2 px-3 py-2 text-sm disabled:opacity-60"
+              style={{
+                backgroundColor: theme.colors.surface,
+                color: theme.colors.text,
+                boxShadow: active ? `inset 0 0 0 2px ${theme.colors.accent}` : 'none',
+              }}
+            >
+              <span className="h-4 w-4 rounded-full" style={{ backgroundColor: theme.colors.accent }} aria-hidden="true" />
+              {t.presety[theme.id] ?? theme.name}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-muted text-xs">{t.deweloper.narzucMotywOpis}</p>
     </div>
   );
 }
