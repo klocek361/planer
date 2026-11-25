@@ -5,6 +5,7 @@ export interface ChecklistDraft {
   name: string;
   note?: string;
   categoryId?: number;
+  subcategoryId?: number;
 }
 
 export async function addChecklist(draft: ChecklistDraft): Promise<number> {

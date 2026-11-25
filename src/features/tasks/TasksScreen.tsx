@@ -24,7 +24,6 @@ import { useVisibleSections } from '../../app/sectionsStore';
 import { SectionsSheet } from '../../ui/SectionsSheet';
 import { tap } from '../../platform/haptics';
 import { Screen } from '../../ui/Screen';
-import { SettingsButton } from '../../ui/SettingsButton';
 import { BoltIcon, MoreIcon, PlusIcon } from '../../ui/icons';
 import { withSubcategory } from '../../data/subcategories';
 import { useSubcategoryMap } from '../../ui/CategoryChip';
@@ -251,9 +250,9 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
           >
             <MoreIcon className="h-6 w-6" />
           </button>
-          <SettingsButton onClick={onOpenSettings} />
         </div>
       }
+      onSettings={onOpenSettings}
     >
       <div className="bg-surface rounded-app mb-3 flex gap-1 p-1">
         {widoczneTryby.map((item) => (

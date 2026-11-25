@@ -9,6 +9,7 @@ import { BudgetScreen } from './features/budget/BudgetScreen';
 import { ChatScreen } from './features/chat/ChatScreen';
 import { useApplyTheme } from './theme/useApplyTheme';
 import { useAutoSync } from './sync/useAutoSync';
+import { useDevTheme } from './dev/useDevTheme';
 import { useBackDismiss } from './platform/back';
 import { TabBar } from './ui/TabBar';
 import { FeedbackSheet, useFeedbackStore } from './ui/Feedback';
@@ -19,6 +20,7 @@ import { visibleTabs, type TabId } from './app/tabs';
 export function App() {
   useApplyTheme();
   useAutoSync();
+  useDevTheme();
 
   const order = useLayoutStore((state) => state.order);
   const hidden = useLayoutStore((state) => state.hidden);

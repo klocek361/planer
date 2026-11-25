@@ -23,7 +23,7 @@ import {
   moveCategory,
   updateCategory,
 } from '../src/data/categories';
-import { addEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
+import { addEvent, copyEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
 import { addSubtasks, addTask, buildTaskTree, deleteTask, splitLines, toggleTask, updateTask } from '../src/data/tasks';
 import { SyncError, type SyncTransport } from '../src/sync/transport';
 import { GROUP, buildSections, forgetChat, markChatRead, parseOuter, sendChat, syncChat } from '../src/sync/chat';
@@ -32,7 +32,7 @@ import { SYNC_FORMAT, syncAll, syncSpace } from '../src/sync/engine';
 import { addSubcategory, deleteSubcategory, updateSubcategory, withSubcategory } from '../src/data/subcategories';
 import { saveDayNote } from '../src/data/dayNotes';
 import { compareVersions, shouldShowWhatsNew } from '../src/app/whatsNew';
-import { dateTimeLabel } from '../src/lib/dates';
+import { dateTimeLabel, daysApart, shiftKey } from '../src/lib/dates';
 import {
   createInvite,
   createSpace,
@@ -88,7 +88,12 @@ import {
   updateTaskSeries,
 } from '../src/data/tasks';
 import { rangeInfo } from '../src/lib/dates';
-import { isUid, validChecklist, validChecklistItem, validTask } from '../src/data/validate';
+import { isUid, sanitizeTheme, validChecklist, validChecklistItem, validEvent, validHabit, validTask } from '../src/data/validate';
+import { DEV_PUBLIC_KEY, importDevCode, setDevPublicKeyForTests, signTheme, verifyTheme } from '../src/dev/devMode';
+import { clearForcedTheme, setForcedTheme } from '../src/dev/forceTheme';
+import { setThemeApplier, themeUid } from '../src/dev/themeRecord';
+import { themeJson } from '../src/sync/engine';
+import { DEV_PRESETS } from '../src/theme/presets';
 import {
   addChecklist,
   addItem,
@@ -98,6 +103,7 @@ import {
   summarizeList,
   toggleItem,
   uncheckAll,
+  updateChecklist,
 } from '../src/data/lists';
 import { DEFAULT_TAB_ORDER, normalizeLayout, visibleTabs } from '../src/app/tabs';
 import { PORTUGUESAS, SENTENCJE, randomQuote } from '../src/app/quotes';
@@ -1508,6 +1514,100 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   check('godzina w czacie po polsku', dateTimeLabel(popoludnie) === '25 lis, 15:05');
 }
 
+// ── Wydarzenia na kilka dni, kopiowanie, notatka nawyku, podkategorie list ──
+{
+  await db.events.clear();
+  const wyjazd = { title: 'Wyjazd', date: '2026-12-04', allDay: true, createdAt: 1 };
+  check('wydarzenie: koniec po początku zostaje', validEvent({ ...wyjazd, endDate: '2026-12-06' })?.endDate === '2026-12-06');
+  check(
+    'wydarzenie: koniec tego samego dnia albo wcześniej znika, wydarzenie zostaje',
+    validEvent({ ...wyjazd, endDate: '2026-12-04' })?.endDate === undefined && validEvent({ ...wyjazd, endDate: '2026-12-01' })?.title === 'Wyjazd',
+  );
+  check('wydarzenie: ponad 92 dni — bez końca', validEvent({ ...wyjazd, endDate: '2027-06-01' })?.endDate === undefined);
+  check('liczenie dni przez zmianę czasu', daysApart('2026-03-28', '2026-03-30') === 2 && shiftKey('2026-10-24', 2) === '2026-10-26');
+
+  await addEvent({ title: 'Chęciny', date: '2026-12-04', endDate: '2026-12-06', allDay: true });
+  const odPiatego = await eventsBetween('2026-12-05', '2026-12-31');
+  check('wielodniowe zaczęte przed zakresem jest w zakresie', odPiatego.some((e) => e.title === 'Chęciny'));
+  check('zakończone przed zakresem — nie', !(await eventsBetween('2026-12-07', '2026-12-31')).some((e) => e.title === 'Chęciny'));
+  const dni = groupByDate(await eventsBetween('2026-11-30', '2027-01-10'), '2026-11-30', '2027-01-10');
+  check(
+    'wielodniowe w każdym swoim dniu i tylko w nich',
+    ['2026-12-04', '2026-12-05', '2026-12-06'].every((k) => dni.get(k)?.some((e) => e.title === 'Chęciny')) && !dni.has('2026-12-03') && !dni.has('2026-12-07'),
+  );
+  const przyciete = groupByDate(odPiatego, '2026-12-05', '2026-12-31');
+  check('grupowanie przycina do zakresu', !przyciete.has('2026-12-04') && przyciete.has('2026-12-05'));
+
+  const checiny = (await db.events.filter((e) => e.title === 'Chęciny').first())!;
+  const kopiaId = await copyEvent({ ...checiny, uid: 'wspolneuid123', seriesId: 5, repeat: { freq: 'tydzien', count: 2 } }, '2026-12-11');
+  const kopia = (await db.events.get(kopiaId))!;
+  check('kopia: nowy dzień, ta sama długość i treść', kopia.date === '2026-12-11' && kopia.endDate === '2026-12-13' && kopia.title === 'Chęciny' && kopia.allDay);
+  check('kopia: osobne wydarzenie bez serii i bez wspólnego uid', kopia.id !== checiny.id && kopia.uid === undefined && kopia.seriesId === undefined && kopia.repeat === undefined);
+  check('kopia: oryginał bez zmian', (await db.events.get(checiny.id!))?.date === '2026-12-04');
+  const jednodniowe = await copyEvent({ title: 'Basen', date: '2026-12-01', allDay: false, startTime: '18:00', createdAt: 1 }, '2026-12-02');
+  check('kopia jednodniowego zostaje jednodniowa z godziną', (await db.events.get(jednodniowe))?.endDate === undefined && (await db.events.get(jednodniowe))?.startTime === '18:00');
+
+  await addEvent({ title: 'Obóz', date: '2026-07-01', endDate: '2026-07-03', allDay: true }, { freq: 'tydzien', count: 2 });
+  const obozy = await db.events.filter((e) => e.title === 'Obóz').sortBy('date');
+  check('seria wielodniowa: każde powtórzenie trwa tyle samo', obozy.map((e) => `${e.date}/${e.endDate}`).join() === '2026-07-01/2026-07-03,2026-07-08/2026-07-10');
+  await db.events.clear();
+
+  const nawyk = { name: 'Bieganie', kind: 'tak-nie', target: 1, order: 0, archived: false, createdAt: 1 };
+  check('nawyk: notatka zostaje', validHabit({ ...nawyk, note: 'po kolacji' })?.note === 'po kolacji');
+  check('nawyk: bez notatki jak dawniej', validHabit(nawyk) !== null && validHabit(nawyk)?.note === undefined);
+  await addHabit({ name: 'Joga', kind: 'tak-nie', target: 1, period: 'ciagly', note: 'rano' });
+  check('nawyk: notatka zapisana', (await db.habits.filter((h) => h.name === 'Joga').first())?.note === 'rano');
+  await db.habits.clear();
+
+  await db.categories.clear();
+  await db.subcategories.clear();
+  await db.lists.clear();
+  await addCategory('Dom', '#7E8E62');
+  const domP = (await db.categories.toArray())[0]!;
+  const kuchnia = await addSubcategory(domP.id!, 'Kuchnia', '#AA3300');
+  const lista = await addChecklist({ name: 'Zakupy', categoryId: domP.id, subcategoryId: kuchnia });
+  check('podkategorie w prywatnej kategorii, lista z podkategorią', !domP.space && (await db.lists.get(lista))?.subcategoryId === kuchnia);
+  check(
+    'kopia: podkategoria listy tylko razem z kategorią',
+    validChecklist({ name: 'x', order: 0, createdAt: 1, subcategoryId: 3 })?.subcategoryId === undefined &&
+      validChecklist({ name: 'x', order: 0, createdAt: 1, categoryId: 1, subcategoryId: 3 })?.subcategoryId === 3,
+  );
+  await deleteSubcategory(kuchnia);
+  check('usunięcie podkategorii odpina ją od listy', (await db.lists.get(lista))?.subcategoryId === undefined);
+  const lazienka = await addSubcategory(domP.id!, 'Łazienka', '#0033AA');
+  await updateChecklist(lista, { subcategoryId: lazienka });
+  await deleteCategory(domP.id!);
+  const poUsunieciu = (await db.lists.get(lista))!;
+  check(
+    'usunięcie kategorii odpina listę i jej podkategorię',
+    poUsunieciu.categoryId === undefined && poUsunieciu.subcategoryId === undefined && (await db.subcategories.count()) === 0,
+  );
+  await db.lists.clear();
+}
+
+// ── Tryb deweloperski: kod i podpis narzuconego motywu ──────────────────
+{
+  check('zły kod nie włącza trybu', (await importDevCode('krótki')) === null && (await importDevCode('A'.repeat(43))) === null);
+  const obca = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
+  const obcaJwk = await crypto.subtle.exportKey('jwk', obca.privateKey);
+  check('kod z innej pary kluczy nie pasuje do aplikacji', (await importDevCode(obcaJwk.d!)) === null);
+  check('w aplikacji jest tylko klucz publiczny', !('d' in DEV_PUBLIC_KEY));
+  setDevPublicKeyForTests({ x: obcaJwk.x!, y: obcaJwk.y! });
+  const klucz = await importDevCode(` ${obcaJwk.d!.slice(0, 20)} ${obcaJwk.d!.slice(20)} `);
+  check('pasujący kod włącza tryb (spacje nie przeszkadzają)', klucz !== null);
+  const podpis = await signTheme(klucz!, 'kalendarz1', DEV_PRESETS[0]!, 1000);
+  check('podpis motywu się zgadza', await verifyTheme('kalendarz1', podpis.theme, 1000, podpis.sig));
+  check('podpis nie przenosi się do innego kalendarza', !(await verifyTheme('kalendarz2', podpis.theme, 1000, podpis.sig)));
+  check('zmieniony motyw nie przechodzi', !(await verifyTheme('kalendarz1', podpis.theme.replace('#D6336C', '#000000'), 1000, podpis.sig)));
+  check('zmieniona chwila nie przechodzi', !(await verifyTheme('kalendarz1', podpis.theme, 1001, podpis.sig)));
+  setDevPublicKeyForTests(null);
+  check('klucz aplikacji nie uznaje obcego podpisu', !(await verifyTheme('kalendarz1', podpis.theme, 1000, podpis.sig)));
+  for (const preset of DEV_PRESETS) {
+    check(`zestaw „${preset.name}” jest czytelny`, contrastRatio(preset.colors.text, preset.colors.bg) >= READABLE_CONTRAST);
+  }
+  check('faktura serduszek przechodzi przez sito motywu', sanitizeTheme(DEV_PRESETS[0]).texture === 'hearts');
+}
+
 // ── Wspólne kalendarze: kilka telefonów, kody zaproszeń, serwer w pamięci ──
 {
   type Przestrzen = { token: string; seq: number; rekordy: Map<string, { seq: number; blob: string }> };
@@ -1874,7 +1974,7 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     await syncSpace(transport, kal);
     const blokiH = [...serwer.get(kal)!.rekordy.values()].map((r) => r.blob).join('');
     check('serwer nie widzi podkategorii ani notatek', !/Koty|Rachunki|nakarmione/.test(blokiH));
-    check('format synchronizacji podbity do 4', SYNC_FORMAT === 4);
+    check('format synchronizacji co najmniej 4', SYNC_FORMAT >= 4);
 
     const kodI = await createInvite(transport, kal);
     await przelacz('I');
@@ -1977,6 +2077,70 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     check('pola: usunięta notatka nie wraca do autora zmiany', poJ.note === undefined && poJ.quick === undefined);
     await db.budgetSettings.clear();
     await db.moneyEntries.clear();
+  }
+
+  // ── Nowe pola (podkategoria listy, notatka nawyku, kilka dni) i narzucony motyw ──
+  {
+    const para = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
+    const jwk = await crypto.subtle.exportKey('jwk', para.privateKey);
+    setDevPublicKeyForTests({ x: jwk.x!, y: jwk.y! });
+    const klucz = (await importDevCode(jwk.d!))!;
+    const nalozone: string[] = [];
+    setThemeApplier((theme) => nalozone.push(theme.id));
+
+    await przelacz('L');
+    const kal = await createSpace(transport, 'Nowe pola', 'Lena');
+    const katL = (await db.categories.where('space').equals(kal).first())!;
+    const kuchniaL = await addSubcategory(katL.id!, 'Kuchnia', '#AA3300');
+    await addChecklist({ name: 'Zakupy L', categoryId: katL.id, subcategoryId: kuchniaL });
+    await addHabit({ name: 'Joga', kind: 'tak-nie', target: 1, period: 'ciagly', note: 'rano, 15 minut', categoryId: katL.id });
+    await addEvent({ title: 'Wyjazd L', date: '2026-12-04', endDate: '2026-12-06', allDay: true, categoryId: katL.id });
+    await setForcedTheme(klucz, kal, DEV_PRESETS[0]!);
+    await syncSpace(transport, kal);
+    await syncSpace(transport, kal);
+    const blokiL = [...serwer.get(kal)!.rekordy.values()].map((r) => r.blob).join('');
+    check('serwer nie widzi notatki nawyku, podkategorii ani motywu', !/rano|Kuchnia|serduszka|D6336C/.test(blokiL));
+    check('u dewelopera jego motyw nie nakłada się z serwera', nalozone.length === 0);
+
+    const kodM = await createInvite(transport, kal);
+    await przelacz('M');
+    await joinWithCode(transport, kodM, 'Marek');
+    const listaM = (await db.lists.filter((l) => l.name === 'Zakupy L').first())!;
+    check('podkategoria listy dochodzi do drugiej osoby', (await db.subcategories.get(listaM.subcategoryId!))?.name === 'Kuchnia');
+    check('notatka nawyku dochodzi do drugiej osoby', (await db.habits.filter((h) => h.name === 'Joga').first())?.note === 'rano, 15 minut');
+    check('wydarzenie wielodniowe dochodzi z końcem', (await db.events.filter((e) => e.title === 'Wyjazd L').first())?.endDate === '2026-12-06');
+    check('narzucony motyw nałożony u członka', nalozone.join() === 'serduszka' && !!(await db.syncState.get(kal))?.motyw);
+    await db.syncState.update(kal, { format: 4 });
+    await syncSpace(transport, kal);
+    check('pobranie kalendarza od nowa nie nakłada motywu drugi raz', nalozone.length === 1);
+
+    // Członek bez kodu podpisuje motyw własnym kluczem — nikt go nie przyjmie.
+    const podrobka = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign', 'verify'])) as CryptoKeyPair;
+    const zly = await signTheme(podrobka.privateKey, kal, { ...DEV_PRESETS[0]!, id: 'podrobiony' }, Date.now() + 60_000);
+    await db.syncState.update(kal, { motyw: themeJson(themeUid(kal), zly.theme, zly.at, zly.sig) });
+    await syncSpace(transport, kal);
+    const kodN = await createInvite(transport, kal);
+    await przelacz('N');
+    await joinWithCode(transport, kodN, 'Nina');
+    check('podrobiony motyw nie nakłada się u nikogo', !nalozone.includes('podrobiony') && !(await db.syncState.get(kal))?.motyw);
+    await przelacz('L');
+    await syncSpace(transport, kal);
+    check('deweloper też ignoruje podróbkę', !nalozone.includes('podrobiony') && JSON.parse((await db.syncState.get(kal))!.motyw!).sig !== zly.sig);
+
+    // Deweloper zmienia wygląd — nakłada się znowu; potem przestaje narzucać.
+    await setForcedTheme(klucz, kal, { ...DEV_PRESETS[0]!, id: 'serduszka2' });
+    await syncSpace(transport, kal);
+    await przelacz('N');
+    await syncSpace(transport, kal);
+    check('zmiana motywu u dewelopera dochodzi do członka', nalozone.at(-1) === 'serduszka2');
+    await przelacz('L');
+    await clearForcedTheme(kal);
+    await syncSpace(transport, kal);
+    await przelacz('N');
+    await syncSpace(transport, kal);
+    check('wyłączenie narzucania dochodzi do członków', !(await db.syncState.get(kal))?.motyw && nalozone.length === 2);
+    setThemeApplier(null);
+    setDevPublicKeyForTests(null);
   }
 
   // ── Czat: grupa kalendarza, rozmowy 1:1 z kluczem pary, zdjęcia ──

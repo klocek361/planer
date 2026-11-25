@@ -75,7 +75,15 @@ export const TEXTURES: { id: TextureId; css: string }[] = [
     id: 'dots',
     css: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23000' opacity='0.07'/%3E%3C/svg%3E")`,
   },
+  {
+    // Dwa serduszka na kafelek, przesunięte względem siebie — wzór nie układa się w kratkę.
+    id: 'hearts',
+    css: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath id='s' d='M11 17s-6-3.8-8-7.6C1.7 6.6 3.4 3.5 6.3 3.5c1.7 0 3 .9 3.7 2.2.7-1.3 2-2.2 3.7-2.2 2.9 0 4.6 3.1 3.3 5.9C15 13.2 11 17 11 17z' fill='%23E0457B' opacity='0.13'/%3E%3Cuse href='%23s' x='22' y='22'/%3E%3C/svg%3E")`,
+  },
 ];
+
+/** Faktury widoczne do wyboru tylko w trybie deweloperskim. */
+export const DEV_TEXTURES: TextureId[] = ['hearts'];
 
 export const TEXTURE_CSS = Object.fromEntries(TEXTURES.map((t) => [t.id, t.css])) as Record<
   TextureId,

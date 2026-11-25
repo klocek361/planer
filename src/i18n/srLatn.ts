@@ -84,6 +84,13 @@ export const srLatn: Dict = {
     pytanieWydarzenie: (tytul) => `Obrisati događaj „${tytul}”?`,
     pytanieSeria: (tytul) => `Obrisati celu seriju „${tytul}”?`,
     opisSeria: 'Nestaće svi termini ove serije, i oni koji su već prošli.',
+    doDnia: 'Do dana (više dana)',
+    doDniaOpis: 'Prazno — događaj od jednog dana. Izaberi dan, npr. put 4–6. decembra.',
+    jedenDzien: 'Jedan dan',
+    zlyKoniec: (dni: number) => `Događaj može trajati najviše ${dni} dana i mora se završiti posle prvog dana.`,
+    kopiujNaDzien: 'Kopiraj na drugi dan',
+    kopiuj: 'Kopiraj',
+    skopiowano: (dni: string) => `Kopirano na: ${dni}`,
   },
 
   zadania: {
@@ -187,6 +194,8 @@ export const srLatn: Dict = {
     odhacz: (nazwa) => `Štikliraj ${nazwa}`,
     odejmij: (nazwa) => `Oduzmi od ${nazwa}`,
     dodaj: (nazwa) => `Dodaj u ${nazwa}`,
+    notatka: 'Beleška',
+    notatkaPrzyklad: 'npr. posle večere, 10 minuta',
   },
 
   przeglad: {
@@ -233,6 +242,8 @@ export const srLatn: Dict = {
     wspolny: 'Zajednički kalendar',
     wspolnyOpis: 'Izabrane kategorije zajedno sa drugom osobom',
     wersja: (numer) => `Planer Kaśkowy ${numer}`,
+    deweloper: 'Opcije za programere',
+    deweloperOpis: 'Pristup uz kod',
   },
 
   wspolny: {
@@ -391,13 +402,14 @@ export const srLatn: Dict = {
     wybor: 'Potkategorija',
     zadna: 'Bez',
     dodaj: 'Dodaj potkategoriju',
-    opis: 'Potkategorija se bira uz zadatak i događaj iz ovog kalendara. Vide je svi članovi.',
+    opis: 'Potkategorija se bira uz zadatak, događaj i listu iz ovog kalendara. Vide je svi članovi.',
     nowa: 'Nova potkategorija',
     edytuj: 'Izmeni potkategoriju',
     nazwaPrzyklad: 'npr. Mačke',
     usun: 'Obriši potkategoriju',
     pytanie: (nazwa: string) => `Obrisati potkategoriju ${nazwa}?`,
-    opisUsuniecia: 'Zadaci i događaji ostaju u kalendaru, samo bez potkategorije.',
+    opisUsuniecia: 'Zadaci, događaji i liste ostaju u kategoriji, samo bez potkategorije.',
+    opisPrywatna: 'Potkategorija se bira uz zadatak, događaj i listu iz ove kategorije.',
   },
 
   notatkaDnia: {
@@ -409,14 +421,28 @@ export const srLatn: Dict = {
     usun: 'Obriši belešku',
   },
 
+  deweloper: {
+    wstep: 'Opcije za autora aplikacije. Za uključivanje je potreban programerski kod.',
+    kod: 'Programerski kod',
+    wlacz: 'Uključi',
+    zlyKod: 'Ovaj kod ne odgovara.',
+    wlaczony: 'Programerski režim je uključen na ovom telefonu.',
+    coSerduszka: 'U Izgledu su otključani set i pozadina „Srca”.',
+    coMotyw: 'U podešavanjima zajedničkog kalendara možeš svim članovima nametnuti svoj izgled.',
+    wylacz: 'Isključi programerski režim',
+    narzucMotyw: 'Nametni moj izgled članovima',
+    narzucMotywOpis: 'Svi u ovom kalendaru dobijaju tvoj izgled, i posle svake njegove izmene. Posle ga mogu promeniti kod sebe.',
+  },
+
   nowosci: {
     tytul: (wersja: string) => `Nova verzija v${wersja}`,
     usprawnienia: 'Poboljšanja:',
     zmiany: [
-      'Beleška dana u zajedničkom kalendaru — u Zadacima, u prikazu Dani, iznad zadataka dana. Vide je svi članovi.',
-      'Potkategorije zajedničkih kalendara, svaka u svojoj boji. Prave se u podešavanjima kalendara, a biraju uz zadatak i događaj.',
-      'Vreme u četu je uvek u 24-časovnom zapisu.',
-      'U zajedničkom kalendaru obrisana beleška, isključeno „5 min” ili obrisan platilac u budžetu sada nestaju i kod ostalih.',
+      'Događaji od više dana — u događaju polje „Do dana”, npr. put 4–6. decembra. Vidi se u svakom danu.',
+      'Kopiranje događaja na drugi dan — u formularu događaja: „Kopiraj na drugi dan”.',
+      'Potkategorije i u običnim kategorijama (Podešavanja → Kategorije) i uz liste.',
+      'Beleška uz naviku — vidi se ispod naziva.',
+      'Dugme podešavanja je više, u visini dugmeta „!”.',
     ],
     ok: 'U redu',
   },
@@ -579,6 +605,7 @@ export const srLatn: Dict = {
     kaskowy: 'Kaśkowy',
     atrament: 'Mastilo',
     noc: 'Noć',
+    serduszka: 'Srca',
   },
 
   tekstury: {
@@ -587,5 +614,6 @@ export const srLatn: Dict = {
     canvas: 'Platno',
     grid: 'Karo',
     dots: 'Tačke',
+    hearts: 'Srca',
   },
 };

@@ -3,7 +3,7 @@ import { addChecklist, deleteChecklist, updateChecklist } from '../../data/lists
 import type { Category, Checklist } from '../../data/types';
 import { useT } from '../../i18n';
 import { Button } from '../../ui/Button';
-import { CategoryPicker } from '../../ui/CategoryChip';
+import { CategoryPicker, SubcategoryPicker } from '../../ui/CategoryChip';
 import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
 import { TrashIcon } from '../../ui/icons';
@@ -23,6 +23,7 @@ export function ListSheet({ open, list, categories, onClose, onDeleted }: Props)
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
+  const [subcategoryId, setSubcategoryId] = useState<number | undefined>(undefined);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -30,13 +31,19 @@ export function ListSheet({ open, list, categories, onClose, onDeleted }: Props)
     setName(list?.name ?? '');
     setNote(list?.note ?? '');
     setCategoryId(list?.categoryId);
+    setSubcategoryId(list?.subcategoryId);
   }, [open, list]);
 
   const trimmed = name.trim();
 
   const save = async () => {
     if (!trimmed) return;
-    const draft = { name: trimmed, note: note.trim() || undefined, categoryId };
+    const draft = {
+      name: trimmed,
+      note: note.trim() || undefined,
+      categoryId,
+      subcategoryId: categoryId !== undefined ? subcategoryId : undefined,
+    };
     if (list?.id) await updateChecklist(list.id, draft);
     else await addChecklist(draft);
     onClose();
@@ -77,7 +84,15 @@ export function ListSheet({ open, list, categories, onClose, onDeleted }: Props)
           />
         </label>
 
-        <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId} />
+        <CategoryPicker
+          categories={categories}
+          value={categoryId}
+          onChange={(id) => {
+            setCategoryId(id);
+            setSubcategoryId(undefined);
+          }}
+        />
+        <SubcategoryPicker categoryId={categoryId} value={subcategoryId} onChange={setSubcategoryId} />
 
         <div className="flex gap-2">
           <Button variant="primary" className="flex-1" disabled={!trimmed} onClick={save}>

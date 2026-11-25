@@ -21,7 +21,6 @@ import { syncAndRecord } from '../../sync/useAutoSync';
 import { Button } from '../../ui/Button';
 import { PhotoPicker } from '../../ui/Feedback';
 import { Screen } from '../../ui/Screen';
-import { SettingsButton } from '../../ui/SettingsButton';
 import { ChevronRightIcon } from '../../ui/icons';
 
 /** Co ile dociągać wiadomości: przy otwartej rozmowie częściej, na liście rzadziej. */
@@ -91,7 +90,7 @@ export function ChatScreen({ onOpenSettings }: { onOpenSettings: () => void }) {
   }
 
   return (
-    <Screen title={t.zakladki.czat} action={<SettingsButton onClick={onOpenSettings} />}>
+    <Screen title={t.zakladki.czat} onSettings={onOpenSettings}>
       {!syncAvailable() || sections.length === 0 ? (
         <p className="text-muted px-2 py-12 text-center text-sm">{t.czat.brakKalendarza}</p>
       ) : (

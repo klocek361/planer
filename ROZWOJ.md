@@ -52,7 +52,26 @@ w `sync-server/`.
 | `src/platform/` | Rzeczy zależne od systemu — **jedyne miejsce do podmiany** przy przejściu na Capacitora (App Store, Android) |
 | `src/lib/` | Rachunki na datach |
 | `src/sync/` | Wspólne kalendarze: szyfrowanie, synchronizacja, kody zaproszeń; czat (`chat.ts`: osobny kanał, klucze par ECDH P-256 + HKDF, zdjęcia nieszyfrowane) |
+| `src/dev/` | Tryb deweloperski: zestaw „Serduszka” i motyw narzucany członkom kalendarza (rekord `w`, podpis ECDSA) |
 | `sync-server/` | Serwer wspólnego kalendarza (Cloudflare Worker + D1) |
 
 Cały wygląd żyje jako zmienne CSS ustawiane z jednego obiektu motywu, więc
 dołożenie nowej opcji personalizacji nie wymaga ruszania komponentów.
+
+## Tryb deweloperski
+
+Ustawienia → **Opcje deweloperskie**. Kod to klucz prywatny ECDSA P-256
+(43 znaki base64url); w `src/dev/devMode.ts` leży tylko klucz publiczny
+(`DEV_PUBLIC_KEY`). Kodu nie ma w repozytorium ani w kopii zapasowej — na
+telefonie trzyma go osobna baza `planer-dev` jako nieeksportowalny `CryptoKey`.
+
+Po włączeniu: zestaw i tło „Serduszka” w Wyglądzie oraz przełącznik
+„Narzuć mój wygląd członkom” w ustawieniach wspólnego kalendarza. Narzucony
+motyw to rekord synchronizacji `w` (`motyw<id kalendarza>`, od `SYNC_FORMAT`
+5) z podpisem nad `id kalendarza + chwila + motyw`; telefon nakłada go tylko
+z ważnym podpisem i tylko raz na wersję (`syncState.motyw`). Członek może
+potem zmienić wygląd u siebie. Członek z przerobioną aplikacją może najwyżej
+zastąpić rekord podróbką, którą wszyscy zignorują — nie narzuci własnego.
+
+Nowy kod (np. po zgubieniu): wygenerować parę P-256, podmienić
+`DEV_PUBLIC_KEY`, wydać wersję. Stare podpisy przestają wtedy działać.

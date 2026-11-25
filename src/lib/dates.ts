@@ -261,6 +261,22 @@ export function dayHeadingLabel(key: string): string {
   return format(fromKey(key), 'EEEE, d MMM', { locale: activeLocale });
 }
 
+/** Klucz dnia przesunięty o podaną liczbę dni (ujemna — wstecz). */
+export function shiftKey(key: string, days: number): string {
+  const day = fromKey(key);
+  day.setDate(day.getDate() + days);
+  return toKey(day);
+}
+
+/** Ile dni dzieli dwa klucze (`to` − `from`); liczone w UTC, więc zmiana czasu nie przeszkadza. */
+export function daysApart(from: string, to: string): number {
+  const utc = (key: string) => {
+    const [y, m, d] = key.split('-').map(Number) as [number, number, number];
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((utc(to) - utc(from)) / 86_400_000);
+}
+
 /** Dzień poprzedzający podany klucz. */
 export function previousDay(key: string): string {
   const day = fromKey(key);

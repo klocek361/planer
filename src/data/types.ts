@@ -72,17 +72,26 @@ export interface Repeat {
 /** Górna granica jednej serii — dość na rok co tydzień, a baza nie puchnie. */
 export const MAX_REPEAT_COUNT = 60;
 
+/** Najdłuższe wydarzenie wielodniowe, w dniach (licząc pierwszy i ostatni). */
+export const MAX_EVENT_DAYS = 92;
+
 export interface EventItem {
   id?: number;
   title: string;
-  /** 'RRRR-MM-DD' */
+  /** 'RRRR-MM-DD' — pierwszy (albo jedyny) dzień wydarzenia. */
   date: string;
+  /**
+   * Ostatni dzień wydarzenia trwającego kilka dni, np. wyjazd 4–6 grudnia.
+   * Puste przy wydarzeniu jednodniowym. Zawsze późniejsze niż `date`
+   * i najwyżej `MAX_EVENT_DAYS` dni od niego — pilnuje tego walidacja.
+   */
+  endDate?: string;
   allDay: boolean;
-  /** 'GG:MM' — tylko gdy allDay jest false. */
+  /** 'GG:MM' — tylko gdy allDay jest false. Przy wielodniowym: start pierwszego dnia, koniec ostatniego. */
   startTime?: string;
   endTime?: string;
   categoryId?: number;
-  /** Podkategoria wspólnego kalendarza — tylko z kategorii `categoryId`. */
+  /** Podkategoria — tylko z kategorii `categoryId`. */
   subcategoryId?: number;
   note?: string;
   /**
@@ -159,6 +168,8 @@ export interface Habit {
   unit?: string;
   /** Jak liczymy postęp — wybierane przy zakładaniu nawyku. */
   period: HabitPeriod;
+  /** Notatka do nawyku, np. „po kolacji, 10 minut”. */
+  note?: string;
   categoryId?: number;
   order: number;
   archived: boolean;
@@ -185,6 +196,8 @@ export interface Checklist {
   name: string;
   note?: string;
   categoryId?: number;
+  /** Podkategoria w obrębie `categoryId` (patrz `Subcategory`). */
+  subcategoryId?: number;
   order: number;
   createdAt: number;
   /** Globalny identyfikator rekordu ze wspólnej kategorii (patrz `Category.uid`). */
@@ -241,6 +254,11 @@ export interface SyncState {
    * pominęła jako niezrozumiałe.
    */
   format?: number;
+  /**
+   * Motyw narzucony w tym kalendarzu przez dewelopera — podpisany rekord
+   * synchronizacji w postaci tekstu (patrz `src/dev/themeRecord.ts`).
+   */
+  motyw?: string;
 }
 
 /** Członek wspólnego kalendarza — każdy, kto dołączył kodem, i jego założyciel. */
@@ -326,7 +344,8 @@ export interface SyncShadow {
     | 'wpis'
     | 'skarbonka'
     | 'podkategoria'
-    | 'notatka-dnia';
+    | 'notatka-dnia'
+    | 'motyw';
   /** Treść rekordu w postaci wysyłanej na serwer (przed szyfrowaniem). */
   json: string;
 }

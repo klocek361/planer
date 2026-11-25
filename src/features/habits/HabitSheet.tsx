@@ -26,6 +26,7 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
   const [target, setTarget] = useState('8');
   const [unit, setUnit] = useState('');
   const [period, setPeriod] = useState<HabitPeriod>('ciagly');
+  const [note, setNote] = useState('');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -36,6 +37,7 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
     setTarget(String(habit?.target ?? 8));
     setUnit(habit?.unit ?? '');
     setPeriod(habit?.period ?? 'ciagly');
+    setNote(habit?.note ?? '');
     setCategoryId(habit?.categoryId);
   }, [open, habit]);
 
@@ -52,6 +54,7 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
       target: kind === 'tak-nie' ? 1 : parsedTarget,
       unit: kind === 'licznik' && unit.trim() ? unit.trim() : undefined,
       period,
+      note: note.trim() || undefined,
       categoryId,
     };
     if (habit?.id) await updateHabit(habit.id, draft);
@@ -165,6 +168,17 @@ export function HabitSheet({ open, habit, categories, onClose }: Props) {
         )}
 
         <CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId} />
+
+        <label className="flex flex-col gap-2">
+          <span className="text-muted text-xs font-medium">{t.nawyki.notatka}</span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder={t.nawyki.notatkaPrzyklad}
+            className="bg-surface rounded-app text-ink resize-none px-3 py-2.5 text-base"
+          />
+        </label>
 
         <div className="flex gap-2">
           <Button variant="primary" className="flex-1" disabled={!canSave} onClick={save}>

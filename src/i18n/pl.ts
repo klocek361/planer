@@ -89,6 +89,13 @@ export const pl = {
     pytanieWydarzenie: (tytul: string) => `Usunąć wydarzenie „${tytul}”?`,
     pytanieSeria: (tytul: string) => `Usunąć całą serię „${tytul}”?`,
     opisSeria: 'Znikną wszystkie terminy tej serii, także te już minione.',
+    doDnia: 'Do dnia (kilka dni)',
+    doDniaOpis: 'Puste — wydarzenie jednego dnia. Wybierz dzień, np. wyjazd 4–6 grudnia.',
+    jedenDzien: 'Jeden dzień',
+    zlyKoniec: (dni: number) => `Wydarzenie może trwać najwyżej ${dni} dni i musi kończyć się po pierwszym dniu.`,
+    kopiujNaDzien: 'Kopiuj na inny dzień',
+    kopiuj: 'Kopiuj',
+    skopiowano: (dni: string) => `Skopiowano na: ${dni}`,
   },
 
   zadania: {
@@ -192,6 +199,8 @@ export const pl = {
     odhacz: (nazwa: string) => `Odhacz ${nazwa}`,
     odejmij: (nazwa: string) => `Odejmij od ${nazwa}`,
     dodaj: (nazwa: string) => `Dodaj do ${nazwa}`,
+    notatka: 'Notatka',
+    notatkaPrzyklad: 'np. po kolacji, 10 minut',
   },
 
   przeglad: {
@@ -238,6 +247,8 @@ export const pl = {
     wspolny: 'Wspólny kalendarz',
     wspolnyOpis: 'Wybrane kategorie razem z drugą osobą',
     wersja: (numer: string) => `Planer Kaśkowy ${numer}`,
+    deweloper: 'Opcje deweloperskie',
+    deweloperOpis: 'Dostęp po wpisaniu kodu',
   },
 
   wspolny: {
@@ -396,13 +407,14 @@ export const pl = {
     wybor: 'Podkategoria',
     zadna: 'Brak',
     dodaj: 'Dodaj podkategorię',
-    opis: 'Podkategorię wybiera się przy zadaniu i wydarzeniu z tego kalendarza. Widzą ją wszyscy członkowie.',
+    opis: 'Podkategorię wybiera się przy zadaniu, wydarzeniu i liście z tego kalendarza. Widzą ją wszyscy członkowie.',
     nowa: 'Nowa podkategoria',
     edytuj: 'Edytuj podkategorię',
     nazwaPrzyklad: 'np. Koty',
     usun: 'Usuń podkategorię',
     pytanie: (nazwa: string) => `Usunąć podkategorię ${nazwa}?`,
-    opisUsuniecia: 'Zadania i wydarzenia zostają w kalendarzu, tylko bez podkategorii.',
+    opisUsuniecia: 'Zadania, wydarzenia i listy zostają w kategorii, tylko bez podkategorii.',
+    opisPrywatna: 'Podkategorię wybiera się przy zadaniu, wydarzeniu i liście z tej kategorii.',
   },
 
   notatkaDnia: {
@@ -414,14 +426,28 @@ export const pl = {
     usun: 'Usuń notatkę',
   },
 
+  deweloper: {
+    wstep: 'Opcje dla autora aplikacji. Do włączenia potrzebny jest kod deweloperski.',
+    kod: 'Kod deweloperski',
+    wlacz: 'Włącz',
+    zlyKod: 'Ten kod nie pasuje.',
+    wlaczony: 'Tryb deweloperski jest włączony na tym telefonie.',
+    coSerduszka: 'W Wyglądzie odblokowany jest zestaw i tło „Serduszka”.',
+    coMotyw: 'W ustawieniach wspólnego kalendarza możesz narzucić swój wygląd wszystkim członkom.',
+    wylacz: 'Wyłącz tryb deweloperski',
+    narzucMotyw: 'Narzuć mój wygląd członkom',
+    narzucMotywOpis: 'Każdy w tym kalendarzu dostanie Twój wygląd, także po każdej jego zmianie. Potem może go u siebie zmienić.',
+  },
+
   nowosci: {
     tytul: (wersja: string) => `Nowa wersja v${wersja}`,
     usprawnienia: 'Usprawnienia:',
     zmiany: [
-      'Notatka dnia we wspólnym kalendarzu — w Zadaniach, w widoku Dni, nad zadaniami dnia. Widzą ją wszyscy członkowie.',
-      'Podkategorie wspólnych kalendarzy, każda w swoim kolorze. Zakłada się je w ustawieniach kalendarza, a wybiera przy zadaniu i wydarzeniu.',
-      'Godziny w czacie zawsze w zapisie 24-godzinnym.',
-      'We wspólnym kalendarzu usunięta notatka, odznaczone „5 minut” czy usunięty płacący we wpisie budżetu znikają teraz także u innych.',
+      'Wydarzenia na kilka dni — w wydarzeniu pole „Do dnia”, np. wyjazd 4–6 grudnia. Widać je w każdym dniu.',
+      'Kopiowanie wydarzenia na inny dzień — w formularzu wydarzenia: „Kopiuj na inny dzień”.',
+      'Podkategorie także w zwykłych kategoriach (Ustawienia → Kategorie) i przy listach.',
+      'Notatka przy nawyku — widać ją pod nazwą.',
+      'Przycisk ustawień wyżej, na wysokości przycisku „!”.',
     ],
     ok: 'Super',
   },
@@ -586,6 +612,7 @@ export const pl = {
     kaskowy: 'Kaśkowy',
     atrament: 'Atrament',
     noc: 'Noc',
+    serduszka: 'Serduszka',
   } as Record<string, string>,
 
   tekstury: {
@@ -594,6 +621,7 @@ export const pl = {
     canvas: 'Płótno',
     grid: 'Kratka',
     dots: 'Kropki',
+    hearts: 'Serduszka',
   },
 };
 

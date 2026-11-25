@@ -16,12 +16,13 @@ export async function updateCategory(id: number, changes: Partial<Category>): Pr
  * i straciły kolor.
  */
 export async function deleteCategory(id: number): Promise<void> {
-  const tables = [db.categories, db.events, db.tasks, db.habits, db.subcategories, db.dayNotes];
+  const tables = [db.categories, db.events, db.tasks, db.habits, db.lists, db.subcategories, db.dayNotes];
   await db.transaction('rw', tables, async () => {
     // Podkategorie i notatki dnia istnieją tylko w obrębie kategorii — znikają razem z nią.
     await db.events.where('categoryId').equals(id).modify({ categoryId: undefined, subcategoryId: undefined });
     await db.tasks.where('categoryId').equals(id).modify({ categoryId: undefined, subcategoryId: undefined });
     await db.habits.where('categoryId').equals(id).modify({ categoryId: undefined });
+    await db.lists.where('categoryId').equals(id).modify({ categoryId: undefined, subcategoryId: undefined });
     await db.subcategories.where('categoryId').equals(id).delete();
     await db.dayNotes.where('categoryId').equals(id).delete();
     await db.categories.delete(id);

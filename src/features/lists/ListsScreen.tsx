@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../data/db';
 import { summarizeList } from '../../data/lists';
-import type { Checklist, ChecklistItem } from '../../data/types';
+import { subcategoryOf } from '../../data/subcategories';
+import type { Checklist, ChecklistItem, Subcategory } from '../../data/types';
 import { useT } from '../../i18n';
 import { useBackDismiss } from '../../platform/back';
+import { useSubcategoryMap } from '../../ui/CategoryChip';
 import { Screen } from '../../ui/Screen';
-import { SettingsButton } from '../../ui/SettingsButton';
 import { ChevronRightIcon, PlusIcon } from '../../ui/icons';
 import { ListDetailScreen } from './ListDetailScreen';
 import { ListSheet } from './ListSheet';
@@ -26,6 +27,7 @@ export function ListsScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
   const lists = useLiveQuery(() => db.lists.orderBy('order').toArray());
   const items = useLiveQuery(() => db.listItems.toArray());
   const categories = useLiveQuery(() => db.categories.orderBy('order').toArray());
+  const subcategories = useSubcategoryMap();
 
   const categoryColors = useMemo(() => {
     const map = new Map<number, string>();
@@ -66,9 +68,9 @@ export function ListsScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
           >
             <PlusIcon className="h-6 w-6" />
           </button>
-          <SettingsButton onClick={onOpenSettings} />
         </div>
       }
+      onSettings={onOpenSettings}
     >
       <ul className="flex flex-col gap-1">
         {(lists ?? []).map((lista) => (
@@ -77,6 +79,7 @@ export function ListsScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
               list={lista}
               items={byList.get(lista.id!) ?? []}
               color={lista.categoryId ? categoryColors.get(lista.categoryId) : undefined}
+              sub={subcategoryOf(lista, subcategories)}
               onOpen={() => setOpenId(lista.id!)}
             />
           </li>
@@ -102,11 +105,14 @@ function ListRow({
   list,
   items,
   color,
+  sub,
   onOpen,
 }: {
   list: Checklist;
   items: ChecklistItem[];
   color?: string;
+  /** Podkategoria listy — jej kolor zastępuje kolor kategorii, a nazwa stoi obok nazwy listy. */
+  sub?: Subcategory;
   onOpen: () => void;
 }) {
   const { t } = useT();
@@ -121,12 +127,19 @@ function ListRow({
     >
       <span
         className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: color ?? 'var(--c-text-faint)' }}
+        style={{ backgroundColor: sub?.color ?? color ?? 'var(--c-text-faint)' }}
         aria-hidden="true"
       />
 
       <span className="min-w-0 flex-1">
-        <span className="text-ink block truncate text-sm font-medium">{list.name}</span>
+        <span className="text-ink block truncate text-sm font-medium">
+          {list.name}
+          {sub && (
+            <span className="pl-1.5 text-xs font-medium" style={{ color: sub.color }}>
+              {sub.name}
+            </span>
+          )}
+        </span>
         {preview.length > 0 ? (
           <span className="text-muted block truncate text-xs">{preview.join(', ')}</span>
         ) : (

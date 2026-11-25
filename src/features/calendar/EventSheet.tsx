@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   addEvent,
+  copyEvent,
   deleteEvent,
   deleteSeries,
   seriesDates,
   updateEvent,
   updateSeries,
 } from '../../data/events';
-import { MAX_REPEAT_COUNT, type Category, type EventItem, type RepeatFreq } from '../../data/types';
+import { MAX_EVENT_DAYS, MAX_REPEAT_COUNT, type Category, type EventItem, type RepeatFreq } from '../../data/types';
 import { useT } from '../../i18n';
-import { dotDateLabel, fromKey, fullDateLabel } from '../../lib/dates';
+import { daysApart, dotDateLabel, fromKey, fullDateLabel, shiftKey } from '../../lib/dates';
 import { Button } from '../../ui/Button';
 import { CategoryPicker, SubcategoryPicker } from '../../ui/CategoryChip';
 import { ConfirmDialog } from '../../ui/Confirm';
@@ -59,6 +60,15 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
   const [count, setCount] = useState(DEFAULT_COUNT);
   const [scope, setScope] = useState<Scope>('ten');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  /** Ostatni dzień wydarzenia wielodniowego; pusty — jednodniowe. */
+  const [endDate, setEndDate] = useState('');
+  /** Dzień, na który kopiujemy, i podpis po skopiowaniu. */
+  const [copyDate, setCopyDate] = useState('');
+  const [copiedTo, setCopiedTo] = useState<string[]>([]);
+
+  // Edytowane wydarzenie zaczyna się w swoim dniu — wielodniowe można
+  // otworzyć z dowolnego dnia jego trwania, a nie może się przy tym przesunąć.
+  const startKey = event?.date ?? dateKey;
 
   // Wypełnia formularz przy każdym otwarciu — inaczej zostałyby dane poprzedniego wpisu.
   useEffect(() => {
@@ -73,11 +83,17 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
     setRepeat('brak');
     setCount(DEFAULT_COUNT);
     setScope('ten');
-  }, [open, event]);
+    setEndDate(event?.endDate ?? '');
+    setCopyDate(shiftKey(event?.date ?? dateKey, 1));
+    setCopiedTo([]);
+  }, [open, event, dateKey]);
 
   const trimmed = title.trim();
-  const timesValid = allDay || !endTime || endTime >= startTime;
-  const canSave = trimmed.length > 0 && timesValid;
+  const multiDay = endDate !== '';
+  const endValid = !multiDay || (endDate > startKey && daysApart(startKey, endDate) < MAX_EVENT_DAYS);
+  // Przy wielodniowym godzina końca dotyczy innego dnia niż początek.
+  const timesValid = allDay || !endTime || multiDay || endTime >= startTime;
+  const canSave = trimmed.length > 0 && timesValid && endValid;
 
   const inSeries = event?.seriesId !== undefined;
   const wholeSeries = inSeries && scope === 'seria';
@@ -86,15 +102,16 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
   // o tym, dokąd seria sięga.
   const lastDate = useMemo(() => {
     if (repeat === 'brak' || count < 2) return null;
-    const keys = seriesDates(dateKey, { freq: repeat, count });
+    const keys = seriesDates(startKey, { freq: repeat, count });
     return keys[keys.length - 1] ?? null;
-  }, [repeat, count, dateKey]);
+  }, [repeat, count, startKey]);
 
   const save = async () => {
     if (!canSave) return;
     const draft = {
       title: trimmed,
-      date: dateKey,
+      date: startKey,
+      endDate: multiDay ? endDate : undefined,
       allDay,
       startTime: allDay ? undefined : startTime,
       endTime: allDay || !endTime ? undefined : endTime,
@@ -105,9 +122,9 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
 
     if (event?.id !== undefined) {
       if (wholeSeries) {
-        // Data zostaje nietknięta — inaczej wszystkie terminy serii wskoczyłyby
+        // Daty zostają nietknięte — inaczej wszystkie terminy serii wskoczyłyby
         // na ten sam dzień.
-        const { date: _pominietaData, ...bezDaty } = draft;
+        const { date: _pominietaData, endDate: _pominietyKoniec, ...bezDaty } = draft;
         await updateSeries(event.seriesId!, bezDaty);
       } else {
         await updateEvent(event.id, draft);
@@ -119,6 +136,13 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
       );
     }
     onClose();
+  };
+
+  const copy = async () => {
+    if (!event || !copyDate) return;
+    await copyEvent(event, copyDate);
+    setCopiedTo((list) => [...list, copyDate]);
+    setCopyDate(shiftKey(copyDate, 1));
   };
 
   const remove = async () => {
@@ -136,7 +160,10 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
       onClose={onClose}
     >
       <div className="flex flex-col gap-5">
-        <p className="text-muted -mt-2 text-sm">{fullDateLabel(fromKey(dateKey))}</p>
+        <p className="text-muted -mt-2 text-sm">
+          {fullDateLabel(fromKey(startKey))}
+          {multiDay && endValid && ` – ${fullDateLabel(fromKey(endDate))}`}
+        </p>
 
         <label className="flex flex-col gap-2">
           <span className="text-muted text-xs font-medium">{t.wspolne.nazwa}</span>
@@ -197,9 +224,39 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
           </p>
         )}
 
+        {/* Kilka dni — nie przy serii: jej terminy mają wspólną regułę, a długość
+            pojedynczego terminu zmieniałaby się wtedy tylko w jednym z nich. */}
+        {!inSeries && repeat === 'brak' && (
+          <div className="flex flex-col gap-2">
+            <span className="text-muted text-xs font-medium">{t.kalendarz.doDnia}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={endDate}
+                min={shiftKey(startKey, 1)}
+                max={shiftKey(startKey, MAX_EVENT_DAYS - 1)}
+                onChange={(e) => setEndDate(e.target.value)}
+                aria-label={t.kalendarz.doDnia}
+                className="bg-surface rounded-app text-ink min-w-0 flex-1 px-3 py-2.5 text-base"
+              />
+              {multiDay && (
+                <button
+                  type="button"
+                  onClick={() => setEndDate('')}
+                  className="text-muted shrink-0 px-2 py-2 text-sm"
+                >
+                  {t.kalendarz.jedenDzien}
+                </button>
+              )}
+            </div>
+            {!multiDay && <p className="text-muted text-xs">{t.kalendarz.doDniaOpis}</p>}
+            {!endValid && <p className="text-weekend text-xs">{t.kalendarz.zlyKoniec(MAX_EVENT_DAYS)}</p>}
+          </div>
+        )}
+
         {/* Powtarzanie ustawiamy tylko przy zakładaniu serii — zmiana reguły
             istniejącej serii to w praktyce nowa seria. */}
-        {!event && (
+        {!event && !multiDay && (
           <div className="flex flex-col gap-2">
             <span className="text-muted text-xs font-medium">{t.kalendarz.powtarzanie}</span>
             <div className="flex flex-wrap gap-1.5">
@@ -285,6 +342,27 @@ export function EventSheet({ open, dateKey, event, categories, onClose }: Props)
             className="bg-surface rounded-app text-ink resize-none px-3 py-2.5 text-base"
           />
         </label>
+
+        {event && (
+          <div className="flex flex-col gap-2">
+            <span className="text-muted text-xs font-medium">{t.kalendarz.kopiujNaDzien}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={copyDate}
+                onChange={(e) => setCopyDate(e.target.value)}
+                aria-label={t.kalendarz.kopiujNaDzien}
+                className="bg-surface rounded-app text-ink min-w-0 flex-1 px-3 py-2.5 text-base"
+              />
+              <Button className="shrink-0 px-4" disabled={!copyDate} onClick={copy}>
+                {t.kalendarz.kopiuj}
+              </Button>
+            </div>
+            {copiedTo.length > 0 && (
+              <p className="text-accent text-xs">{t.kalendarz.skopiowano(copiedTo.map(dotDateLabel).join(', '))}</p>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-2">
           <Button variant="primary" className="flex-1" disabled={!canSave} onClick={save}>

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { currentDict } from '../i18n';
 import { persist } from 'zustand/middleware';
 import { sanitizeTheme, sanitizeThemeList } from '../data/validate';
-import { DEFAULT_THEME, PRESETS } from './presets';
+import { DEFAULT_THEME, DEV_PRESETS, PRESETS } from './presets';
 import type { ColorKey, Theme } from './types';
 
 interface ThemeState {
@@ -35,7 +35,7 @@ export const useThemeStore = create<ThemeState>()(
 
       applyPreset: (presetId) =>
         set((s) => {
-          const preset = PRESETS.find((p) => p.id === presetId);
+          const preset = [...PRESETS, ...DEV_PRESETS].find((p) => p.id === presetId);
           return preset ? { theme: structuredClone(preset) } : s;
         }),
 

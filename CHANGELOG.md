@@ -5,6 +5,44 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.14.0] — 2026-11-25
+
+### Nowe
+- **Wydarzenia na kilka dni:** w wydarzeniu pole „Do dnia” — np. wyjazd
+  4–6 grudnia. Wydarzenie widać w każdym dniu zakresu (siatka, rozpiska
+  dnia, Przegląd), a na liście z zakresem dat zamiast godzin. Najwyżej
+  92 dni; nie łączy się z powtarzaniem.
+- **Kopiowanie wydarzenia na inny dzień:** w formularzu wydarzenia
+  „Kopiuj na inny dzień” — kopia jest osobnym wydarzeniem (bez serii),
+  wielodniowe zachowuje długość. Można skopiować na kilka dni po kolei.
+- **Podkategorie w zwykłych kategoriach:** zakłada się je w Ustawienia →
+  Kategorie, przy edycji kategorii. Działają jak we wspólnych kalendarzach.
+- **Podkategorie przy listach:** wybór przy liście (jej kolor i nazwa przy
+  liście w spisie), także we wspólnych kalendarzach.
+- **Notatka przy nawyku:** pole w formularzu nawyku, notatka widoczna pod
+  nazwą.
+- **Opcje deweloperskie** (Ustawienia), włączane kodem autora: zestaw i tło
+  „Serduszka” oraz narzucanie własnego wyglądu członkom wspólnego
+  kalendarza (podpisane, nikt inny go nie narzuci).
+
+### Zmiany
+- Przycisk ustawień wyżej, na wysokości przycisku sugestii (!) —
+  w Kalendarzu, Zadaniach, Listach i Czacie.
+
+### Poprawki
+- Usunięcie kategorii odpina od niej także listy — wcześniej zostawały
+  przypięte do nieistniejącej kategorii.
+
+### Zgodność
+- Baza na telefonie i kopia zapasowa bez zmian wersji; cofnięcie do 1.13.0
+  jest możliwe. Starsza wersja wczyta kopię bez nowych pól (koniec
+  wydarzenia, notatka nawyku, podkategoria listy).
+- Wspólne kalendarze: format rekordów 5 — po aktualizacji telefon raz
+  pobiera kalendarz od nowa. Starsza wersja pokaże wydarzenie wielodniowe
+  tylko w pierwszym dniu, nie zobaczy notatki nawyku ani podkategorii listy,
+  a edytując je, zdejmie te pola — warto, żeby wszyscy zaktualizowali.
+- Serwer bez zmian.
+
 ## [1.13.0] — 2026-11-25
 
 ### Nowe

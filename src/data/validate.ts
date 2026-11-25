@@ -11,7 +11,8 @@ import type { BudgetSettings, MoneyCategory, MoneyEntry, SavingsGoal } from './t
 import { FONTS, TEXTURES } from '../theme/catalog';
 import { DEFAULT_THEME } from '../theme/presets';
 import type { ColorKey, Theme } from '../theme/types';
-import { MAX_REPEAT_COUNT, REPEAT_FREQS } from './types';
+import { MAX_EVENT_DAYS, MAX_REPEAT_COUNT, REPEAT_FREQS } from './types';
+import { daysApart } from '../lib/dates';
 import type {
   Category,
   Checklist,
@@ -98,6 +99,10 @@ export function validEvent(input: unknown): EventItem | null {
     id: r.id as number | undefined,
     title: r.title,
     date: r.date,
+    // Zły albo zbyt odległy koniec nie przekreśla wydarzenia — zostaje jednodniowe.
+    ...(isDateKey(r.endDate) && r.endDate > r.date && daysApart(r.date, r.endDate) < MAX_EVENT_DAYS
+      ? { endDate: r.endDate }
+      : {}),
     allDay: r.allDay,
     startTime: r.startTime as string | undefined,
     endTime: r.endTime as string | undefined,
@@ -161,6 +166,7 @@ export function validHabit(input: unknown): Habit | null {
   if (!isNumber(r.target) || r.target < 1) return null;
   if (!isNumber(r.order) || !isFlag(r.archived) || !isNumber(r.createdAt)) return null;
   if (!isOptionalText(r.unit) || !isOptionalId(r.categoryId) || !isOptionalId(r.id)) return null;
+  if (!isOptionalText(r.note)) return null;
 
   return {
     id: r.id as number | undefined,
@@ -171,6 +177,7 @@ export function validHabit(input: unknown): Habit | null {
     unit: r.unit as string | undefined,
     // Kopie sprzed wprowadzenia trybów liczyły wyłącznie od dnia założenia.
     period: r.period === 'miesiac' ? 'miesiac' : 'ciagly',
+    note: r.note as string | undefined,
     categoryId: r.categoryId as number | undefined,
     order: r.order,
     archived: r.archived,
@@ -203,6 +210,8 @@ export function validChecklist(input: unknown): Checklist | null {
     name: r.name,
     note: r.note as string | undefined,
     categoryId: r.categoryId as number | undefined,
+    // Podkategoria bez kategorii nic nie znaczy.
+    ...(isNumber(r.subcategoryId) && r.categoryId !== undefined ? { subcategoryId: r.subcategoryId } : {}),
     order: r.order,
     ...(isUid(r.uid) ? { uid: r.uid } : {}),
     createdAt: r.createdAt,

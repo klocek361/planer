@@ -142,6 +142,36 @@ export const PRESETS: Theme[] = [
   },
 ];
 
+/**
+ * Zestawy odblokowywane trybem deweloperskim — w Wyglądzie widać je dopiero
+ * po wpisaniu kodu. Motyw narzucony członkom kalendarza może jednak z nich
+ * pochodzić, więc kod i faktura są w aplikacji u wszystkich.
+ */
+export const DEV_PRESETS: Theme[] = [
+  {
+    id: 'serduszka',
+    name: 'Serduszka',
+    mode: 'light',
+    colors: {
+      bg: '#FFF7F9',
+      surface: '#FFEAF0',
+      surfaceAlt: '#FCDDE6',
+      text: '#3A1E27',
+      textMuted: '#9A6878',
+      textFaint: '#E3BFCB',
+      accent: '#D6336C',
+      weekend: '#D6336C',
+      star: '#E8A33D',
+      selectedBg: '#B0244F',
+      selectedText: '#FFF7F9',
+      border: '#F6D5DF',
+    },
+    typography: { fontId: 'nunito', scale: 1 },
+    shape: { radius: 22, density: 1.05 },
+    texture: 'hearts',
+  },
+];
+
 export const DEFAULT_THEME: Theme = PRESETS[0]!;
 
 /** Domyślne kolory kategorii — stonowane, w duchu motywu startowego. */

@@ -15,6 +15,7 @@ import { useT } from '../../i18n';
 import { Screen } from '../../ui/Screen';
 import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
+import { SubcategoriesSection } from '../../ui/SubcategoriesSection';
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, TrashIcon } from '../../ui/icons';
 import { tap } from '../../platform/haptics';
 
@@ -177,6 +178,12 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
             <p className="text-muted -mt-2 text-xs">
               {t.kategorie.uwaga}
             </p>
+          )}
+
+          {editing?.mode === 'edycja' && editing.category.id !== undefined && (
+            <div className="-mt-6">
+              <SubcategoriesSection categoryId={editing.category.id} shared={!!editing.category.space} />
+            </div>
           )}
 
           <ConfirmDialog

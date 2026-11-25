@@ -22,7 +22,8 @@ export type ThemeColors = Record<ColorKey, string>;
 
 export type FontId = 'system' | 'inter' | 'literata' | 'nunito' | 'jetbrains' | 'caveat';
 
-export type TextureId = 'none' | 'paper' | 'canvas' | 'grid' | 'dots';
+/** 'hearts' — tylko w trybie deweloperskim (patrz `DEV_TEXTURES`). */
+export type TextureId = 'none' | 'paper' | 'canvas' | 'grid' | 'dots' | 'hearts';
 
 export type ThemeMode = 'light' | 'dark';
 

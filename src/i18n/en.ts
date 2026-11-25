@@ -87,6 +87,13 @@ export const en: Dict = {
     pytanieWydarzenie: (tytul) => `Delete the event “${tytul}”?`,
     pytanieSeria: (tytul) => `Delete the whole series “${tytul}”?`,
     opisSeria: 'Every date in this series will go, including the ones already past.',
+    doDnia: 'Until (several days)',
+    doDniaOpis: 'Empty — a one-day event. Pick a day, e.g. a trip on 4–6 December.',
+    jedenDzien: 'One day',
+    zlyKoniec: (dni: number) => `An event can last at most ${dni} days and must end after its first day.`,
+    kopiujNaDzien: 'Copy to another day',
+    kopiuj: 'Copy',
+    skopiowano: (dni: string) => `Copied to: ${dni}`,
   },
 
   zadania: {
@@ -190,6 +197,8 @@ export const en: Dict = {
     odhacz: (nazwa) => `Tick ${nazwa}`,
     odejmij: (nazwa) => `Subtract from ${nazwa}`,
     dodaj: (nazwa) => `Add to ${nazwa}`,
+    notatka: 'Note',
+    notatkaPrzyklad: 'e.g. after dinner, 10 minutes',
   },
 
   przeglad: {
@@ -236,6 +245,8 @@ export const en: Dict = {
     wspolny: 'Shared calendar',
     wspolnyOpis: 'Chosen categories together with another person',
     wersja: (numer) => `Planer Kaśkowy ${numer}`,
+    deweloper: 'Developer options',
+    deweloperOpis: 'Unlocked with a code',
   },
 
   wspolny: {
@@ -394,13 +405,14 @@ export const en: Dict = {
     wybor: 'Subcategory',
     zadna: 'None',
     dodaj: 'Add subcategory',
-    opis: 'Pick a subcategory for tasks and events in this calendar. All members see it.',
+    opis: 'Pick a subcategory for tasks, events and lists in this calendar. All members see it.',
     nowa: 'New subcategory',
     edytuj: 'Edit subcategory',
     nazwaPrzyklad: 'e.g. Cats',
     usun: 'Delete subcategory',
     pytanie: (nazwa: string) => `Delete subcategory ${nazwa}?`,
-    opisUsuniecia: 'Tasks and events stay in the calendar, just without the subcategory.',
+    opisUsuniecia: 'Tasks, events and lists stay in the category, just without the subcategory.',
+    opisPrywatna: 'Pick a subcategory for tasks, events and lists in this category.',
   },
 
   notatkaDnia: {
@@ -412,14 +424,28 @@ export const en: Dict = {
     usun: 'Delete note',
   },
 
+  deweloper: {
+    wstep: 'Options for the app’s author. You need a developer code to turn them on.',
+    kod: 'Developer code',
+    wlacz: 'Turn on',
+    zlyKod: 'This code doesn’t match.',
+    wlaczony: 'Developer mode is on for this phone.',
+    coSerduszka: 'The “Hearts” set and background are unlocked in Appearance.',
+    coMotyw: 'In a shared calendar’s settings you can apply your look to all members.',
+    wylacz: 'Turn off developer mode',
+    narzucMotyw: 'Apply my look to members',
+    narzucMotywOpis: 'Everyone in this calendar gets your look, and every later change to it. They can change it back on their own phone.',
+  },
+
   nowosci: {
     tytul: (wersja: string) => `New version v${wersja}`,
     usprawnienia: 'Improvements:',
     zmiany: [
-      'Note of the day in shared calendars — in Tasks, Days view, above the day’s tasks. All members can see it.',
-      'Subcategories in shared calendars, each with its own colour. Create them in the calendar settings and pick them for tasks and events.',
-      'Chat times are always shown in 24-hour format.',
-      'In shared calendars, a removed note, an unticked “5 min” or a removed payer in a budget entry now disappears for everyone else too.',
+      'Events spanning several days — an “Until” field in the event, e.g. a trip on 4–6 December. It shows on every day.',
+      'Copy an event to another day — “Copy to another day” in the event form.',
+      'Subcategories for regular categories too (Settings → Categories) and for lists.',
+      'A note on a habit — shown under its name.',
+      'The settings button sits higher, level with the “!” button.',
     ],
     ok: 'Great',
   },
@@ -580,6 +606,7 @@ export const en: Dict = {
     kaskowy: 'Kaśkowy',
     atrament: 'Ink',
     noc: 'Night',
+    serduszka: 'Hearts',
   },
 
   tekstury: {
@@ -588,5 +615,6 @@ export const en: Dict = {
     canvas: 'Canvas',
     grid: 'Grid',
     dots: 'Dots',
+    hearts: 'Hearts',
   },
 };

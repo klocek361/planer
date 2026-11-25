@@ -8,6 +8,7 @@ export interface HabitDraft {
   target: number;
   unit?: string;
   period: HabitPeriod;
+  note?: string;
   categoryId?: number;
 }
 

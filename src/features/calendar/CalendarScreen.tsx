@@ -66,7 +66,7 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
     return map;
   }, [categories]);
 
-  const eventsByDate = useMemo(() => groupByDate(events ?? []), [events]);
+  const eventsByDate = useMemo(() => groupByDate(events ?? [], range.from, range.to), [events, range]);
   const selectedEvents = eventsByDate.get(selectedKey) ?? [];
 
   // W siatce pokazujemy tylko zadania otwarte — kalendarz służy planowaniu,
@@ -146,8 +146,11 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="pt-safe px-safe shrink-0">
         {/* Przycisk sugestii w tym samym miejscu, co na pozostałych ekranach. */}
-        <div className="flex items-center pt-1">
+        <div className="flex items-center justify-between pt-1">
           <FeedbackButton />
+          <div className="ml-auto flex items-center">
+            <SettingsButton onClick={onOpenSettings} />
+          </div>
         </div>
         <div className="flex items-center justify-between gap-3 pb-1">
           <h1
@@ -169,7 +172,6 @@ export function CalendarScreen({ onOpenSettings }: { onOpenSettings: () => void 
                 {t.wspolne.dzisiaj}
               </button>
             )}
-            <SettingsButton onClick={onOpenSettings} />
           </div>
         </div>
       </header>

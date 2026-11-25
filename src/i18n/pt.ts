@@ -87,6 +87,13 @@ export const pt: Dict = {
     pytanieWydarzenie: (tytul) => `Eliminar o evento «${tytul}»?`,
     pytanieSeria: (tytul) => `Eliminar toda a série «${tytul}»?`,
     opisSeria: 'Desaparecem todas as datas desta série, incluindo as que já passaram.',
+    doDnia: 'Até ao dia (vários dias)',
+    doDniaOpis: 'Vazio — evento de um dia. Escolha um dia, ex. viagem de 4 a 6 de dezembro.',
+    jedenDzien: 'Um dia',
+    zlyKoniec: (dni: number) => `Um evento pode durar no máximo ${dni} dias e tem de terminar depois do primeiro dia.`,
+    kopiujNaDzien: 'Copiar para outro dia',
+    kopiuj: 'Copiar',
+    skopiowano: (dni: string) => `Copiado para: ${dni}`,
   },
 
   zadania: {
@@ -191,6 +198,8 @@ export const pt: Dict = {
     odhacz: (nazwa) => `Marcar ${nazwa}`,
     odejmij: (nazwa) => `Subtrair de ${nazwa}`,
     dodaj: (nazwa) => `Adicionar a ${nazwa}`,
+    notatka: 'Nota',
+    notatkaPrzyklad: 'ex. depois do jantar, 10 minutos',
   },
 
   przeglad: {
@@ -237,6 +246,8 @@ export const pt: Dict = {
     wspolny: 'Calendário partilhado',
     wspolnyOpis: 'Categorias escolhidas em conjunto com outra pessoa',
     wersja: (numer) => `Planer Kaśkowy ${numer}`,
+    deweloper: 'Opções de programador',
+    deweloperOpis: 'Acesso com código',
   },
 
   wspolny: {
@@ -395,13 +406,14 @@ export const pt: Dict = {
     wybor: 'Subcategoria',
     zadna: 'Nenhuma',
     dodaj: 'Adicionar subcategoria',
-    opis: 'A subcategoria escolhe-se nas tarefas e eventos deste calendário. Todos os membros a veem.',
+    opis: 'A subcategoria escolhe-se nas tarefas, eventos e listas deste calendário. Todos os membros a veem.',
     nowa: 'Nova subcategoria',
     edytuj: 'Editar subcategoria',
     nazwaPrzyklad: 'ex. Gatos',
     usun: 'Apagar subcategoria',
     pytanie: (nazwa: string) => `Apagar a subcategoria ${nazwa}?`,
-    opisUsuniecia: 'As tarefas e os eventos ficam no calendário, só sem subcategoria.',
+    opisUsuniecia: 'As tarefas, os eventos e as listas ficam na categoria, só sem subcategoria.',
+    opisPrywatna: 'A subcategoria escolhe-se nas tarefas, eventos e listas desta categoria.',
   },
 
   notatkaDnia: {
@@ -413,14 +425,28 @@ export const pt: Dict = {
     usun: 'Apagar nota',
   },
 
+  deweloper: {
+    wstep: 'Opções para o autor da aplicação. Para as ativar é preciso um código de programador.',
+    kod: 'Código de programador',
+    wlacz: 'Ativar',
+    zlyKod: 'Este código não corresponde.',
+    wlaczony: 'O modo de programador está ativo neste telemóvel.',
+    coSerduszka: 'Em Aspeto ficam desbloqueados o conjunto e o fundo «Corações».',
+    coMotyw: 'Nas definições de um calendário partilhado pode impor o seu aspeto a todos os membros.',
+    wylacz: 'Desativar o modo de programador',
+    narzucMotyw: 'Impor o meu aspeto aos membros',
+    narzucMotywOpis: 'Todos neste calendário recebem o seu aspeto, também depois de cada alteração. Depois podem mudá-lo no próprio telemóvel.',
+  },
+
   nowosci: {
     tytul: (wersja: string) => `Nova versão v${wersja}`,
     usprawnienia: 'Melhorias:',
     zmiany: [
-      'Nota do dia nos calendários partilhados — em Tarefas, na vista Dias, por cima das tarefas do dia. Todos os membros a veem.',
-      'Subcategorias nos calendários partilhados, cada uma com a sua cor. Criam-se nas definições do calendário e escolhem-se nas tarefas e eventos.',
-      'As horas no chat aparecem sempre no formato de 24 horas.',
-      'Nos calendários partilhados, uma nota apagada, o «5 min» desmarcado ou quem pagou removido de um registo do orçamento desaparecem agora também para os outros.',
+      'Eventos de vários dias — no evento, o campo «Até ao dia», ex. viagem de 4 a 6 de dezembro. Aparece em todos os dias.',
+      'Copiar um evento para outro dia — no formulário do evento: «Copiar para outro dia».',
+      'Subcategorias também nas categorias normais (Definições → Categorias) e nas listas.',
+      'Nota num hábito — aparece por baixo do nome.',
+      'O botão das definições está mais acima, ao nível do botão «!».',
     ],
     ok: 'Ótimo',
   },
@@ -583,6 +609,7 @@ export const pt: Dict = {
     kaskowy: 'Kaśkowy',
     atrament: 'Tinta',
     noc: 'Noite',
+    serduszka: 'Corações',
   },
 
   tekstury: {
@@ -591,5 +618,6 @@ export const pt: Dict = {
     canvas: 'Tela',
     grid: 'Quadrícula',
     dots: 'Pontos',
+    hearts: 'Corações',
   },
 };

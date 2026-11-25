@@ -2,6 +2,7 @@ import { subcategoryOf } from '../../data/subcategories';
 import type { EventItem, Subcategory } from '../../data/types';
 import { isDarkColor } from '../../theme/color';
 import { useT } from '../../i18n';
+import { dotDateLabel } from '../../lib/dates';
 import { RepeatIcon } from '../../ui/icons';
 
 /** Kolor kategorii albo neutralna szarość, gdy wydarzenie nie ma przypisania. */
@@ -72,9 +73,12 @@ export function EventRow({
   onClick: () => void;
 }) {
   const { t } = useT();
-  const time = event.allDay
-    ? t.wspolne.calyDzien
-    : [event.startTime, event.endTime].filter(Boolean).join('–');
+  // Wielodniowe — zakres dni zamiast godzin; godziny widać w formularzu.
+  const time = event.endDate
+    ? `${dotDateLabel(event.date)}–${dotDateLabel(event.endDate)}`
+    : event.allDay
+      ? t.wspolne.calyDzien
+      : [event.startTime, event.endTime].filter(Boolean).join('–');
 
   return (
     <button

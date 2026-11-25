@@ -14,6 +14,7 @@ import { LanguageScreen } from './LanguageScreen';
 import { CategoriesScreen } from './CategoriesScreen';
 import { TabsScreen } from './TabsScreen';
 import { SharingScreen } from './SharingScreen';
+import { DevScreen } from './DevScreen';
 
 type View =
   | 'menu'
@@ -23,7 +24,8 @@ type View =
   | 'kalendarz'
   | 'wspolny'
   | 'jezyk'
-  | 'kopia';
+  | 'kopia'
+  | 'deweloper';
 
 const ROWS: Exclude<View, 'menu'>[] = [
   'wyglad',
@@ -33,6 +35,7 @@ const ROWS: Exclude<View, 'menu'>[] = [
   'wspolny',
   'jezyk',
   'kopia',
+  'deweloper',
 ];
 
 export function SettingsScreen({ onClose }: { onClose: () => void }) {
@@ -63,6 +66,8 @@ export function SettingsScreen({ onClose }: { onClose: () => void }) {
   if (view === 'kopia') return <BackupScreen onBack={back} />;
 
   if (view === 'wspolny') return <SharingScreen onBack={back} />;
+
+  if (view === 'deweloper') return <DevScreen onBack={back} />;
 
   return (
     <Screen

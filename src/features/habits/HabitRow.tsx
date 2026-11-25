@@ -150,6 +150,9 @@ export function HabitRow({ habit, color, days, todayKey, size, month, onSetValue
         >
           {habit.name}
         </span>
+        {big && habit.note && (
+          <span className="text-muted block truncate pt-0.5 text-xs">{habit.note}</span>
+        )}
         <span
           className={`flex shrink-0 items-center ${big ? 'gap-1.5 pt-1.5' : 'gap-1'}`}
         >

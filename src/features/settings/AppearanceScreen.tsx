@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { COLOR_FIELDS, FONTS, TEXTURES } from '../../theme/catalog';
+import { COLOR_FIELDS, DEV_TEXTURES, FONTS, TEXTURES } from '../../theme/catalog';
 import { READABLE_CONTRAST, contrastRatio } from '../../theme/color';
-import { DEFAULT_CATEGORY_COLORS, PRESETS } from '../../theme/presets';
+import { DEFAULT_CATEGORY_COLORS, DEV_PRESETS, PRESETS } from '../../theme/presets';
+import { useDevMode } from '../../dev/devMode';
 import { useThemeStore } from '../../theme/store';
 import { useT } from '../../i18n';
 import type { ColorKey } from '../../theme/types';
@@ -22,6 +23,11 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
   const saveCurrentAs = useThemeStore((s) => s.saveCurrentAs);
   const deleteSaved = useThemeStore((s) => s.deleteSaved);
   const reset = useThemeStore((s) => s.reset);
+  const devMode = useDevMode();
+  // Serduszka tylko w trybie deweloperskim; faktura zostaje widoczna, gdy już
+  // jest w motywie (np. narzuconym), żeby było widać, co jest wybrane.
+  const presets = devMode ? [...PRESETS, ...DEV_PRESETS] : PRESETS;
+  const textures = TEXTURES.filter((x) => devMode || !DEV_TEXTURES.includes(x.id) || theme.texture === x.id);
 
   const [editingColor, setEditingColor] = useState<ColorKey | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -38,7 +44,7 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
 
       <Section title={t.wyglad.gotoweZestawy}>
         <div className="flex flex-wrap gap-2">
-          {PRESETS.map((preset) => (
+          {presets.map((preset) => (
             <button
               key={preset.id}
               type="button"
@@ -161,7 +167,7 @@ export function AppearanceScreen({ onBack }: { onBack: () => void }) {
 
       <Section title={t.wyglad.tlo}>
         <div className="flex flex-wrap gap-2">
-          {TEXTURES.map((texture) => (
+          {textures.map((texture) => (
             <button
               key={texture.id}
               type="button"

@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { randomQuote } from '../../app/quotes';
 import { db } from '../../data/db';
+import { eventsBetween, groupByDate } from '../../data/events';
 import { entriesBetween, indexEntries, setHabitValue } from '../../data/habits';
 import { withSubcategory } from '../../data/subcategories';
 import { compareTasks, taskDays, toggleTask, updateTask } from '../../data/tasks';
@@ -82,7 +83,7 @@ export function OverviewScreen({ onOpenSettings }: Props) {
   const week = useMemo(() => lastDays(7), []);
 
   const events = useLiveQuery(
-    () => db.events.where('date').between(todayKey, lastKey, true, true).toArray(),
+    () => eventsBetween(todayKey, lastKey),
     [todayKey, lastKey],
   );
   const tasks = useLiveQuery(() => db.tasks.toArray());
@@ -129,15 +130,10 @@ export function OverviewScreen({ onOpenSettings }: Props) {
   }, [openTasks, todayKey, lastKey]);
 
   const eventsByDay = useMemo(() => {
-    const map = new Map<string, EventItem[]>();
-    for (const event of events ?? []) {
-      const list = map.get(event.date);
-      if (list) list.push(event);
-      else map.set(event.date, [event]);
-    }
+    const map = groupByDate(events ?? [], todayKey, lastKey);
     for (const list of map.values()) list.sort(compareEvents);
     return map;
-  }, [events]);
+  }, [events, todayKey, lastKey]);
 
   const overdue = useMemo(
     () => openTasks.filter((task) => task.dueDate !== undefined && task.dueDate < todayKey),
@@ -188,8 +184,15 @@ export function OverviewScreen({ onOpenSettings }: Props) {
   }));
   const soonAll: Bucket = emptyBucket();
   const seenTasks = new Set<number>();
+  const seenEvents = new Set<number>();
   for (const { bucket } of soonByDay) {
-    soonAll.events.push(...bucket.events);
+    // Wielodniowe wydarzenie raz, nie w każdym swoim dniu.
+    for (const event of bucket.events) {
+      if (!seenEvents.has(event.id!)) {
+        seenEvents.add(event.id!);
+        soonAll.events.push(event);
+      }
+    }
     for (const task of bucket.tasks) {
       if (!seenTasks.has(task.id!)) {
         seenTasks.add(task.id!);

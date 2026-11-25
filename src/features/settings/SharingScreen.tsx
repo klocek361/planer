@@ -2,10 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { updateCategory } from '../../data/categories';
 import { db } from '../../data/db';
-import { addSubcategory, deleteSubcategory, updateSubcategory } from '../../data/subcategories';
-import type { Category, Member, Subcategory, SyncState } from '../../data/types';
-import { MAX_SUBCATEGORY_NAME } from '../../data/validate';
-import { DEFAULT_CATEGORY_COLORS } from '../../theme/presets';
+import type { Category, Member, SyncState } from '../../data/types';
 import { useT } from '../../i18n';
 import { useBackDismiss } from '../../platform/back';
 import { httpTransport, syncAvailable } from '../../platform/sync';
@@ -24,11 +21,13 @@ import { SyncError, type SyncErrorCode } from '../../sync/transport';
 import { syncAndRecord } from '../../sync/useAutoSync';
 import { Button } from '../../ui/Button';
 import { CodeInput, formatCode } from '../../ui/CodeInput';
-import { ColorPicker } from '../../ui/ColorPicker';
 import { ConfirmDialog } from '../../ui/Confirm';
-import { ChevronRightIcon, PlusIcon, TrashIcon } from '../../ui/icons';
+import { ChevronRightIcon } from '../../ui/icons';
 import { Screen } from '../../ui/Screen';
-import { Sheet } from '../../ui/Sheet';
+import { SubcategoriesSection } from '../../ui/SubcategoriesSection';
+import { useDevStore } from '../../dev/devMode';
+import { clearForcedTheme, setForcedTheme } from '../../dev/forceTheme';
+import { useThemeStore } from '../../theme/store';
 
 type View = { k: 'lista' } | { k: 'nowy' } | { k: 'dolacz' } | { k: 'kalendarz'; id: string };
 
@@ -410,7 +409,9 @@ function CalendarView({
         )}
       </div>
 
-      {category?.id !== undefined && <SubcategoriesSection categoryId={category.id} />}
+      {category?.id !== undefined && <SubcategoriesSection categoryId={category.id} shared />}
+
+      <ForcedThemeToggle space={id} forced={!!state.motyw} />
 
       <div className="flex flex-col gap-2 pt-6">
         <TextField
@@ -530,127 +531,44 @@ function CalendarView({
   );
 }
 
-type SubEditing = { mode: 'nowa' } | { mode: 'edycja'; sub: Subcategory } | null;
-
 /**
- * Podkategorie kalendarza: lista, dodawanie, zmiana nazwy i koloru, usuwanie.
- * Wybiera się je przy zadaniu i wydarzeniu z tego kalendarza.
+ * Tylko w trybie deweloperskim: narzuca obecny motyw wszystkim członkom
+ * kalendarza. Zmiana wyglądu u dewelopera rozchodzi się potem sama
+ * (`useDevTheme`); członek może u siebie zmienić motyw, dopóki deweloper
+ * nie zmieni swojego.
  */
-function SubcategoriesSection({ categoryId }: { categoryId: number }) {
+function ForcedThemeToggle({ space, forced }: { space: string; forced: boolean }) {
   const { t } = useT();
-  const subs = useLiveQuery(
-    () => db.subcategories.where('categoryId').equals(categoryId).sortBy('order'),
-    [categoryId],
-    [] as Subcategory[],
-  );
-  const [editing, setEditing] = useState<SubEditing>(null);
-  const [name, setName] = useState('');
-  const [color, setColor] = useState(DEFAULT_CATEGORY_COLORS[0]!);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const key = useDevStore((s) => s.key);
+  const [busy, setBusy] = useState(false);
+  if (!key) return null;
 
-  const openNew = () => {
-    setName('');
-    setColor(DEFAULT_CATEGORY_COLORS[subs.length % DEFAULT_CATEGORY_COLORS.length]!);
-    setEditing({ mode: 'nowa' });
-  };
-
-  const openEdit = (sub: Subcategory) => {
-    setName(sub.name);
-    setColor(sub.color);
-    setEditing({ mode: 'edycja', sub });
-  };
-
-  const save = async () => {
-    if (!name.trim()) return;
-    if (editing?.mode === 'edycja') await updateSubcategory(editing.sub.id!, { name, color });
-    else await addSubcategory(categoryId, name, color);
-    setEditing(null);
-  };
-
-  const remove = async () => {
-    setConfirmOpen(false);
-    if (editing?.mode !== 'edycja') return;
-    await deleteSubcategory(editing.sub.id!);
-    setEditing(null);
+  const toggle = async (on: boolean) => {
+    setBusy(true);
+    try {
+      if (on) await setForcedTheme(key, space, useThemeStore.getState().theme);
+      else await clearForcedTheme(space);
+      await syncAndRecord();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="pt-6">
-      <p className="text-muted pb-2 text-xs font-medium">{t.podkategorie.tytul}</p>
-      {subs.length > 0 && (
-        <ul className="flex flex-col gap-1 pb-2">
-          {subs.map((sub) => (
-            <li key={sub.id}>
-              <button
-                type="button"
-                onClick={() => openEdit(sub)}
-                className="bg-surface rounded-app flex w-full items-center gap-3 px-4 py-2.5 text-left"
-              >
-                <span
-                  className="h-3 w-3 shrink-0 rounded-full"
-                  style={{ backgroundColor: sub.color }}
-                  aria-hidden="true"
-                />
-                <span className="text-ink min-w-0 flex-1 truncate text-sm font-medium">{sub.name}</span>
-                <ChevronRightIcon className="text-faint h-5 w-5 shrink-0" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <Button className="flex w-full items-center justify-center gap-2" onClick={openNew}>
-        <PlusIcon className="h-5 w-5" />
-        {t.podkategorie.dodaj}
-      </Button>
-      <p className="text-muted pt-2 text-xs">{t.podkategorie.opis}</p>
-
-      <Sheet
-        open={editing !== null}
-        title={editing?.mode === 'edycja' ? t.podkategorie.edytuj : t.podkategorie.nowa}
-        onClose={() => setEditing(null)}
-      >
-        <div className="flex flex-col gap-5">
-          <label className="flex flex-col gap-2">
-            <span className="text-muted text-xs font-medium">{t.wspolne.nazwa}</span>
-            <input
-              value={name}
-              maxLength={MAX_SUBCATEGORY_NAME}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t.podkategorie.nazwaPrzyklad}
-              className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
-            />
-          </label>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-muted text-xs font-medium">{t.wspolne.kolor}</span>
-            <ColorPicker value={color} onChange={setColor} presets={DEFAULT_CATEGORY_COLORS} />
-          </div>
-
-          <div className="flex gap-2">
-            <Button variant="primary" className="flex-1" disabled={!name.trim()} onClick={save}>
-              {t.wspolne.zapisz}
-            </Button>
-            {editing?.mode === 'edycja' && (
-              <Button
-                variant="danger"
-                aria-label={t.podkategorie.usun}
-                onClick={() => setConfirmOpen(true)}
-                className="px-4"
-              >
-                <TrashIcon className="h-5 w-5" />
-              </Button>
-            )}
-          </div>
-
-          <ConfirmDialog
-            open={confirmOpen}
-            title={t.podkategorie.pytanie(editing?.mode === 'edycja' ? editing.sub.name : '')}
-            message={t.podkategorie.opisUsuniecia}
-            onConfirm={remove}
-            onCancel={() => setConfirmOpen(false)}
-          />
-        </div>
-      </Sheet>
+    <div className="flex flex-col gap-2 pt-6">
+      <label className="bg-surface rounded-app flex items-center justify-between gap-3 px-4 py-3">
+        <span className="min-w-0">
+          <span className="text-ink block text-sm font-medium">{t.deweloper.narzucMotyw}</span>
+          <span className="text-muted block text-xs">{t.deweloper.narzucMotywOpis}</span>
+        </span>
+        <input
+          type="checkbox"
+          checked={forced}
+          disabled={busy}
+          onChange={(e) => void toggle(e.target.checked)}
+          className="accent-accent h-5 w-5 shrink-0"
+        />
+      </label>
     </div>
   );
 }

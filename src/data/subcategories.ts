@@ -3,8 +3,8 @@ import type { Subcategory } from './types';
 import { MAX_SUBCATEGORY_NAME } from './validate';
 
 /**
- * Podkategorie wspólnych kalendarzy. Należą do jednej kategorii (kalendarza);
- * zadanie i wydarzenie wskazują je polem `subcategoryId` obok `categoryId`.
+ * Podkategorie kategorii i wspólnych kalendarzy. Należą do jednej kategorii;
+ * zadanie, wydarzenie i lista wskazują je polem `subcategoryId` obok `categoryId`.
  */
 
 export async function addSubcategory(categoryId: number, name: string, color: string): Promise<number> {
@@ -24,18 +24,19 @@ export async function updateSubcategory(id: number, changes: { name?: string; co
   });
 }
 
-/** Usuwa podkategorię. Zadania i wydarzenia zostają w kalendarzu, tylko bez niej. */
+/** Usuwa podkategorię. Zadania, wydarzenia i listy zostają w kategorii, tylko bez niej. */
 export async function deleteSubcategory(id: number): Promise<void> {
-  await db.transaction('rw', db.subcategories, db.tasks, db.events, async () => {
+  await db.transaction('rw', [db.subcategories, db.tasks, db.events, db.lists], async () => {
     await clearSubcategory(id);
     await db.subcategories.delete(id);
   });
 }
 
-/** Odpina podkategorię od zadań i wydarzeń (bez indeksu — przegląd całej tabeli). */
+/** Odpina podkategorię od zadań, wydarzeń i list (bez indeksu — przegląd całej tabeli). */
 export async function clearSubcategory(id: number): Promise<void> {
   await db.tasks.filter((t) => t.subcategoryId === id).modify({ subcategoryId: undefined });
   await db.events.filter((e) => e.subcategoryId === id).modify({ subcategoryId: undefined });
+  await db.lists.filter((l) => l.subcategoryId === id).modify({ subcategoryId: undefined });
 }
 
 /** Podkategoria wpisu — tylko gdy należy do jego kategorii. */

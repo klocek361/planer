@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ChevronLeftIcon } from './icons';
 import { FeedbackButton } from './Feedback';
+import { SettingsButton } from './SettingsButton';
 import { useT } from '../i18n';
 
 interface Props {
@@ -8,6 +9,8 @@ interface Props {
   action?: ReactNode;
   /** Gdy podane, nad tytułem pojawia się przycisk powrotu. */
   onBack?: () => void;
+  /** Gdy podane, w górnym rzędzie po prawej — na wysokości przycisku sugestii. */
+  onSettings?: () => void;
   children: ReactNode;
 }
 
@@ -16,7 +19,7 @@ interface Props {
  * Nagłówek jest duży i ciężki — to jedyny mocny akcent typograficzny w całym
  * interfejsie, reszta ma zostać cicha.
  */
-export function Screen({ title, action, onBack, children }: Props) {
+export function Screen({ title, action, onBack, onSettings, children }: Props) {
   const { t } = useT();
 
   return (
@@ -33,6 +36,11 @@ export function Screen({ title, action, onBack, children }: Props) {
               <ChevronLeftIcon className="h-5 w-5" />
               {t.wspolne.wstecz}
             </button>
+          )}
+          {onSettings && (
+            <div className="ml-auto flex items-center">
+              <SettingsButton onClick={onSettings} />
+            </div>
           )}
         </div>
         <div className="flex items-end justify-between gap-3 pb-2">

@@ -27,6 +27,9 @@ import {
   validSubcategory,
   validTask,
 } from '../data/validate';
+import { verifyTheme } from '../dev/devMode';
+import { applyForcedTheme, parseThemeText, themeUid } from '../dev/themeRecord';
+import type { Theme } from '../theme/types';
 import { decryptText, deriveCipherKey, deriveToken, encryptText, randomId } from './crypto';
 import { PUSH_BATCH, type SyncTransport } from './transport';
 
@@ -48,7 +51,7 @@ import { PUSH_BATCH, type SyncTransport } from './transport';
  */
 
 /** Rodzaj rekordu: jedna litera w treści wysyłanej na serwer. */
-type Letter = 'c' | 'e' | 'm' | 't' | 'h' | 'd' | 'l' | 'i' | 'u' | 'k' | 's' | 'x' | 'p' | 'n';
+type Letter = 'c' | 'e' | 'm' | 't' | 'h' | 'd' | 'l' | 'i' | 'u' | 'k' | 's' | 'x' | 'p' | 'n' | 'w';
 
 const KIND_BY_LETTER = {
   c: 'kategoria',
@@ -65,6 +68,7 @@ const KIND_BY_LETTER = {
   x: 'wpis',
   p: 'podkategoria',
   n: 'notatka-dnia',
+  w: 'motyw',
 } as const satisfies Record<Letter, SyncShadow['kind']>;
 
 const LETTER_BY_KIND = Object.fromEntries(
@@ -80,9 +84,25 @@ type Payload = { k: Letter; uid: string; del?: true } & Record<string, unknown>;
  * Wersja formatu rekordów. Podbijamy ją przy każdym nowym rodzaju rekordu:
  * 1 — wydarzenia, kategoria, członkowie; 2 — także zadania, nawyki, listy;
  * 3 — także budżet (ustawienia, kategorie pieniędzy, wpisy, skarbonki);
- * 4 — także podkategorie i notatki dnia.
+ * 4 — także podkategorie i notatki dnia; 5 — także narzucony motyw, podkategorie
+ * list, notatki nawyków i wydarzenia wielodniowe.
  */
-export const SYNC_FORMAT = 4;
+export const SYNC_FORMAT = 5;
+
+/** Treść rekordu narzuconego motywu (podpisanego kluczem deweloperskim). */
+export const themeJson = (uid: string, theme: string, at: number, sig: string) =>
+  canonical({ k: 'w', uid, theme, at, sig });
+
+async function validThemePayload(space: string, p: Payload): Promise<boolean> {
+  return (
+    p.uid === themeUid(space) &&
+    typeof p.theme === 'string' &&
+    typeof p.at === 'number' &&
+    typeof p.sig === 'string' &&
+    parseThemeText(p.theme) !== null &&
+    (await verifyTheme(space, p.theme, p.at, p.sig))
+  );
+}
 
 /** Stały identyfikator rekordu z ustawieniami budżetu — budżet jest jeden. */
 const BUDGET_UID = 'ustawieniabudzetu';
@@ -197,6 +217,7 @@ const eventJson = (e: EventItem, cat: string, sub?: string) =>
     sub,
     title: e.title,
     date: e.date,
+    endDate: e.endDate,
     allDay: e.allDay,
     startTime: e.startTime,
     endTime: e.endTime,
@@ -237,6 +258,7 @@ const habitJson = (h: Habit, cat: string) =>
     target: h.target,
     unit: h.unit,
     period: h.period,
+    note: h.note,
     archived: h.archived,
     order: h.order,
     createdAt: h.createdAt,
@@ -245,8 +267,8 @@ const habitJson = (h: Habit, cat: string) =>
 const entryJson = (habitUid: string, date: string, value: number) =>
   canonical({ k: 'd', uid: entryUid(habitUid, date), habit: habitUid, date, value });
 
-const listJson = (l: Checklist, cat: string) =>
-  canonical({ k: 'l', uid: l.uid, cat, name: l.name, note: l.note, order: l.order, createdAt: l.createdAt });
+const listJson = (l: Checklist, cat: string, sub?: string) =>
+  canonical({ k: 'l', uid: l.uid, cat, sub, name: l.name, note: l.note, order: l.order, createdAt: l.createdAt });
 
 const itemJson = (
   i: { uid?: string; text: string; done: boolean; order: number; createdAt: number },
@@ -356,7 +378,7 @@ async function localJson(space: string, letter: Letter, uid: string): Promise<st
     case 'l': {
       const l = await db.lists.where('uid').equals(uid).first();
       const cat = l ? await sharedCategoryUid(space, l.categoryId) : null;
-      return l && cat ? listJson(l, cat) : null;
+      return l && cat ? listJson(l, cat, await subcategoryUid(l)) : null;
     }
     case 'i': {
       const i = await db.listItems.where('uid').equals(uid).first();
@@ -384,6 +406,10 @@ async function localJson(space: string, letter: Letter, uid: string): Promise<st
       const e = await db.moneyEntries.where('uid').equals(uid).first();
       return e ? entryJsonLocal(e) : null;
     }
+    case 'w': {
+      const state = await db.syncState.get(space);
+      return uid === themeUid(space) && state?.motyw ? state.motyw : null;
+    }
   }
 }
 
@@ -398,6 +424,8 @@ async function localSet(space: string): Promise<Map<string, SyncShadow>> {
   const catUid = new Map(categories.map((c) => [c.id!, c.uid!]));
   for (const c of categories) put('c', c.uid!, categoryJson(c));
   for (const m of await db.members.where('space').equals(space).toArray()) put('m', m.uid, memberJson(m));
+  const motyw = (await db.syncState.get(space))?.motyw;
+  if (motyw) put('w', themeUid(space), motyw);
   if (catIds.length === 0) return out;
 
   const subs = (await db.subcategories.where('categoryId').anyOf(catIds).toArray()).filter((p) => p.uid);
@@ -445,7 +473,7 @@ async function localSet(space: string): Promise<Map<string, SyncShadow>> {
 
   const lists = (await db.lists.where('categoryId').anyOf(catIds).toArray()).filter((l) => l.uid);
   for (const l of lists) {
-    put('l', l.uid!, listJson(l, catUid.get(l.categoryId!)!));
+    put('l', l.uid!, listJson(l, catUid.get(l.categoryId!)!, subOf(l)));
     for (const item of await db.listItems.where('listId').equals(l.id!).toArray()) {
       if (item.uid) put('i', item.uid, itemJson(item, l.uid!));
     }
@@ -584,7 +612,7 @@ async function dropSharedCategory(category: Category): Promise<void> {
   await db.events.where('categoryId').equals(id).modify({ categoryId: undefined, subcategoryId: undefined });
   await db.tasks.where('categoryId').equals(id).modify({ categoryId: undefined, subcategoryId: undefined });
   await db.habits.where('categoryId').equals(id).modify({ categoryId: undefined });
-  await db.lists.where('categoryId').equals(id).modify({ categoryId: undefined });
+  await db.lists.where('categoryId').equals(id).modify({ categoryId: undefined, subcategoryId: undefined });
   await db.categories.delete(id);
 }
 
@@ -668,6 +696,7 @@ async function applyDelete(space: string, p: Payload): Promise<void> {
       if (!sub) return;
       await db.tasks.filter((t) => t.subcategoryId === sub.id).modify({ subcategoryId: undefined });
       await db.events.filter((e) => e.subcategoryId === sub.id).modify({ subcategoryId: undefined });
+      await db.lists.filter((l) => l.subcategoryId === sub.id).modify({ subcategoryId: undefined });
       await db.subcategories.delete(sub.id!);
       return;
     }
@@ -679,6 +708,10 @@ async function applyDelete(space: string, p: Payload): Promise<void> {
       }
       return;
     }
+    case 'w':
+      // Deweloper przestał narzucać motyw — obecny wygląd zostaje, jak był.
+      if (p.uid === themeUid(space)) await db.syncState.update(space, { motyw: undefined });
+      return;
   }
 }
 
@@ -711,9 +744,27 @@ async function upsertByUid<T extends { id?: number }>(
   await table.put(existing?.id !== undefined ? { ...value, id: existing.id } : value);
 }
 
+/** Motywy narzucone w trakcie jednej synchronizacji — nakładane po jej zapisaniu. */
+const forcedThemes: Theme[] = [];
+
 /** Nakłada jeden rekord z serwera; rekord, którego nie da się zrozumieć, pomija. */
 async function applyUpsert(space: string, p: Payload): Promise<void> {
   switch (p.k) {
+    case 'w': {
+      // Podpis sprawdzony przed transakcją (`verifyIncomingThemes`).
+      const theme = p.uid === themeUid(space) ? parseThemeText(p.theme) : null;
+      if (!theme || typeof p.at !== 'number') return;
+      const json = themeJson(p.uid, p.theme as string, p.at, p.sig as string);
+      const state = await db.syncState.get(space);
+      // Ten sam motyw co ostatnio (np. przy pobieraniu od nowa) — nie nakładamy
+      // drugi raz, bo członek mógł go już u siebie zmienić.
+      if (!state || state.motyw === json) return;
+      const prevAt = state.motyw ? (JSON.parse(state.motyw) as { at?: unknown }).at : undefined;
+      if (typeof prevAt === 'number' && p.at < prevAt) return;
+      await db.syncState.update(space, { motyw: json });
+      forcedThemes.push(theme);
+      return;
+    }
     case 'c': {
       const valid = validCategory({ name: p.name, color: p.color, order: 0 });
       if (!valid) return;
@@ -816,7 +867,8 @@ async function applyUpsert(space: string, p: Payload): Promise<void> {
       const categoryId = await localCategoryId(space, p.cat);
       if (categoryId === undefined) return;
       const valid = validChecklist({ ...p, categoryId, id: undefined });
-      if (valid) await upsertByUid(db.lists, p.uid, { ...valid, uid: p.uid });
+      const subcategoryId = await localSubcategoryId(categoryId, p.sub);
+      if (valid) await upsertByUid(db.lists, p.uid, { ...valid, subcategoryId, uid: p.uid });
       return;
     }
     case 'u': {
@@ -946,7 +998,14 @@ async function runSync(transport: SyncTransport, space: string): Promise<void> {
     since = page.seq;
   }
 
-  incoming.sort((a, b) => applyOrder(a) - applyOrder(b));
+  // Narzucony motyw — tylko z ważnym podpisem dewelopera. Sprawdzamy przed
+  // transakcją: WebCrypto w jej środku zamknąłby ją przedwcześnie.
+  const verified: Payload[] = [];
+  for (const payload of incoming) {
+    if (payload.k !== 'w' || payload.del || (await validThemePayload(space, payload))) verified.push(payload);
+  }
+
+  verified.sort((a, b) => applyOrder(a) - applyOrder(b));
   await db.transaction(
     'rw',
     [
@@ -965,11 +1024,14 @@ async function runSync(transport: SyncTransport, space: string): Promise<void> {
       db.savingsGoals,
       db.subcategories,
       db.dayNotes,
+      db.syncState,
     ],
     async () => {
-      for (const payload of incoming) await applyRemote(space, payload);
+      for (const payload of verified) await applyRemote(space, payload);
     },
   );
+  const theme = forcedThemes.splice(0).at(-1);
+  if (theme) applyForcedTheme(theme);
   // Kalendarz mógł zostać w międzyczasie opuszczony — wtedy nic nie zapisujemy.
   if (!(await db.syncState.get(space))) return;
   await db.syncState.update(space, { lastSeq: since, format: SYNC_FORMAT });
