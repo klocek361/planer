@@ -5,6 +5,7 @@ import {
   buildTaskTree,
   groupByCategory,
   groupByDaySections,
+  isQuickNode,
   toggleTask,
   updateTask,
   type TaskNode,
@@ -87,8 +88,6 @@ export function TasksScreen({ onOpenSettings }: { onOpenSettings: () => void }) 
   };
 
   const tree = useMemo(() => buildTaskTree(tasks ?? []), [tasks]);
-  const isQuickNode = ({ task, subtasks }: TaskNode) =>
-    task.quick === true || subtasks.some((subtask) => !subtask.done && subtask.quick === true);
   const quickCount = useMemo(
     () => tree.filter((node) => !node.task.done && isQuickNode(node)).length,
     [tree],

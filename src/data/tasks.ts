@@ -255,6 +255,11 @@ export interface TaskNode {
   subtasks: Task[];
 }
 
+/** Zadanie „na 5 minut” albo z otwartym szybkim podzadaniem — dla filtra ⚡. */
+export function isQuickNode({ task, subtasks }: TaskNode): boolean {
+  return task.quick === true || subtasks.some((subtask) => !subtask.done && subtask.quick === true);
+}
+
 /** Układa płaską listę w pary rodzic → podzadania, każde posortowane. */
 export function buildTaskTree(tasks: Task[]): TaskNode[] {
   const children = new Map<number, Task[]>();

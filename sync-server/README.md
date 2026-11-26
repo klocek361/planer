@@ -51,13 +51,20 @@ VITE_SYNC_URL=http://localhost:8787 npm run dev
 | `POST` | `/sugestie/:nr/wiadomosc` | dopisuje wiadomość autora sugestii `{ klucz, text, zdjecia? }` — max 30/h z adresu, 200 na rozmowę |
 | `POST` | `/s/:id/czat` | dopisuje zaszyfrowaną wiadomość czatu `{ uid, blob }` → `{ seq, created }` (max 50 000 na kalendarz) |
 | `GET` | `/s/:id/czat?od=N` | wiadomości czatu o numerze większym niż N (po 500) |
-| `POST` | `/s/:id/czat/zdjecie` | zdjęcie czatu `{ dane }` (JPEG/PNG ≤ 1 MB, **nieszyfrowane**) → `{ id, typ }` |
-| `GET` | `/s/:id/czat/zdjecie/:pid` | zdjęcie czatu → `{ typ, dane }` |
+| `POST` | `/s/:id/czat/zdjecie-szyfr` | zaszyfrowane zdjęcie czatu `{ szyfr }` (iv ‖ szyfrogram w base64, ≤ 1 MB + 28 B) → `{ id }` (od 1.16.0) |
+| `GET` | `/s/:id/czat/zdjecie-szyfr/:pid` | zaszyfrowane zdjęcie czatu → `{ szyfr }` |
+| `POST` | `/s/:id/czat/zdjecie` | zdjęcie czatu ze starszych wersji `{ dane }` (JPEG/PNG ≤ 1 MB, **nieszyfrowane**) → `{ id, typ }` |
+| `GET` | `/s/:id/czat/zdjecie/:pid` | zdjęcie czatu sprzed 1.16.0 → `{ typ, dane }` |
 | `POST` | `/sugestie/zdjecie/:id` | zdjęcie z rozmowy `{ klucz }` → `{ typ, dane }` (base64); 410, gdy już przekazane |
 
 Zapytania o przestrzeń wymagają `Authorization: Bearer <token>`; token telefon
 wylicza z klucza, serwer trzyma tylko jego skrót SHA-256. Limity: 16 KB na
-rekord, 5000 rekordów na przestrzeń. CORS tylko dla adresów z `ALLOWED_ORIGINS`.
+rekord, 5000 rekordów na przestrzeń, 3000 zdjęć czatu (obu rodzajów razem).
+CORS tylko dla adresów z `ALLOWED_ORIGINS`.
+
+Zdjęcia czatu od 1.16.0 (`chat_photos_sealed`) telefon szyfruje losowym kluczem
+AES-256-GCM; klucz jedzie w wiadomości (zaszyfrowanej kluczem kalendarza albo
+pary), więc serwer nie zna ani obrazu, ani jego typu.
 
 ## Zaproszenia
 

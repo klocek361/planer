@@ -54,9 +54,11 @@ export interface SyncTransport {
   chatPush(spaceId: string, token: string, uid: string, blob: string): Promise<{ seq: number; created: number }>;
   /** Czat: wiadomości o numerze większym niż `since`. */
   chatPull(spaceId: string, token: string, since: number): Promise<ChatPullResult>;
-  /** Czat: zdjęcie (JPEG/PNG w base64, NIE szyfrowane) → jego id. */
-  chatPhotoPut(spaceId: string, token: string, dane: string): Promise<{ id: string; typ: string }>;
-  /** Czat: zdjęcie → { typ, dane } (base64). */
+  /** Czat: zaszyfrowane zdjęcie (iv ‖ szyfrogram w base64) → jego id. */
+  chatSealedPhotoPut(spaceId: string, token: string, szyfr: string): Promise<string>;
+  /** Czat: zaszyfrowane zdjęcie → base64. */
+  chatSealedPhotoGet(spaceId: string, token: string, id: string): Promise<string>;
+  /** Czat: zdjęcie sprzed 1.16.0 (nieszyfrowane) → { typ, dane } (base64). */
   chatPhotoGet(spaceId: string, token: string, id: string): Promise<{ typ: string; dane: string }>;
 }
 

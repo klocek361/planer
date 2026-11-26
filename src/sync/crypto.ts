@@ -145,6 +145,48 @@ export async function decryptText(cipherKey: CryptoKey, blob: string): Promise<s
   }
 }
 
+// ── Czat: zdjęcia ───────────────────────────────────────────────────────
+//
+// Każde zdjęcie ma własny losowy klucz AES-256-GCM. Na serwer idzie tylko
+// szyfrogram (iv ‖ dane), a klucz jedzie w wiadomości — zaszyfrowanej kluczem
+// kalendarza albo, w rozmowie 1:1, kluczem pary. Kto nie przeczyta wiadomości,
+// nie zobaczy też zdjęcia.
+
+const PHOTO_KEY = /^[A-Za-z0-9_-]{43}$/;
+
+/** Klucz zdjęcia: 32 bajty w base64url (43 znaki). */
+export const isPhotoKey = (value: unknown): value is string => typeof value === 'string' && PHOTO_KEY.test(value);
+
+async function photoKey(k: string, usage: KeyUsage): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', fromBase64Url(k), 'AES-GCM', false, [usage]);
+}
+
+/** Szyfruje zdjęcie nowym kluczem; zwraca klucz (base64url) i iv ‖ szyfrogram. */
+export async function sealPhoto(bytes: Uint8Array<ArrayBuffer>): Promise<{ k: string; data: Uint8Array<ArrayBuffer> }> {
+  const k = toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const sealed = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await photoKey(k, 'encrypt'), bytes);
+  const data = new Uint8Array(IV_BYTES + sealed.byteLength);
+  data.set(iv, 0);
+  data.set(new Uint8Array(sealed), IV_BYTES);
+  return { k, data };
+}
+
+/** Odszyfrowuje zdjęcie; null — inny klucz albo uszkodzone dane. */
+export async function openPhoto(k: string, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer> | null> {
+  if (!isPhotoKey(k) || data.length <= IV_BYTES) return null;
+  try {
+    const plain = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: data.slice(0, IV_BYTES) },
+      await photoKey(k, 'decrypt'),
+      data.slice(IV_BYTES),
+    );
+    return new Uint8Array(plain);
+  } catch {
+    return null;
+  }
+}
+
 // ── Czat: klucze do rozmów 1:1 ──────────────────────────────────────────
 //
 // Każdy telefon ma w każdym wspólnym kalendarzu własną parę kluczy ECDH (P-256).

@@ -129,6 +129,36 @@ export function progress(value: number, goal: number | undefined): number | null
   return Math.max(0, value / goal);
 }
 
+export interface GoalStatus {
+  /** Wydane w kategorii w miesiącu (z doliczoną kwotą `extra`). */
+  spent: number;
+  /** Część celu, 0–∞ (powyżej 1 — ponad cel). */
+  ratio: number;
+  /** Ile zostało do celu; ujemne — o tyle ponad cel. */
+  left: number;
+}
+
+/**
+ * Stan miesięcznego celu kategorii wydatków — do paska w formularzu wpisu.
+ * `entries` to wpisy jednego miesiąca. `skipId` pomija edytowany wpis (jego
+ * nowa kwota przychodzi w `extra`), `extra` dolicza kwotę jeszcze niezapisaną.
+ * Brak celu — null.
+ */
+export function categoryGoalStatus(
+  entries: MoneyEntry[],
+  category: Pick<MoneyCategory, 'id' | 'goal'>,
+  options: { skipId?: number; extra?: number } = {},
+): GoalStatus | null {
+  if (!category.goal || category.goal <= 0) return null;
+  let spent = Math.max(0, options.extra ?? 0);
+  for (const entry of entries) {
+    if (entry.kind !== 'wydatek' || entry.categoryId !== category.id) continue;
+    if (options.skipId !== undefined && entry.id === options.skipId) continue;
+    spent += entry.amount;
+  }
+  return { spent, ratio: spent / category.goal, left: category.goal - spent };
+}
+
 // ── Zapis ────────────────────────────────────────────────────────────────
 
 export interface EntryDraft {

@@ -21,23 +21,8 @@ import { SoftCard, SoftScreen } from '../../ui/SoftScreen';
 import { ChevronLeftIcon, ChevronRightIcon, MoreIcon, PlusIcon } from '../../ui/icons';
 import { BudgetSettingsSheet } from './BudgetSettingsSheet';
 import { EntrySheet } from './EntrySheet';
+import { GoalBar } from './GoalBar';
 import { GoalSheet } from './GoalSheet';
-
-/** Pasek postępu do celu. Ponad cel — kolor ostrzegawczy, bez alarmu. */
-function GoalBar({ ratio, color }: { ratio: number; color: string }) {
-  const over = ratio > 1;
-  return (
-    <span className="bg-bg block h-1.5 overflow-hidden rounded-full">
-      <span
-        className="block h-full rounded-full transition-[width]"
-        style={{
-          width: `${Math.min(100, Math.round(ratio * 100))}%`,
-          backgroundColor: over ? 'var(--c-weekend)' : color,
-        }}
-      />
-    </span>
-  );
-}
 
 /**
  * Budżet domowy: bilans miesiąca (przychody, wydatki, ile zostało), wydatki
@@ -235,6 +220,16 @@ export function BudgetScreen({ onOpenSettings }: { onOpenSettings: () => void })
                         )}
                       </span>
                       {ratio !== null && <GoalBar ratio={ratio} color={category.color} />}
+                      {ratio !== null && (
+                        <span className="text-muted flex justify-between gap-3 text-xs tabular-nums">
+                          <span>{Math.round(ratio * 100)}%</span>
+                          <span className={spent > category.goal! ? 'text-weekend' : ''}>
+                            {spent > category.goal!
+                              ? t.budzet.ponadCel(money(spent - category.goal!))
+                              : t.budzet.zostaloKwota(money(category.goal! - spent))}
+                          </span>
+                        </span>
+                      )}
                     </button>
                   </li>
                 );

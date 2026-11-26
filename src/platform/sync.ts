@@ -109,13 +109,19 @@ export function httpTransport(baseUrl: string = SYNC_URL): SyncTransport {
       ) as { seq: number; uid: string; blob: string; created: number }[];
       return { messages, seq: data.seq, more: data.more === true };
     },
-    async chatPhotoPut(spaceId, token, dane) {
-      const data = (await call('POST', `/s/${spaceId}/czat/zdjecie`, token, { dane })) as {
+    async chatSealedPhotoPut(spaceId, token, szyfr) {
+      const data = (await call('POST', `/s/${spaceId}/czat/zdjecie-szyfr`, token, { szyfr })) as {
         id?: unknown;
-        typ?: unknown;
       } | null;
-      if (typeof data?.id !== 'string' || typeof data.typ !== 'string') throw new SyncError('serwer');
-      return { id: data.id, typ: data.typ };
+      if (typeof data?.id !== 'string') throw new SyncError('serwer');
+      return data.id;
+    },
+    async chatSealedPhotoGet(spaceId, token, id) {
+      const data = (await call('GET', `/s/${spaceId}/czat/zdjecie-szyfr/${id}`, token)) as {
+        szyfr?: unknown;
+      } | null;
+      if (typeof data?.szyfr !== 'string') throw new SyncError('serwer');
+      return data.szyfr;
     },
     async chatPhotoGet(spaceId, token, id) {
       const data = (await call('GET', `/s/${spaceId}/czat/zdjecie/${id}`, token)) as {

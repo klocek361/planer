@@ -5,6 +5,34 @@ sposób korzystania z aplikacji, druga — nowe możliwości, trzecia — popraw
 
 Każda wydana wersja ma w repozytorium tag `vX.Y.Z`.
 
+## [1.16.0] — 2026-11-26
+
+### Nowe
+- **Budżet — pasek celu przy wpisywaniu wydatku:** po wybraniu kategorii
+  z celem miesięcznym formularz pokazuje pasek dla miesiąca z daty wpisu:
+  ile procent celu, ile wydano i ile zostało (albo ile ponad cel) — razem
+  z wpisywaną kwotą. Na liście kategorii pod paskiem też procent i „zostało”.
+- **Podzadania w Przeglądzie:** pod zadaniem od razu jego podzadania, do
+  odhaczenia na miejscu — tak jak w Zadaniach. Filtr „⚡ 5 min” pokazuje też
+  zadanie, które ma otwarte szybkie podzadanie.
+- **Szyfrowane zdjęcia w czacie:** każde zdjęcie jest szyfrowane na telefonie
+  własnym losowym kluczem, a klucz jedzie w (szyfrowanej) wiadomości. Serwer
+  przechowuje tylko szyfrogram; zdjęcie zobaczy tylko ten, kto może
+  przeczytać wiadomość. Zniknęło ostrzeżenie o nieszyfrowanych zdjęciach.
+
+### Zgodność
+- Baza na telefonie, kopia zapasowa i format rekordów synchronizacji bez
+  zmian; cofnięcie do 1.15.0 jest możliwe (zaszyfrowanych zdjęć 1.15.0 nie
+  pokaże).
+- Czat: zdjęcia wysłane wcześniej zostają na serwerze nieszyfrowane i dalej
+  się wyświetlają. Starsze wersje aplikacji zamiast nowych, zaszyfrowanych
+  zdjęć pokażą komunikat o błędzie zdjęcia — warto, żeby wszyscy
+  zaktualizowali.
+- **Serwer:** nowa tabela `chat_photos_sealed` i ścieżki
+  `/s/:id/czat/zdjecie-szyfr`. Najpierw `npm run schema:remote && npx wrangler
+  deploy` w `sync-server/`, dopiero potem wydanie aplikacji — inaczej wysłanie
+  zdjęcia w czacie się nie uda. Stare ścieżki zostają dla starszych wersji.
+
 ## [1.15.0] — 2026-11-25
 
 ### Nowe

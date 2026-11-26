@@ -51,7 +51,7 @@ w `sync-server/`.
 | `src/ui/` | Wspólne elementy: przyciski, panele, próbnik koloru |
 | `src/platform/` | Rzeczy zależne od systemu — **jedyne miejsce do podmiany** przy przejściu na Capacitora (App Store, Android) |
 | `src/lib/` | Rachunki na datach |
-| `src/sync/` | Wspólne kalendarze: szyfrowanie, synchronizacja, kody zaproszeń; czat (`chat.ts`: osobny kanał, klucze par ECDH P-256 + HKDF, zdjęcia nieszyfrowane) |
+| `src/sync/` | Wspólne kalendarze: szyfrowanie, synchronizacja, kody zaproszeń; czat (`chat.ts`: osobny kanał, klucze par ECDH P-256 + HKDF; zdjęcia od 1.16.0 szyfrowane losowym kluczem AES-GCM, który jedzie w wiadomości) |
 | `src/dev/` | Tryb deweloperski: zestaw „Serduszka” i motyw narzucany członkom kalendarza (rekord `w`, podpis ECDSA) |
 | `sync-server/` | Serwer wspólnego kalendarza (Cloudflare Worker + D1) |
 

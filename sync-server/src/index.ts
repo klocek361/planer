@@ -120,6 +120,26 @@ const PAGE = 500;
 const MAX_CHAT = 50_000;
 const MAX_CHAT_PHOTOS = 3_000;
 const PHOTO_ID = /^[A-Za-z0-9_-]{22}$/;
+/** Zaszyfrowane zdjęcie czatu: iv (12) + zdjęcie ≤ 1 MB + znacznik GCM (16). */
+const MAX_SEALED_BYTES = MAX_PHOTO_BYTES + 12 + 16;
+const MIN_SEALED_BYTES = 12 + 16 + 1;
+
+/** Losowe id zdjęcia: 22 znaki base64url (132 bity) — nie do odgadnięcia. */
+function newPhotoId(): string {
+  return [...crypto.getRandomValues(new Uint8Array(22))]
+    .map((b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'[b & 63])
+    .join('');
+}
+
+/** Ile zdjęć (zwykłych i zaszyfrowanych) ma już kalendarz. */
+async function chatPhotoCount(env: Env, space: string): Promise<number> {
+  const row = await env.DB.prepare(
+    'SELECT (SELECT COUNT(*) FROM chat_photos WHERE space = ?1) + (SELECT COUNT(*) FROM chat_photos_sealed WHERE space = ?1) AS n',
+  )
+    .bind(space)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
 
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -483,14 +503,8 @@ export default {
       const body = (await request.json().catch(() => null)) as { dane?: unknown } | null;
       const photos = decodePhotos(body?.dane === undefined ? undefined : [body.dane]);
       if (!photos || photos.length !== 1) return reply(request, env, 400);
-      const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat_photos WHERE space = ?')
-        .bind(id)
-        .first<{ n: number }>();
-      if ((count?.n ?? 0) >= MAX_CHAT_PHOTOS) return reply(request, env, 429);
-      // 22 losowe znaki base64url (132 bity) — nie do odgadnięcia.
-      const photoId = [...crypto.getRandomValues(new Uint8Array(22))]
-        .map((b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'[b & 63])
-        .join('');
+      if ((await chatPhotoCount(env, id)) >= MAX_CHAT_PHOTOS) return reply(request, env, 429);
+      const photoId = newPhotoId();
       const { bytes, type } = photos[0]!;
       await env.DB.prepare('INSERT INTO chat_photos (id, space, created, type, data) VALUES (?, ?, ?, ?, ?)')
         .bind(photoId, id, Date.now(), type, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
@@ -506,6 +520,41 @@ export default {
       if (!photo) return reply(request, env, 404);
       const bytes = photo.data instanceof ArrayBuffer ? new Uint8Array(photo.data) : Uint8Array.from(photo.data);
       return reply(request, env, 200, { typ: photo.type, dane: toBase64(bytes) });
+    }
+
+    // Zaszyfrowane zdjęcie czatu (od 1.16.0): serwer przechowuje szyfrogram,
+    // nie sprawdza typu obrazu — nie ma do niego klucza.
+    if (action === 'czat' && parts[3] === 'zdjecie-szyfr' && parts.length === 4 && request.method === 'POST') {
+      const body = (await request.json().catch(() => null)) as { szyfr?: unknown } | null;
+      const text = body?.szyfr;
+      if (typeof text !== 'string' || text.length > Math.ceil(MAX_SEALED_BYTES / 3) * 4 + 4) {
+        return reply(request, env, 400);
+      }
+      let binary: string;
+      try {
+        binary = atob(text);
+      } catch {
+        return reply(request, env, 400);
+      }
+      if (binary.length < MIN_SEALED_BYTES || binary.length > MAX_SEALED_BYTES) return reply(request, env, 400);
+      if ((await chatPhotoCount(env, id)) >= MAX_CHAT_PHOTOS) return reply(request, env, 429);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      const photoId = newPhotoId();
+      await env.DB.prepare('INSERT INTO chat_photos_sealed (id, space, created, data) VALUES (?, ?, ?, ?)')
+        .bind(photoId, id, Date.now(), bytes.buffer)
+        .run();
+      return reply(request, env, 201, { id: photoId });
+    }
+
+    if (action === 'czat' && parts[3] === 'zdjecie-szyfr' && parts.length === 5 && request.method === 'GET') {
+      if (!PHOTO_ID.test(parts[4]!)) return reply(request, env, 404);
+      const photo = await env.DB.prepare('SELECT data FROM chat_photos_sealed WHERE id = ? AND space = ?')
+        .bind(parts[4], id)
+        .first<{ data: ArrayBuffer | number[] }>();
+      if (!photo) return reply(request, env, 404);
+      const bytes = photo.data instanceof ArrayBuffer ? new Uint8Array(photo.data) : Uint8Array.from(photo.data);
+      return reply(request, env, 200, { szyfr: toBase64(bytes) });
     }
 
     if (action === 'zaproszenie' && request.method === 'PUT') {
@@ -539,6 +588,7 @@ export default {
         env.DB.prepare('DELETE FROM records WHERE space = ?').bind(id),
         env.DB.prepare('DELETE FROM chat WHERE space = ?').bind(id),
         env.DB.prepare('DELETE FROM chat_photos WHERE space = ?').bind(id),
+        env.DB.prepare('DELETE FROM chat_photos_sealed WHERE space = ?').bind(id),
         env.DB.prepare('DELETE FROM spaces WHERE id = ?').bind(id),
       ]);
       return reply(request, env, 200, { ok: true });

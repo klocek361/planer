@@ -24,9 +24,9 @@ import {
   updateCategory,
 } from '../src/data/categories';
 import { addEvent, copyEvent, eventsBetween, groupByDate, updateEvent } from '../src/data/events';
-import { addSubtasks, addTask, buildTaskTree, deleteTask, splitLines, toggleTask, updateTask } from '../src/data/tasks';
+import { addSubtasks, addTask, buildTaskTree, deleteTask, isQuickNode, splitLines, toggleTask, updateTask } from '../src/data/tasks';
 import { SyncError, type SyncTransport } from '../src/sync/transport';
-import { GROUP, buildSections, forgetChat, markChatRead, parseOuter, sendChat, syncChat } from '../src/sync/chat';
+import { GROUP, buildSections, chatPhotoUrl, forgetChat, markChatRead, parseOuter, sendChat, syncChat } from '../src/sync/chat';
 import { decryptText, deriveCipherKey, randomId } from '../src/sync/crypto';
 import { SYNC_FORMAT, syncAll, syncSpace } from '../src/sync/engine';
 import { addSubcategory, deleteSubcategory, updateSubcategory, withSubcategory } from '../src/data/subcategories';
@@ -48,6 +48,7 @@ import {
   updateEntry,
   addGoal,
   addMoneyCategory,
+  categoryGoalStatus,
   goalSaved,
   monthSummary,
   parseAmount,
@@ -332,6 +333,14 @@ check(
   'podzadania też są posortowane po terminie',
   galaz.subtasks.map((t) => t.title).join() === 'Podzadanie A,Podzadanie B',
 );
+
+// Filtr ⚡: zadanie liczy się jako szybkie także przez otwarte szybkie podzadanie
+const szybkiRodzic = { ...rodzic, quick: undefined };
+const szybkiePod = (done: boolean) => [{ ...galaz.subtasks[0]!, quick: true, done }];
+check('zwykłe zadanie bez szybkich podzadań nie jest szybkie', !isQuickNode({ task: szybkiRodzic, subtasks: galaz.subtasks }));
+check('otwarte szybkie podzadanie czyni zadanie szybkim', isQuickNode({ task: szybkiRodzic, subtasks: szybkiePod(false) }));
+check('odhaczone szybkie podzadanie już się nie liczy', !isQuickNode({ task: szybkiRodzic, subtasks: szybkiePod(true) }));
+check('szybkie zadanie jest szybkie bez podzadań', isQuickNode({ task: { ...rodzic, quick: true }, subtasks: [] }));
 
 // Odhaczenie rodzica domyka podzadania
 await toggleTask(rodzic.id!, true);
@@ -1317,6 +1326,19 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   check('bilans: kto zapłacił, także bez wpisu', bilans.byPayer.get('osobaAAAA') === 200000 && bilans.byPayer.get('') === 50000);
   check('skarbonka: wpłaty minus wypłaty', goalSaved(wpisy, 5) === 80000);
   check('postęp celu', progress(50, 200) === 0.25 && progress(10, undefined) === null);
+
+  // Pasek celu kategorii w formularzu wpisu
+  const zWpisami = [...wpisy.map((w, i) => ({ ...w, id: i + 1 })), { kind: 'przychod' as const, amount: 999, date: '2026-11-06', categoryId: 1, createdAt: 1, id: 9 }];
+  check('cel kategorii: bez celu nie ma paska', categoryGoalStatus(zWpisami, { id: 1 }) === null);
+  const stan = categoryGoalStatus(zWpisami, { id: 1, goal: 300000 });
+  check(
+    'cel kategorii: liczy tylko wydatki tej kategorii',
+    stan?.spent === 250000 && stan.left === 50000 && Math.abs(stan.ratio - 250000 / 300000) < 1e-9,
+  );
+  const zKwota = categoryGoalStatus(zWpisami, { id: 1, goal: 300000 }, { extra: 80000 });
+  check('cel kategorii: wpisywana kwota się dolicza, ponad cel — ujemne „zostało”', zKwota?.spent === 330000 && zKwota.left === -30000 && zKwota.ratio > 1);
+  const edycja = categoryGoalStatus(zWpisami, { id: 1, goal: 300000 }, { skipId: 2, extra: 10000 });
+  check('cel kategorii: edytowany wpis liczy się raz, nową kwotą', edycja?.spent === 60000);
 }
 {
   // Kategorie w kolejności z ustawień: 1, 2, 3, 4. Wydatki: 3 > 1, a 2 i 4 bez wydatków.
@@ -1647,7 +1669,10 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
   const serwer = new Map<string, Przestrzen>();
   const zaproszenia = new Map<string, { space: string; blob: string }>();
   const czat = new Map<string, { seq: number; uid: string; blob: string; created: number }[]>();
+  // typ '' — zaszyfrowane (od 1.16.0); inaczej zdjęcie sprzed szyfrowania.
   const zdjeciaCzatu = new Map<string, { space: string; typ: string; dane: string }>();
+  // Sygnatura PNG + kilka bajtów — wystarczy, by rozpoznać typ.
+  const PNG_TEST = 'iVBORw0KGgoAAAANSUhEUg==';
   const przestrzen = (id: string, token: string) => {
     const s = serwer.get(id);
     if (!s) throw new SyncError('brak-przestrzeni');
@@ -1709,11 +1734,17 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
       const strona = nowe.slice(0, 2); // małe strony — test dopytywania
       return { messages: strona, seq: strona.at(-1)?.seq ?? since, more: nowe.length > strona.length };
     },
-    async chatPhotoPut(id, token, dane) {
+    async chatSealedPhotoPut(id, token, szyfr) {
       przestrzen(id, token);
       const zid = randomId().slice(0, 22).padEnd(22, 'x');
-      zdjeciaCzatu.set(zid, { space: id, typ: 'image/png', dane });
-      return { id: zid, typ: 'image/png' };
+      zdjeciaCzatu.set(zid, { space: id, typ: '', dane: szyfr });
+      return zid;
+    },
+    async chatSealedPhotoGet(id, token, zid) {
+      przestrzen(id, token);
+      const z = zdjeciaCzatu.get(zid);
+      if (!z || z.space !== id || z.typ) throw new SyncError('brak-przestrzeni');
+      return z.dane;
     },
     async chatPhotoGet(id, token, zid) {
       przestrzen(id, token);
@@ -2200,7 +2231,7 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     await syncSpace(transport, kal);
     await syncChat(transport, kal);
     await sendChat(transport, kal, GROUP, 'Cześć wszystkim!');
-    await sendChat(transport, kal, filip, 'Tajne do Filipa', ['iVBORw0KGgo=']);
+    await sendChat(transport, kal, filip, 'Tajne do Filipa', [PNG_TEST]);
     check('czat: grupa i 1:1 zapisane u nadawcy', (await db.chatMessages.count()) === 2);
     check('czat: pusta wiadomość odrzucona', (await kodBledu(() => sendChat(transport, kal, GROUP, '   '))) === 'odmowa');
 
@@ -2209,7 +2240,20 @@ check('trzy miejsca po przecinku nie są kwotą', parseAmount('12,345') === null
     const uFilipa = await db.chatMessages.where('space').equals(kal).toArray();
     const tajna = uFilipa.find((m) => m.rozmowa === ela);
     check('czat: odbiorca widzi grupę i swoją rozmowę 1:1', uFilipa.some((m) => m.rozmowa === GROUP && m.tekst === 'Cześć wszystkim!') && tajna?.tekst === 'Tajne do Filipa' && !tajna.szyfr);
-    check('czat: zdjęcie dochodzi jako id', tajna?.zdjecia.length === 1 && tajna.zdjecia[0]!.typ === 'image/png');
+    check('czat: zdjęcie dochodzi jako id z kluczem', tajna?.zdjecia.length === 1 && tajna.zdjecia[0]!.typ === 'image/png' && !!tajna.zdjecia[0]!.k);
+    const naSerwerze = zdjeciaCzatu.get(tajna!.zdjecia[0]!.id)?.dane ?? '';
+    check('czat: na serwerze zdjęcie jest zaszyfrowane', naSerwerze !== '' && naSerwerze !== PNG_TEST && !naSerwerze.startsWith('iVBOR'));
+    check('czat: odbiorca odszyfrowuje zdjęcie', (await chatPhotoUrl(transport, kal, tajna!.zdjecia[0]!)) === `data:image/png;base64,${PNG_TEST}`);
+    check(
+      'czat: złym kluczem zdjęcia się nie odczyta',
+      (await kodBledu(() => chatPhotoUrl(transport, kal, { ...tajna!.zdjecia[0]!, k: 'A'.repeat(43) }))) === 'serwer',
+    );
+    zdjeciaCzatu.set('starezdjeciexxxxxxxxxxx', { space: kal, typ: 'image/png', dane: PNG_TEST });
+    check(
+      'czat: zdjęcie sprzed szyfrowania dalej się wyświetla',
+      (await chatPhotoUrl(transport, kal, { id: 'starezdjeciexxxxxxxxxxx', typ: 'image/png' })) === `data:image/png;base64,${PNG_TEST}`,
+    );
+    check('czat: plik, który nie jest JPEG ani PNG, nie wyjdzie', (await kodBledu(() => sendChat(transport, kal, GROUP, '', ['R0lGODlh']))) === 'odmowa');
     await sendChat(transport, kal, ela, 'Odpowiedź Filipa');
 
     await przelacz('G');

@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import {
   addEntry,
   addMoneyCategory,
   amountToInput,
+  categoryGoalStatus,
   deleteEntry,
+  formatMoney,
+  monthRange,
   parseAmount,
   updateEntry,
 } from '../../data/budget';
+import { db } from '../../data/db';
 import type { Member, MoneyCategory, MoneyEntry, MoneyKind } from '../../data/types';
 import { useT } from '../../i18n';
-import { toKey } from '../../lib/dates';
+import { fromKey, toKey } from '../../lib/dates';
+import { GoalBar } from './GoalBar';
 import { Button } from '../../ui/Button';
 import { ConfirmDialog } from '../../ui/Confirm';
 import { Sheet } from '../../ui/Sheet';
@@ -63,7 +69,7 @@ export function Chip({
  * notatka, data i — we wspólnym budżecie — opcjonalnie, kto zapłacił.
  */
 export function EntrySheet({ open, entry, categories, members, meId, currency, onClose }: Props) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [kind, setKind] = useState<MoneyKind>('wydatek');
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
@@ -90,6 +96,28 @@ export function EntrySheet({ open, entry, categories, members, meId, currency, o
   }, [open, entry]);
 
   const visible = categories.filter((c) => c.kind === kind);
+
+  // Pasek celu: wybrana kategoria wydatków z miesięcznym celem — stan miesiąca
+  // z daty wpisu, razem z wpisywaną kwotą (edytowany wpis liczy się raz).
+  const goalCategory =
+    !goalEntry && kind === 'wydatek' && newCategory === null
+      ? visible.find((c) => c.id === categoryId && c.goal)
+      : undefined;
+  const goalMonth = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(0, 7) : null;
+  const monthEntries = useLiveQuery(
+    async () => {
+      if (!open || !goalCategory || !goalMonth) return [];
+      const range = monthRange(fromKey(`${goalMonth}-01`));
+      return db.moneyEntries.where('date').between(range.from, range.to, true, true).toArray();
+    },
+    [open, goalCategory?.id, goalMonth],
+    [],
+  );
+  const typed = parseAmount(amount) ?? 0;
+  const goalStatus = goalCategory
+    ? categoryGoalStatus(monthEntries, goalCategory, { skipId: entry?.id, extra: typed })
+    : null;
+  const money = (grosze: number) => formatMoney(grosze, currency, lang);
 
   const save = async () => {
     const grosze = parseAmount(amount);
@@ -202,6 +230,28 @@ export function EntrySheet({ open, entry, categories, members, meId, currency, o
                 maxLength={40}
                 className="bg-surface rounded-app text-ink px-3 py-2.5 text-base"
               />
+            )}
+            {goalCategory && goalStatus && (
+              <div className="bg-surface rounded-app flex flex-col gap-1.5 px-3 py-2.5" aria-live="polite">
+                <span className="flex items-baseline justify-between gap-3 text-xs">
+                  <span className="text-ink tabular-nums">
+                    {t.budzet.stanCelu(
+                      Math.round(goalStatus.ratio * 100),
+                      money(goalStatus.spent),
+                      money(goalCategory.goal!),
+                    )}
+                  </span>
+                  <span
+                    className={`shrink-0 font-medium tabular-nums ${goalStatus.left < 0 ? 'text-weekend' : 'text-ink'}`}
+                  >
+                    {goalStatus.left < 0
+                      ? t.budzet.ponadCel(money(-goalStatus.left))
+                      : t.budzet.zostaloKwota(money(goalStatus.left))}
+                  </span>
+                </span>
+                <GoalBar ratio={goalStatus.ratio} color={goalCategory.color} />
+                {typed > 0 && <span className="text-muted text-[0.6875rem]">{t.budzet.zTymWydatkiem}</span>}
+              </div>
             )}
           </div>
         )}

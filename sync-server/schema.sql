@@ -114,3 +114,15 @@ CREATE TABLE IF NOT EXISTS chat_photos (
 );
 
 CREATE INDEX IF NOT EXISTS chat_photos_by_space ON chat_photos (space);
+
+-- Zdjęcia w czacie od 1.16.0 — zaszyfrowane na telefonie losowym kluczem,
+-- który jedzie w (zaszyfrowanej) wiadomości. Serwer widzi tylko szyfrogram:
+-- nie zna typu obrazu ani treści. Dostęp tylko z tokenem kalendarza.
+CREATE TABLE IF NOT EXISTS chat_photos_sealed (
+  id TEXT PRIMARY KEY,
+  space TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  data BLOB NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS chat_photos_sealed_by_space ON chat_photos_sealed (space);

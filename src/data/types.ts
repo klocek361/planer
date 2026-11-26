@@ -267,10 +267,15 @@ export interface SyncState {
 }
 
 /** Członek wspólnego kalendarza — każdy, kto dołączył kodem, i jego założyciel. */
-/** Zdjęcie w czacie — leży na serwerze bez szyfrowania, w wiadomości tylko jego id. */
+/**
+ * Zdjęcie w czacie — leży na serwerze, w wiadomości jest jego id. Od 1.16.0
+ * zaszyfrowane: `k` to jego klucz (base64url). Starsze zdjęcia, bez `k`, są
+ * na serwerze w zwykłej postaci.
+ */
 export interface ChatPhoto {
   id: string;
   typ: string;
+  k?: string;
 }
 
 /**

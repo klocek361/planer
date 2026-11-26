@@ -8,8 +8,11 @@ import {
   deriveToken,
   encryptText,
   isChatPub,
+  isPhotoKey,
   newChatKeyPair,
+  openPhoto,
   randomId,
+  sealPhoto,
 } from './crypto';
 import { SyncError, type SyncTransport } from './transport';
 
@@ -21,8 +24,10 @@ import { SyncError, type SyncTransport } from './transport';
  * pozostali członkowie — widzą tylko, kto pisał do kogo, nie co. Klucze publiczne
  * członkowie ogłaszają na tym samym czacie (`t: 'k'`).
  *
- * Zdjęcia NIE są szyfrowane: leżą na serwerze, w wiadomości jest tylko ich id.
- * Użytkownik widzi o tym ostrzeżenie przy dodawaniu zdjęcia.
+ * Zdjęcia (od 1.16.0) są szyfrowane osobnym losowym kluczem: na serwerze leży
+ * szyfrogram, a id i klucz jadą w wiadomości — więc zdjęcie widzi tylko ten,
+ * kto może przeczytać wiadomość. Zdjęcia sprzed 1.16.0 (bez klucza) leżą na
+ * serwerze w zwykłej postaci i dalej się wyświetlają.
  */
 
 /** Rozmowa całego kalendarza; inaczej `rozmowa` to uid drugiej osoby. */
@@ -43,10 +48,37 @@ function cleanPhotos(value: unknown): ChatPhoto[] {
   for (const raw of value.slice(0, MAX_CHAT_PHOTOS)) {
     const p = raw as Record<string, unknown> | null;
     if (p && typeof p.id === 'string' && PHOTO_ID.test(p.id) && (p.typ === 'image/jpeg' || p.typ === 'image/png')) {
-      photos.push({ id: p.id, typ: p.typ });
+      photos.push(isPhotoKey(p.k) ? { id: p.id, typ: p.typ, k: p.k } : { id: p.id, typ: p.typ });
     }
   }
   return photos;
+}
+
+/** Największe zdjęcie — tyle samo przyjmuje serwer. */
+const MAX_PHOTO_BYTES = 1_000_000;
+
+/** Typ obrazu po pierwszych bajtach; null — ani JPEG, ani PNG. */
+export function photoType(b: Uint8Array): 'image/jpeg' | 'image/png' | null {
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  return png.every((v, i) => b[i] === v) ? 'image/png' : null;
+}
+
+function fromBase64(text: string): Uint8Array<ArrayBuffer> | null {
+  try {
+    const binary = atob(text);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
 }
 
 const cleanText = (value: unknown): string | null =>
@@ -227,7 +259,8 @@ export async function syncAllChats(transport: SyncTransport): Promise<void> {
 
 /**
  * Wysyła wiadomość: `rozmowa` = GROUP (cały kalendarz) albo uid drugiej osoby.
- * `zdjecia` — JPEG/PNG w base64, wysyłane NIEZASZYFROWANE przed wiadomością.
+ * `zdjecia` — JPEG/PNG w base64; każde szyfrowane własnym kluczem i wysyłane
+ * przed wiadomością, która niesie jego id i klucz.
  */
 export async function sendChat(
   transport: SyncTransport,
@@ -250,8 +283,20 @@ export async function sendChat(
   const key = rozmowa === GROUP ? null : await pairKey(space, me, rozmowa);
   if (rozmowa !== GROUP && !key) throw new SyncError('brak-klucza');
 
+  // Najpierw sprawdzamy wszystkie, żeby nie zostawić na serwerze połowy.
+  const plain: { bytes: Uint8Array<ArrayBuffer>; typ: 'image/jpeg' | 'image/png' }[] = [];
+  for (const dane of zdjecia) {
+    const bytes = fromBase64(dane);
+    const typ = bytes && bytes.length <= MAX_PHOTO_BYTES ? photoType(bytes) : null;
+    if (!bytes || !typ) throw new SyncError('odmowa');
+    plain.push({ bytes, typ });
+  }
   const photos: ChatPhoto[] = [];
-  for (const dane of zdjecia) photos.push(await transport.chatPhotoPut(space, ctx.token, dane));
+  for (const { bytes, typ } of plain) {
+    const { k, data } = await sealPhoto(bytes);
+    const id = await transport.chatSealedPhotoPut(space, ctx.token, toBase64(data));
+    photos.push({ id, typ, k });
+  }
 
   const payload: Outer = key
     ? { t: 'p', od: ctx.memberId, do: rozmowa, c: await encryptText(key, JSON.stringify({ tekst: text, zdjecia: photos })) }
@@ -271,13 +316,23 @@ export async function sendChat(
   return message;
 }
 
-/** Zdjęcie z czatu jako adres data: (zgodny z polityką img-src 'self' data:). */
-export async function chatPhotoUrl(transport: SyncTransport, space: string, id: string): Promise<string> {
+/**
+ * Zdjęcie z czatu jako adres data: (zgodny z polityką img-src 'self' data:).
+ * Zaszyfrowane odszyfrowuje kluczem z wiadomości; typ bierze z bajtów.
+ */
+export async function chatPhotoUrl(transport: SyncTransport, space: string, photo: ChatPhoto): Promise<string> {
   const ctx = await context(space);
   if (!ctx) throw new SyncError('brak-przestrzeni');
-  const photo = await transport.chatPhotoGet(space, ctx.token, id);
-  if (photo.typ !== 'image/jpeg' && photo.typ !== 'image/png') throw new SyncError('serwer');
-  return `data:${photo.typ};base64,${photo.dane}`;
+  if (photo.k) {
+    const sealed = fromBase64(await transport.chatSealedPhotoGet(space, ctx.token, photo.id));
+    const bytes = sealed ? await openPhoto(photo.k, sealed) : null;
+    const typ = bytes ? photoType(bytes) : null;
+    if (!bytes || !typ) throw new SyncError('serwer');
+    return `data:${typ};base64,${toBase64(bytes)}`;
+  }
+  const old = await transport.chatPhotoGet(space, ctx.token, photo.id);
+  if (old.typ !== 'image/jpeg' && old.typ !== 'image/png') throw new SyncError('serwer');
+  return `data:${old.typ};base64,${old.dane}`;
 }
 
 /** Zaznacza rozmowę jako przeczytaną do jej najnowszej wiadomości. */

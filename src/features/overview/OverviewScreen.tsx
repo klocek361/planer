@@ -5,7 +5,7 @@ import { db } from '../../data/db';
 import { eventsBetween, groupByDate } from '../../data/events';
 import { entriesBetween, indexEntries, setHabitValue } from '../../data/habits';
 import { withSubcategory } from '../../data/subcategories';
-import { compareTasks, taskDays, toggleTask, updateTask } from '../../data/tasks';
+import { buildTaskTree, compareTasks, isQuickNode, taskDays, toggleTask, updateTask } from '../../data/tasks';
 import type { Category, EventItem, Habit, Task } from '../../data/types';
 import { compareEvents, lastDays, longDayLabel, toKey, weekdayWithDay } from '../../lib/dates';
 import { useT } from '../../i18n';
@@ -106,14 +106,22 @@ export function OverviewScreen({ onOpenSettings }: Props) {
     return withSubcategory(task, { name: category?.name, color: category?.color }, subcategories);
   };
 
-  // Przegląd pokazuje tylko zadania główne — podzadania rozwijają się
-  // w zakładce Zadania. Filtr „⚡ 5 min” zostawia same szybkie.
+  // Podzadania jadą pod swoim zadaniem głównym (jak w Zadaniach), więc dni
+  // i karty liczą tylko zadania główne. Filtr „⚡ 5 min” zostawia szybkie —
+  // także zadanie, które ma otwarte szybkie podzadanie.
+  const subtasksOf = useMemo(
+    () => new Map(buildTaskTree(tasks ?? []).map((node) => [node.task.id!, node.subtasks])),
+    [tasks],
+  );
   const openTasks = useMemo(
     () =>
       (tasks ?? []).filter(
-        (task) => !task.done && task.parentId === undefined && (!onlyQuick || task.quick),
+        (task) =>
+          !task.done &&
+          task.parentId === undefined &&
+          (!onlyQuick || isQuickNode({ task, subtasks: subtasksOf.get(task.id!) ?? [] })),
       ),
-    [tasks, onlyQuick],
+    [tasks, onlyQuick, subtasksOf],
   );
 
   const tasksByDay = useMemo(() => {
@@ -206,13 +214,15 @@ export function OverviewScreen({ onOpenSettings }: Props) {
     setSheetOpen(true);
   };
 
-  const taskRow = (task: Task, hideDueDate: boolean, hideCategory: boolean) => (
+  const taskRow = (task: Task, hideDueDate: boolean, hideCategory: boolean, nested = false) => (
     <TaskRow
+      key={task.id}
       task={task}
       categoryName={taskLook(task).name}
       categoryColor={taskLook(task).color}
       hideDueDate={hideDueDate}
       hideCategory={hideCategory}
+      nested={nested}
       onToggle={() => {
         tap();
         void toggleTask(task.id!, !task.done);
@@ -248,7 +258,12 @@ export function OverviewScreen({ onOpenSettings }: Props) {
         </li>
       ))}
       {bucket.tasks.map((task) => (
-        <li key={`t${task.id}`}>{taskRow(task, opts.hideDueDate, opts.hideCategory)}</li>
+        <li key={`t${task.id}`} className="flex flex-col">
+          {taskRow(task, opts.hideDueDate, opts.hideCategory)}
+          {(subtasksOf.get(task.id!) ?? []).map((subtask) =>
+            taskRow(subtask, opts.hideDueDate, opts.hideCategory, true),
+          )}
+        </li>
       ))}
     </ul>
   );

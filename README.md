@@ -50,8 +50,9 @@ dotknij, żeby pisać. Kropka na zakładce oznacza nowe wiadomości.
 - Rozmowa 1:1 jest szyfrowana kluczem, który znacie tylko wy dwoje — nie
   odczyta jej serwer ani pozostali członkowie kalendarza. Rozmowę całego
   kalendarza czytają wszyscy jego członkowie.
-- Do wiadomości możesz dołączyć do 3 zdjęć. **Zdjęcia nie są szyfrowane** —
-  aplikacja przypomina o tym przy dodawaniu.
+- Do wiadomości możesz dołączyć do 3 zdjęć. Od wersji 1.16.0 są szyfrowane
+  tak jak wiadomość — widzą je tylko osoby, które mogą ją przeczytać.
+  Zdjęcia wysłane wcześniej zostają na serwerze nieszyfrowane.
 - Do rozmowy 1:1 obie osoby potrzebują aktualnej wersji aplikacji.
 - Czatu nie ma w kopii zapasowej; po wyjściu z kalendarza znika z telefonu.
 

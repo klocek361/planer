@@ -293,14 +293,7 @@ function Conversation({
         </div>
       </Screen>
       <div className="border-line bg-bg px-safe shrink-0 border-t pt-2 pb-2">
-        {photos.length > 0 && (
-          <>
-            <PhotoPicker photos={photos} onChange={setPhotos} compact />
-            <p className="text-weekend pt-1 text-xs" role="note">
-              {t.czat.zdjeciaOstrzezenie}
-            </p>
-          </>
-        )}
+        {photos.length > 0 && <PhotoPicker photos={photos} onChange={setPhotos} compact />}
         {error && (
           <p className="text-weekend pb-1 text-xs" role="status">
             {error}
@@ -332,6 +325,7 @@ const photoCache = new Map<string, string>();
 
 function ChatPhotoThumb({ space, photo }: { space: string; photo: ChatPhoto }) {
   const { t } = useT();
+  const { id, typ, k } = photo;
   const [src, setSrc] = useState<string | null>(() => photoCache.get(photo.id) ?? null);
   const [failed, setFailed] = useState(false);
   const [zoom, setZoom] = useState(false);
@@ -339,16 +333,16 @@ function ChatPhotoThumb({ space, photo }: { space: string; photo: ChatPhoto }) {
   useEffect(() => {
     if (src || !syncAvailable()) return;
     let alive = true;
-    chatPhotoUrl(httpTransport(), space, photo.id)
+    chatPhotoUrl(httpTransport(), space, { id, typ, ...(k ? { k } : {}) })
       .then((url) => {
-        photoCache.set(photo.id, url);
+        photoCache.set(id, url);
         if (alive) setSrc(url);
       })
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
-  }, [space, photo.id, src]);
+  }, [space, id, typ, k, src]);
 
   if (failed) return <span className="text-muted px-1 text-[0.6875rem]">{t.sugestie.zdjecieBlad}</span>;
   return (
